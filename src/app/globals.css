@@ -87,7 +87,15 @@ h1, .display-title {
   .card:hover { box-shadow: 9px 9px 0 rgba(58, 52, 52, 0.16); }
 }
 
-/* Regla global para botones y enlaces que se presentan visualmente como botones. */
+/* Botones: amarillo y carbón en reposo; colores invertidos al interactuar. */
+main button,
+main a[class~="rounded-full"],
+main a[class~="rounded-xl"] {
+  border-color: var(--ink) !important;
+  background-color: var(--highlight) !important;
+  color: var(--ink) !important;
+}
+
 @media (hover: hover) and (pointer: fine) {
   main button:not(:disabled):hover,
   main a[class~="rounded-full"]:hover,
