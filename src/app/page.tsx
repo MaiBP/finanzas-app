@@ -16,7 +16,7 @@ export default function HomePage() {
           <p className="mt-6 max-w-lg text-lg leading-8">Registrad gastos, repartid lo compartido y entended vuestro mes de un vistazo. Sin hojas imposibles.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/registro" className="flex items-center gap-2 rounded-full bg-[#3a3434] px-6 py-3.5 font-bold text-[#ffff50] hover:-translate-y-1">Crear vuestro hogar <ArrowRight size={18}/></Link>
-            <Link href="/login" className="rounded-full bg-white px-6 py-3.5 font-bold hover:-translate-y-1">Ya tengo cuenta</Link>
+            <Link href="/login" data-button-theme="inverse" className="rounded-full px-6 py-3.5 font-bold">Ya tengo cuenta</Link>
           </div>
           <div className="mt-10 flex flex-wrap gap-5 text-sm font-semibold">
             <span className="flex gap-2"><Check size={18}/>Gastos personales y comunes</span>

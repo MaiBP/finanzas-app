@@ -96,6 +96,11 @@ main a[class~="rounded-xl"] {
   color: var(--ink) !important;
 }
 
+main a[data-button-theme="inverse"] {
+  background-color: var(--ink) !important;
+  color: var(--highlight) !important;
+}
+
 @media (hover: hover) and (pointer: fine) {
   main button:not(:disabled):hover,
   main a[class~="rounded-full"]:hover,
@@ -105,6 +110,11 @@ main a[class~="rounded-xl"] {
     color: var(--highlight) !important;
     box-shadow: 4px 4px 0 rgb(58 52 52 / .18);
     transform: translateY(-2px);
+  }
+
+  main a[data-button-theme="inverse"]:hover {
+    background-color: var(--highlight) !important;
+    color: var(--ink) !important;
   }
 
   main button:not(:disabled):active,
