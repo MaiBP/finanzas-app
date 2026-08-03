@@ -9,6 +9,7 @@ MVP de finanzas personales para parejas. Cada persona tiene su sesión, comparte
 - **Dinero seguro**: todos los importes se almacenan como `bigint` en céntimos; nunca como coma flotante.
 - **Auditoría**: un trigger de PostgreSQL registra cada alta, edición, soft delete o restauración de movimientos.
 - **IA preparada**: `financial-message-parser` define el contrato Zod discriminado. El modelo solo podrá proponer acciones; nunca SQL ni escrituras directas.
+- **Compartido por defecto**: los movimientos conversacionales se registran como compartidos, visibles y con reparto igual; solo pasan a personales cuando el usuario lo pide explícitamente.
 - **Responsive**: sidebar de escritorio, navegación inferior móvil, tablas que se convierten en tarjetas.
 
 ## Puesta en marcha

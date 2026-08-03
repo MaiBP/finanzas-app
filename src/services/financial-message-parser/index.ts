@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { financialActionResponseSchema, financialActionSchema, type FinancialAction } from "./schema";
+import { applyFinancialDefaults } from "./defaults";
 
 export interface ParserContext {
   text: string; userId: string; householdId: string; now: string;
@@ -12,7 +13,7 @@ export async function parseFinancialMessage(context: ParserContext): Promise<Fin
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY no está configurada");
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const system = `Eres el intérprete financiero de una app española para parejas. Devuelve una sola acción estructurada.
-Reglas: importes en céntimos positivos; moneda EUR; fecha ISO; nunca SQL; no inventes cuentas o categorías; usa request_clarification si falta importe o hay ambigüedad real; delete y update siempre requieren confirmación; create requiere confirmación si confidence < 0.85; "nosotros" o "nos" suele ser shared; si no se indica scope usa personal; responde según Europe/Madrid.
+Reglas: importes en céntimos positivos; moneda EUR; fecha ISO; nunca SQL; no inventes cuentas o categorías; usa request_clarification si falta importe o hay ambigüedad real; delete y update siempre requieren confirmación; create requiere confirmación si confidence < 0.85; gastos e ingresos son shared por defecto; usa personal únicamente cuando el usuario lo indique explícitamente; responde según Europe/Madrid.
 Usuario actual: ${context.userId}. Hogar: ${context.householdId}. Ahora: ${context.now}.
 Categorías: ${JSON.stringify(context.categories)}. Cuentas: ${JSON.stringify(context.accounts)}.`;
   const response = await client.responses.parse({
@@ -28,5 +29,5 @@ Categorías: ${JSON.stringify(context.categories)}. Cuentas: ${JSON.stringify(co
   });
   const parsed = financialActionSchema.safeParse(response.output_parsed?.result);
   if (!parsed.success) throw new Error("La respuesta de IA no superó la validación local");
-  return parsed.data;
+  return applyFinancialDefaults(parsed.data, context.text);
 }
