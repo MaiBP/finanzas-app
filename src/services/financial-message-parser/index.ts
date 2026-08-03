@@ -16,7 +16,8 @@ Reglas: importes en céntimos positivos; moneda EUR; fecha ISO; nunca SQL; no in
 Usuario actual: ${context.userId}. Hogar: ${context.householdId}. Ahora: ${context.now}.
 Categorías: ${JSON.stringify(context.categories)}. Cuentas: ${JSON.stringify(context.accounts)}.`;
   const response = await client.responses.parse({
-    model: process.env.OPENAI_MODEL ?? "gpt-5.6",
+    model: process.env.OPENAI_MODEL ?? "gpt-5.6-luna",
+    reasoning: { effort: "none" },
     store: false,
     input: [
       { role: "system", content: system },
