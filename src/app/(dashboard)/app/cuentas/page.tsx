@@ -2,14 +2,25 @@ import Link from "next/link";
 import { ArrowRight, Landmark, UsersRound } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
+import { calculateAccountBalance, calculateParticipantExpenses } from "@/lib/finance/account-overview";
 
 type AccountRow={id:string;name:string;type:string;current_balance_cents:number};
+type BalanceMovement={account_id:string;type:"expense"|"income";amount_cents:number};
+type ExpenseMovement={account_id:string;paid_by:string;amount_cents:number};
+type MemberRow={user_id:string;profiles:{display_name:string|null}|null};
+
 export default async function AccountsPage(){
   const {supabase,household}=await getCurrentHousehold(); if(!household)return null;
-  const {data}=await supabase.from("accounts").select("id,name,type,current_balance_cents").eq("household_id",household.id).eq("is_shared",true).is("archived_at",null).order("name");
-  const accounts=(data??[]) as AccountRow[];
-  return <><h1 className="text-3xl font-black">Cuentas conjuntas</h1><p className="mt-2 text-[#6c7f7a]">El dinero que gestionáis entre los miembros del hogar.</p>
-    <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{accounts.map(account=><article className="card p-5" key={account.id}><div className="flex items-center justify-between"><span className="grid size-11 place-items-center rounded-xl bg-[#87cd64]"><Landmark/></span><span className="rounded-full bg-[#e19bf5] px-2.5 py-1 text-xs font-bold">Conjunta</span></div><h2 className="mt-5 font-black">{account.name}</h2><p className="mt-1 text-2xl font-black">{formatMoney(account.current_balance_cents)}</p></article>)}</div>
+  const now=new Date(); const monthStart=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`; const nextMonth=new Date(Date.UTC(now.getFullYear(),now.getMonth()+1,1)).toISOString().slice(0,10); const monthName=new Intl.DateTimeFormat("es-ES",{month:"long"}).format(now);
+  const [{data:accountsData},{data:balanceData},{data:expenseData},{data:membersData}]=await Promise.all([
+    supabase.from("accounts").select("id,name,type,current_balance_cents").eq("household_id",household.id).eq("is_shared",true).is("archived_at",null).order("name"),
+    supabase.from("transactions").select("account_id,type,amount_cents").eq("household_id",household.id).eq("scope","shared").eq("status","confirmed"),
+    supabase.from("transactions").select("account_id,paid_by,amount_cents").eq("household_id",household.id).eq("scope","shared").eq("type","expense").eq("status","confirmed").gte("transaction_date",monthStart).lt("transaction_date",nextMonth),
+    supabase.from("household_members").select("user_id,profiles(display_name)").eq("household_id",household.id),
+  ]);
+  const accounts=(accountsData??[]) as AccountRow[]; const balanceMovements=(balanceData??[]) as BalanceMovement[]; const expenseMovements=(expenseData??[]) as ExpenseMovement[]; const members=(membersData??[]) as unknown as MemberRow[];
+  return <><h1 className="text-3xl font-black">Cuentas conjuntas</h1><p className="mt-2 text-[#6c7f7a]">Saldo del hogar y aportación mensual de cada participante.</p>
+    <div className="mt-7 grid gap-5 lg:grid-cols-2">{accounts.map(account=>{const balance=calculateAccountBalance(account.current_balance_cents,account.id,balanceMovements);const expenses=calculateParticipantExpenses(account.id,expenseMovements);const balanceLabel=balance>0?"Saldo positivo":balance<0?"Saldo negativo":"En equilibrio";return <article className="card overflow-hidden" key={account.id}><div className="p-6"><div className="flex items-center justify-between"><span className="grid size-11 place-items-center rounded-xl bg-[#87cd64]"><Landmark/></span><span className="rounded-full bg-[#e19bf5] px-2.5 py-1 text-xs font-bold">Conjunta</span></div><h2 className="mt-5 text-lg font-black">{account.name}</h2><p className={`mt-1 text-4xl font-black ${balance<0?"text-[#b34f36]":"text-[#2e7d32]"}`}>{balance>0?"+":""}{formatMoney(balance)}</p><p className="mt-1 text-xs font-bold uppercase tracking-wide text-[#6e6464]">{balanceLabel} actual</p></div><div className="border-t border-[#3a3434]/15 bg-[#ffff50] p-5"><p className="text-xs font-black uppercase tracking-wide">Gasto acumulado · {monthName}</p><div className="mt-3 space-y-2">{members.map(member=><div key={member.user_id} className="flex items-center justify-between gap-3"><span className="truncate text-sm font-bold">{member.profiles?.display_name??"Miembro"}</span><span className="text-sm font-black">{formatMoney(expenses.get(member.user_id)??0)}</span></div>)}</div></div></article>})}</div>
     <section className="card mt-7 flex max-w-2xl flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-3"><UsersRound className="shrink-0"/><div><h2 className="font-black">¿Quieres gestionar dinero solo tuyo?</h2><p className="mt-1 text-sm text-[#6c7f7a]">Crea cuentas y movimientos privados en un espacio separado.</p></div></div><Link href="/app/personal" className="flex shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-3 font-bold">Mi espacio <ArrowRight size={17}/></Link></section>
   </>;
 }
