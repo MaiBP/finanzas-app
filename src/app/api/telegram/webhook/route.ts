@@ -43,14 +43,14 @@ export async function POST(request:Request){
     const {data:membership}=await db.from("household_members").select("household_id").eq("user_id",link.user_id).maybeSingle();if(!membership)throw new Error("Tu cuenta aún no pertenece a un hogar.");
     if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"Acción cancelada.");return NextResponse.json({ok:true});}
     if(yes.test(text)){await sendTelegramMessage(chat.id,await confirmPending(db,link.user_id,membership.household_id));return NextResponse.json({ok:true});}
-    if(text==="/resumen"){await sendTelegramMessage(chat.id,await getMonthSummary(db,membership.household_id));return NextResponse.json({ok:true});}
-    if(text==="/ultimos"){await sendTelegramMessage(chat.id,await getRecentTransactions(db,membership.household_id));return NextResponse.json({ok:true});}
-    const [{data:categories},{data:accounts},{data:recent}]=await Promise.all([db.from("categories").select("name,kind").or(`household_id.eq.${membership.household_id},household_id.is.null`),db.from("accounts").select("name").eq("household_id",membership.household_id).is("archived_at",null).or(`owner_user_id.eq.${link.user_id},is_shared.eq.true`),db.from("conversation_messages").select("role,content").eq("user_id",link.user_id).order("created_at",{ascending:false}).limit(6)]);
+    if(text==="/resumen"){await sendTelegramMessage(chat.id,await getMonthSummary(db,membership.household_id,link.user_id));return NextResponse.json({ok:true});}
+    if(text==="/ultimos"){await sendTelegramMessage(chat.id,await getRecentTransactions(db,membership.household_id,link.user_id));return NextResponse.json({ok:true});}
+    const [{data:categories},{data:accounts},{data:recent}]=await Promise.all([db.from("categories").select("name,kind").or(`household_id.eq.${membership.household_id},household_id.is.null`),db.from("accounts").select("name,is_shared").eq("household_id",membership.household_id).is("archived_at",null).or(`owner_user_id.eq.${link.user_id},is_shared.eq.true`),db.from("conversation_messages").select("role,content").eq("user_id",link.user_id).order("created_at",{ascending:false}).limit(6)]);
     await db.from("conversation_messages").insert({user_id:link.user_id,household_id:membership.household_id,role:"user",content:text});
     const action=await parseFinancialMessage({text,userId:link.user_id,householdId:membership.household_id,now:new Date().toISOString(),categories:categories??[],accounts:accounts??[],recentMessages:((recent??[]) as {role:"user"|"assistant";content:string}[]).reverse()});
     let reply:string;
     if(action.action==="request_clarification")reply=action.data.question;
-    else if(action.action==="query_finances")reply=action.data.query_type==="recent_transactions"?await getRecentTransactions(db,membership.household_id):await getMonthSummary(db,membership.household_id);
+    else if(action.action==="query_finances")reply=action.data.query_type==="recent_transactions"?await getRecentTransactions(db,membership.household_id,link.user_id):await getMonthSummary(db,membership.household_id,link.user_id);
     else if(action.action==="cancel_action")reply="De acuerdo, no hago nada.";
     else if(action.action==="create_transaction"&&!action.requires_confirmation&&action.confidence>=.85)reply=await executeTelegramAction(db,link.user_id,membership.household_id,action);
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";}

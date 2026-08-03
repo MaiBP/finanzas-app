@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { BarChart3, Bot, CircleDollarSign, CreditCard, Home, LogOut, Settings, UsersRound } from "lucide-react";
+import { BarChart3, Bot, CircleDollarSign, CreditCard, Home, LogOut, Settings, UserRound, UsersRound } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { SectionSurface } from "@/components/layout/section-surface";
 
 const nav = [
   ["Resumen", "/app", Home], ["Movimientos", "/app/movimientos", CircleDollarSign],
-  ["Cuentas", "/app/cuentas", CreditCard], ["Balance", "/app/balance", BarChart3],
+  ["Cuentas", "/app/cuentas", CreditCard], ["Personal", "/app/personal", UserRound], ["Balance", "/app/balance", BarChart3],
   ["Asistente", "/app/asistente", Bot], ["Ajustes", "/app/ajustes", Settings],
 ] as const;
 
@@ -21,6 +21,6 @@ export function AppShell({ children, householdName }: { children: React.ReactNod
       <header className="section-header sticky top-0 z-10 flex items-center justify-between border-b border-[#3a3434]/30 px-5 py-4 backdrop-blur md:px-8"><Link href="/app" className="font-black uppercase md:hidden">A medias</Link><p className="hidden text-sm font-bold uppercase md:block">{householdName}</p><div className="grid size-9 place-items-center rounded-full bg-white text-sm font-black">♡</div></header>
       <main className="mx-auto max-w-7xl p-5 md:p-8">{children}</main>
     </SectionSurface>
-    <nav className="fixed inset-x-3 bottom-3 z-20 flex justify-around rounded-full border border-[#3a3434]/20 bg-white px-2 py-2 text-[#3a3434] shadow-2xl md:hidden">{nav.slice(0,5).map(([label,href,Icon])=><Link key={href} href={href} className="flex min-w-12 flex-col items-center gap-1 rounded-full p-2 text-[10px] hover:bg-[#ffff50]"><Icon size={19}/>{label}</Link>)}</nav>
+    <nav className="fixed inset-x-3 bottom-3 z-20 flex overflow-x-auto rounded-full border border-[#3a3434]/20 bg-white px-2 py-2 text-[#3a3434] shadow-2xl md:hidden">{nav.map(([label,href,Icon])=><Link key={href} href={href} className="flex min-w-16 flex-1 flex-col items-center gap-1 rounded-full p-2 text-[10px] hover:bg-[#ffff50]"><Icon size={19}/>{label}</Link>)}</nav>
   </div>;
 }

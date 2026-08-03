@@ -36,6 +36,7 @@ describe("financial conversational defaults", () => {
     (text) => {
       const result = applyFinancialDefaults({ ...baseAction, data: { ...baseAction.data, scope: "shared" } }, text);
       expect(result.action === "create_transaction" && result.data.scope).toBe("personal");
+      expect(result.action === "create_transaction" && result.data.privacy).toBe("private");
       expect(result.action === "create_transaction" && result.data.split_type).toBe("single");
     },
   );

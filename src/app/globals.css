@@ -65,6 +65,7 @@ h1, .display-title {
 .section-orange { --section-bg: var(--canvas); }
 .section-pink { --section-bg: var(--pink); }
 .section-blue { --section-bg: var(--blue); }
+.section-savings { --section-bg: var(--savings); }
 .section-lime { --section-bg: var(--lime); }
 .section-lilac { --section-bg: var(--lilac); }
 .section-yellow { --section-bg: var(--highlight); }
@@ -90,6 +91,7 @@ h1, .display-title {
 /* Botones: amarillo y carbón en reposo; colores invertidos al interactuar. */
 main button:not([data-button-theme="custom"]),
 main a[class~="rounded-full"],
+main a[class~="rounded-lg"],
 main a[class~="rounded-xl"] {
   border-color: var(--ink) !important;
   background-color: var(--highlight) !important;
@@ -104,6 +106,7 @@ main a[data-button-theme="inverse"] {
 @media (hover: hover) and (pointer: fine) {
   main button:not(:disabled):hover,
   main a[class~="rounded-full"]:hover,
+  main a[class~="rounded-lg"]:hover,
   main a[class~="rounded-xl"]:hover {
     border-color: var(--ink) !important;
     background-color: var(--ink) !important;
@@ -119,6 +122,7 @@ main a[data-button-theme="inverse"] {
 
   main button:not(:disabled):active,
   main a[class~="rounded-full"]:active,
+  main a[class~="rounded-lg"]:active,
   main a[class~="rounded-xl"]:active {
     box-shadow: none;
     transform: translateY(0);

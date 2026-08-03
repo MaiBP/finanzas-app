@@ -8,7 +8,7 @@ export function applyFinancialDefaults(action: FinancialAction, originalText: st
   if (explicitPersonalIntent.test(originalText)) {
     return {
       ...action,
-      data: { ...action.data, scope: "personal", split_type: "single" },
+      data: { ...action.data, scope: "personal", privacy: "private", split_type: "single" },
     };
   }
 

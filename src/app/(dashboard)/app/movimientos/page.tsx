@@ -7,7 +7,7 @@ import { softDeleteTransaction } from "../actions";
 type Row = { id:string; created_by:string; type:"expense"|"income"; amount_cents:number; description:string; transaction_date:string; scope:string; categories:{name:string}|null; accounts:{name:string}|null };
 export default async function TransactionsPage({ searchParams }: { searchParams: Promise<{ q?: string; type?: string; error?: string }> }) {
   const params=await searchParams; const {supabase,user,household}=await getCurrentHousehold(); if(!household)return null;
-  let query=supabase.from("transactions").select("id,created_by,type,amount_cents,description,transaction_date,scope,categories(name),accounts(name)").eq("household_id",household.id).eq("status","confirmed").order("transaction_date",{ascending:false}).limit(50);
+  let query=supabase.from("transactions").select("id,created_by,type,amount_cents,description,transaction_date,scope,categories(name),accounts(name)").eq("household_id",household.id).eq("scope","shared").eq("status","confirmed").order("transaction_date",{ascending:false}).limit(50);
   if(params.q) query=query.ilike("description",`%${params.q.replace(/[%_]/g,"")}%`); if(params.type==="expense"||params.type==="income") query=query.eq("type",params.type);
   const {data}=await query; const rows=(data??[]) as unknown as Row[];
   return <><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-bold text-[#6c7f7a]">Todo en un sitio</p><h1 className="text-3xl font-black">Movimientos</h1></div><Link href="/app/movimientos/nuevo" className="flex items-center gap-2 rounded-xl bg-[#26725c] px-4 py-3 text-sm font-bold text-white"><Plus size={18}/>Nuevo movimiento</Link></div>
