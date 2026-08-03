@@ -6,7 +6,7 @@ export async function executeTelegramAction(db: SupabaseClient, userId:string, h
   if(action.action!=="create_transaction") throw new Error("Esta acción necesita confirmación o un flujo específico");
   const categoryName=action.data.category.replace(/[%_]/g,"");
   const {data:category}=await db.from("categories").select("id,name,kind").ilike("name",categoryName).eq("kind",action.data.type).or(`household_id.eq.${householdId},household_id.is.null`).limit(1).maybeSingle();
-  let accountQuery=db.from("accounts").select("id,name").eq("household_id",householdId).is("archived_at",null);
+  let accountQuery=db.from("accounts").select("id,name").eq("household_id",householdId).neq("type","joint").is("archived_at",null);
   accountQuery=action.data.scope==="shared"?accountQuery.eq("is_shared",true):accountQuery.eq("is_shared",false).eq("owner_user_id",userId);
   if(action.data.account_name){const safeName=action.data.account_name.replace(/[%_]/g,"");accountQuery=accountQuery.ilike("name",`%${safeName}%`)}
   const {data:accounts,error:accountError}=await accountQuery.order("created_at").limit(2); if(accountError)throw accountError;

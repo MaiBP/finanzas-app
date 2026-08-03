@@ -28,6 +28,6 @@ export async function archiveAccount(formData:FormData){
 
 export async function archiveSharedAccount(formData:FormData){
   const {supabase,household}=await getCurrentHousehold(); if(!household)throw new Error("Sin hogar");
-  const {count}=await supabase.from("accounts").select("id",{count:"exact",head:true}).eq("household_id",household.id).eq("is_shared",true).is("archived_at",null); if((count??0)<=1)throw new Error("El hogar debe conservar al menos una cuenta conjunta activa.");
+  const {count}=await supabase.from("accounts").select("id",{count:"exact",head:true}).eq("household_id",household.id).eq("is_shared",true).neq("type","joint").is("archived_at",null); if((count??0)<=1)throw new Error("El hogar debe conservar al menos una cuenta operativa activa.");
   const {error}=await supabase.from("accounts").update({archived_at:new Date().toISOString()}).eq("id",String(formData.get("id"))).eq("household_id",household.id).eq("is_shared",true); if(error)throw new Error(error.message); revalidatePath("/app/cuentas"); revalidatePath("/app/movimientos/nuevo");
 }
