@@ -86,3 +86,23 @@ h1, .display-title {
   .card, button, a { transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease, color .2s ease; }
   .card:hover { box-shadow: 9px 9px 0 rgba(58, 52, 52, 0.16); }
 }
+
+/* Regla global para botones y enlaces que se presentan visualmente como botones. */
+@media (hover: hover) and (pointer: fine) {
+  main button:not(:disabled):hover,
+  main a[class~="rounded-full"]:hover,
+  main a[class~="rounded-xl"]:hover {
+    border-color: var(--ink) !important;
+    background-color: var(--ink) !important;
+    color: var(--highlight) !important;
+    box-shadow: 4px 4px 0 rgb(58 52 52 / .18);
+    transform: translateY(-2px);
+  }
+
+  main button:not(:disabled):active,
+  main a[class~="rounded-full"]:active,
+  main a[class~="rounded-xl"]:active {
+    box-shadow: none;
+    transform: translateY(0);
+  }
+}
