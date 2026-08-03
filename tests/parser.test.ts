@@ -1,0 +1,5 @@
+import { describe, expect, it } from "vitest";
+import { financialActionResponseSchema, financialActionSchema } from "@/services/financial-message-parser/schema";
+import { zodTextFormat } from "openai/helpers/zod";
+
+describe("financial action schema",()=>{it("accepts a safe structured action",()=>{const result=financialActionSchema.safeParse({action:"create_transaction",confidence:.96,requires_confirmation:false,data:{type:"expense",amount_cents:4250,currency:"EUR",description:"Compra en Mercadona",category:"Supermercado",scope:"shared",privacy:"visible",transaction_date:"2026-08-01",paid_by:"current_user",account_name:null,split_type:"equal"}});expect(result.success).toBe(true)});it("rejects non-positive amounts and unknown actions",()=>{expect(financialActionSchema.safeParse({action:"run_sql",confidence:1,requires_confirmation:false,data:{sql:"delete"}}).success).toBe(false)});it("can be converted to an OpenAI Structured Outputs format",()=>{expect(()=>zodTextFormat(financialActionResponseSchema,"financial_action")).not.toThrow()})});
