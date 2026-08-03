@@ -10,6 +10,7 @@ import { getMonthSummary, getRecentTransactions } from "@/services/query-service
 
 const updateSchema=z.object({message:z.object({chat:z.object({id:z.number()}),from:z.object({id:z.number()}),text:z.string().max(2000)}).optional()});
 const yes=/^(sí|si|confirmo|correcto|vale|ok)$/i; const no=/^(no|cancelar|cancela)$/i;
+const withWebSuggestion=(message:string)=>`${message}\n\nSi quieres revisar el detalle, abre el Dashboard o la sección Cuentas en la web.`;
 
 async function queueAction(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,action:FinancialAction){
   await db.from("pending_actions").delete().eq("user_id",userId);
@@ -42,9 +43,9 @@ export async function POST(request:Request){
     const {data:link}=await db.from("telegram_links").select("user_id").eq("telegram_user_id",from.id).maybeSingle();if(!link){await sendTelegramMessage(chat.id,"No reconozco esta cuenta. Genera un código en Ajustes y usa <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
     const {data:membership}=await db.from("household_members").select("household_id").eq("user_id",link.user_id).maybeSingle();if(!membership)throw new Error("Tu cuenta aún no pertenece a un hogar.");
     if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"Acción cancelada.");return NextResponse.json({ok:true});}
-    if(yes.test(text)){await sendTelegramMessage(chat.id,await confirmPending(db,link.user_id,membership.household_id));return NextResponse.json({ok:true});}
-    if(text==="/resumen"){await sendTelegramMessage(chat.id,await getMonthSummary(db,membership.household_id,link.user_id));return NextResponse.json({ok:true});}
-    if(text==="/ultimos"){await sendTelegramMessage(chat.id,await getRecentTransactions(db,membership.household_id,link.user_id));return NextResponse.json({ok:true});}
+    if(yes.test(text)){await sendTelegramMessage(chat.id,withWebSuggestion(await confirmPending(db,link.user_id,membership.household_id)));return NextResponse.json({ok:true});}
+    if(text==="/resumen"){await sendTelegramMessage(chat.id,withWebSuggestion(await getMonthSummary(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
+    if(text==="/ultimos"){await sendTelegramMessage(chat.id,withWebSuggestion(await getRecentTransactions(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
     const [{data:categories},{data:accounts},{data:recent}]=await Promise.all([db.from("categories").select("name,kind").or(`household_id.eq.${membership.household_id},household_id.is.null`),db.from("accounts").select("name,is_shared").eq("household_id",membership.household_id).neq("type","joint").is("archived_at",null).or(`owner_user_id.eq.${link.user_id},is_shared.eq.true`),db.from("conversation_messages").select("role,content").eq("user_id",link.user_id).order("created_at",{ascending:false}).limit(6)]);
     await db.from("conversation_messages").insert({user_id:link.user_id,household_id:membership.household_id,role:"user",content:text});
     const action=await parseFinancialMessage({text,userId:link.user_id,householdId:membership.household_id,now:new Date().toISOString(),categories:categories??[],accounts:accounts??[],recentMessages:((recent??[]) as {role:"user"|"assistant";content:string}[]).reverse()});
@@ -54,7 +55,7 @@ export async function POST(request:Request){
     else if(action.action==="cancel_action")reply="De acuerdo, no hago nada.";
     else if(action.action==="create_transaction"&&!action.requires_confirmation&&action.confidence>=.85)reply=await executeTelegramAction(db,link.user_id,membership.household_id,action);
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";}
-    await db.from("conversation_messages").insert({user_id:link.user_id,household_id:membership.household_id,role:"assistant",content:reply});await sendTelegramMessage(chat.id,reply);
-  }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("Indica qué cuenta")?error.message:"No he podido completar eso. Inténtalo de nuevo o usa la web.";await sendTelegramMessage(chat.id,safeMessage).catch(()=>undefined);}
+    await db.from("conversation_messages").insert({user_id:link.user_id,household_id:membership.household_id,role:"assistant",content:reply});await sendTelegramMessage(chat.id,withWebSuggestion(reply));
+  }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("Indica qué cuenta")?error.message:"No he podido completar eso. Inténtalo de nuevo.";await sendTelegramMessage(chat.id,withWebSuggestion(safeMessage)).catch(()=>undefined);}
   return NextResponse.json({ok:true});
 }

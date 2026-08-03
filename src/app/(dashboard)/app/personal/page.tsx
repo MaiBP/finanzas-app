@@ -15,7 +15,7 @@ export default async function PersonalPage({searchParams}:{searchParams:Promise<
   const now=new Date(); const monthStart=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`; const nextMonth=new Date(Date.UTC(now.getFullYear(),now.getMonth()+1,1)).toISOString().slice(0,10);
   const [{data:accountsData},{data:transactionsData},{data:summaryData},{data:categoriesData}]=await Promise.all([
     supabase.from("accounts").select("id,name,type,current_balance_cents").eq("household_id",household.id).eq("owner_user_id",user.id).eq("is_shared",false).is("archived_at",null).order("name"),
-    supabase.from("transactions").select("id,type,amount_cents,description,transaction_date,categories(name)").eq("household_id",household.id).eq("created_by",user.id).eq("scope","personal").eq("status","confirmed").order("transaction_date",{ascending:false}).limit(30),
+    supabase.from("transactions").select("id,type,amount_cents,description,transaction_date,categories(name)").eq("household_id",household.id).eq("created_by",user.id).eq("scope","personal").eq("status","confirmed").order("transaction_date",{ascending:false}).order("created_at",{ascending:false}).limit(30),
     supabase.from("transactions").select("type,amount_cents").eq("household_id",household.id).eq("created_by",user.id).eq("scope","personal").eq("status","confirmed").gte("transaction_date",monthStart).lt("transaction_date",nextMonth),
     supabase.from("categories").select("id,name,kind,icon,color").or(`household_id.eq.${household.id},household_id.is.null`).order("name"),
   ]);
