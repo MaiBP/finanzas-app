@@ -1,38 +1,69 @@
 @import "tailwindcss";
 
 :root {
-  --ink: #19342f;
-  --muted: #6c7f7a;
-  --cream: #f6f4ec;
-  --paper: #fffdf7;
-  --mint: #dceee6;
-  --green: #26725c;
-  --coral: #e88064;
+  --ink: #3a3434;
+  --muted: #6e6464;
+  --canvas: #ff9655;
+  --paper: #ffffff;
+  --highlight: #ffff50;
+  --pink: #ff96be;
+  --blue: #73c8dc;
+  --success: #2e7d32;
 }
 
 * { box-sizing: border-box; }
 body {
   margin: 0;
   color: var(--ink);
-  background: var(--cream);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  font-family: var(--font-interface), Arial, Helvetica, sans-serif;
+  line-height: 1.5;
 }
 button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
+a { color: inherit; }
+::selection { background: var(--highlight); color: var(--ink); }
+:focus-visible { outline: 3px solid var(--highlight); outline-offset: 3px; }
+
+h1, .display-title {
+  font-family: var(--font-display), "Arial Narrow", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: .95;
+  text-transform: uppercase;
+}
 
 .card {
-  border: 1px solid rgba(25, 52, 47, 0.08);
-  border-radius: 1.25rem;
+  border: 1px solid rgba(58, 52, 52, 0.16);
+  border-radius: .35rem;
   background: var(--paper);
-  box-shadow: 0 10px 32px rgba(25, 52, 47, 0.06);
+  box-shadow: 6px 6px 0 rgba(58, 52, 52, 0.14);
 }
 .field {
   width: 100%;
-  border: 1px solid #d7dfdb;
-  border-radius: .85rem;
+  border: 1px solid rgba(58, 52, 52, 0.35);
+  border-radius: 999px;
   background: white;
   padding: .75rem .9rem;
   outline: none;
 }
-.field:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(38,114,92,.12); }
+.field:focus { border-color: var(--ink); box-shadow: 0 0 0 3px var(--highlight); }
 .label { display: block; margin-bottom: .4rem; font-size: .82rem; font-weight: 700; color: var(--muted); }
+.rounded-xl { border-radius: 999px; }
+.rounded-2xl { border-radius: .35rem; }
+
+/* Compatibilidad visual para los flujos existentes. */
+.bg-\[\#f6f4ec\] { background-color: var(--canvas) !important; }
+.bg-\[\#f6f4ec\]\/90 { background-color: rgb(255 150 85 / .9) !important; }
+.bg-\[\#19342f\], .bg-\[\#26725c\] { background-color: var(--ink) !important; }
+.bg-\[\#dceee6\], .bg-\[\#eef2ef\], .bg-\[\#e6f3ee\] { background-color: var(--highlight) !important; }
+.bg-\[\#f7ddd4\], .bg-\[\#f5b8a5\] { background-color: var(--pink) !important; }
+.text-\[\#19342f\], .text-\[\#26725c\] { color: var(--ink) !important; }
+.text-\[\#60736e\], .text-\[\#6c7f7a\], .text-\[\#9aaaa5\] { color: var(--muted) !important; }
+.border-\[\#cad7d2\] { border-color: rgb(58 52 52 / .35) !important; }
+.hover\:bg-\[\#1e5d4b\]:hover { background-color: var(--highlight) !important; color: var(--ink) !important; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .card, button, a { transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease, color .2s ease; }
+  .card:hover { box-shadow: 9px 9px 0 rgba(58, 52, 52, 0.16); }
+}
