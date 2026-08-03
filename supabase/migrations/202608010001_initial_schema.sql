@@ -120,7 +120,7 @@ begin
   insert into households(name,created_by) values(trim(household_name),auth.uid()) returning id into hid;
   insert into household_members(household_id,user_id,role) values(hid,auth.uid(),'owner');
   insert into accounts(household_id,owner_user_id,name,type,is_shared) values(hid,null,'Cuenta conjunta','joint',true);
-  invite := upper(substr(encode(gen_random_bytes(6),'hex'),1,8));
+  invite := upper(substr(encode(extensions.gen_random_bytes(6),'hex'),1,8));
   insert into household_invites(household_id,code,created_by,expires_at) values(hid,invite,auth.uid(),now()+interval '7 days');
   return hid;
 end $$;
