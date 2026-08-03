@@ -19,7 +19,7 @@ export interface Category {
 export interface Account {
   id: string;
   name: string;
-  type: "bank" | "card" | "cash" | "joint" | "savings";
+  type: "bank" | "card" | "cash" | "joint" | "savings" | "investment";
   current_balance_cents: number;
   is_shared: boolean;
 }

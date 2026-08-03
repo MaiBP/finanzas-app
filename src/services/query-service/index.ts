@@ -19,9 +19,9 @@ export async function getMonthSummary(db: DbClient, householdId: string, userId:
 }
 
 export async function getRecentTransactions(db: DbClient, householdId: string, userId: string, limit=5) {
-  const {data,error}=await db.from("transactions").select("type,amount_cents,description,transaction_date,scope").eq("household_id",householdId).eq("status","confirmed").or(accessibleFinanceFilter(userId)).order("transaction_date",{ascending:false}).limit(limit);
+  const {data,error}=await db.from("transactions").select("type,amount_cents,description,transaction_date,scope,accounts(name)").eq("household_id",householdId).eq("status","confirmed").or(accessibleFinanceFilter(userId)).order("transaction_date",{ascending:false}).order("created_at",{ascending:false}).limit(limit);
   if(error)throw error;
-  const rows=(data??[]) as {type:string;amount_cents:number;description:string;transaction_date:string;scope:"shared"|"personal"}[];
+  const rows=(data??[]) as unknown as {type:string;amount_cents:number;description:string;transaction_date:string;scope:"shared"|"personal";accounts:{name:string}|null}[];
   if(!rows.length)return "Todavía no hay movimientos confirmados.";
-  return rows.map(row=>`${row.scope==="shared"?"Conjunto":"Personal"} · ${row.type==="expense"?"−":"+"}${formatMoney(row.amount_cents)} · ${row.description} (${row.transaction_date})`).join("\n");
+  return rows.map(row=>`${row.scope==="shared"?"Conjunto":"Personal"} · ${row.accounts?.name??"Sin cuenta"} · ${row.type==="expense"?"−":"+"}${formatMoney(row.amount_cents)} · ${row.description} (${row.transaction_date})`).join("\n");
 }

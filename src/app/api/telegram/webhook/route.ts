@@ -55,6 +55,6 @@ export async function POST(request:Request){
     else if(action.action==="create_transaction"&&!action.requires_confirmation&&action.confidence>=.85)reply=await executeTelegramAction(db,link.user_id,membership.household_id,action);
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";}
     await db.from("conversation_messages").insert({user_id:link.user_id,household_id:membership.household_id,role:"assistant",content:reply});await sendTelegramMessage(chat.id,reply);
-  }catch(error){console.error("Telegram webhook error",error);await sendTelegramMessage(chat.id,"No he podido completar eso. Inténtalo de nuevo o usa la web.").catch(()=>undefined);}
+  }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("Indica qué cuenta")?error.message:"No he podido completar eso. Inténtalo de nuevo o usa la web.";await sendTelegramMessage(chat.id,safeMessage).catch(()=>undefined);}
   return NextResponse.json({ok:true});
 }
