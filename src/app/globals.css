@@ -9,6 +9,7 @@
   --pink: #ff96be;
   --blue: #73c8dc;
   --lime: #87cd64;
+  --lilac: #e19bf5;
   --success: #2e7d32;
 }
 
@@ -58,7 +59,8 @@ h1, .display-title {
 .bg-\[\#f6f4ec\]\/90 { background-color: rgb(255 150 85 / .9) !important; }
 .bg-\[\#19342f\], .bg-\[\#26725c\] { background-color: var(--ink) !important; }
 .bg-\[\#dceee6\] { background-color: var(--lime) !important; }
-.bg-\[\#eef2ef\], .bg-\[\#e6f3ee\] { background-color: var(--blue) !important; }
+.bg-\[\#eef2ef\] { background-color: var(--lilac) !important; }
+.bg-\[\#e6f3ee\] { background-color: var(--blue) !important; }
 .bg-\[\#f7ddd4\], .bg-\[\#f5b8a5\] { background-color: var(--pink) !important; }
 .text-\[\#19342f\], .text-\[\#26725c\] { color: var(--ink) !important; }
 .text-\[\#60736e\], .text-\[\#6c7f7a\], .text-\[\#9aaaa5\] { color: var(--muted) !important; }
