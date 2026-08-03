@@ -54,6 +54,18 @@ h1, .display-title {
 .rounded-xl { border-radius: 999px; }
 .rounded-2xl { border-radius: .35rem; }
 
+.section-surface {
+  min-height: 100vh;
+  background: var(--section-bg);
+}
+.section-header { background: color-mix(in srgb, var(--section-bg) 90%, transparent); }
+.section-orange { --section-bg: var(--canvas); }
+.section-pink { --section-bg: var(--pink); }
+.section-blue { --section-bg: var(--blue); }
+.section-lime { --section-bg: var(--lime); }
+.section-lilac { --section-bg: var(--lilac); }
+.section-yellow { --section-bg: var(--highlight); }
+
 /* Compatibilidad visual para los flujos existentes. */
 .bg-\[\#f6f4ec\] { background-color: var(--canvas) !important; }
 .bg-\[\#f6f4ec\]\/90 { background-color: rgb(255 150 85 / .9) !important; }
