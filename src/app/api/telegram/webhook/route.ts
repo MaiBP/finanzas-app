@@ -10,7 +10,7 @@ import { getMonthSummary, getRecentTransactions } from "@/services/query-service
 
 const updateSchema=z.object({message:z.object({chat:z.object({id:z.number()}),from:z.object({id:z.number()}),text:z.string().max(2000)}).optional()});
 const yes=/^(sí|si|confirmo|correcto|vale|ok)$/i; const no=/^(no|cancelar|cancela)$/i;
-const withWebSuggestion=(message:string)=>`${message}\n\nSi quieres revisar el detalle, abre el Dashboard o la sección Cuentas en la web.`;
+const withWebSuggestion=(message:string)=>`${message}\n\nSi quieres revisar el detalle, ingresa a la web.\nEnlace: <a href="https://finanzas-app-six-kappa.vercel.app/">https://finanzas-app-six-kappa.vercel.app/</a>`;
 
 async function queueAction(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,action:FinancialAction){
   await db.from("pending_actions").delete().eq("user_id",userId);
