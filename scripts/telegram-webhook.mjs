@@ -36,6 +36,9 @@ if (!infoOnly) {
     throw new Error("NEXT_PUBLIC_APP_URL debe ser la URL HTTPS pública del despliegue");
   }
   const webhookUrl = `${appUrl}/api/telegram/webhook`;
+  await telegram("setMyName", { name: "Miti-Miti" });
+  await telegram("setMyShortDescription", { short_description: "Finanzas compartidas y personales, sin dramas." });
+  await telegram("setMyDescription", { description: "Miti-Miti te ayuda a registrar gastos e ingresos, consultar el hogar y tu espacio personal, y detectar patrones financieros." });
   await telegram("setWebhook", {
     url: webhookUrl,
     secret_token: secret,

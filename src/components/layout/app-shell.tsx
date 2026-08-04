@@ -22,7 +22,7 @@ function NavItems({ items }: { items: ReadonlyArray<readonly [string, string, ty
 export function AppShell({ children, householdName, personalSpaceName }: { children: React.ReactNode; householdName: string; personalSpaceName: string }) {
   return <div className="min-h-screen bg-white text-[#3a3434] md:grid md:grid-cols-[260px_1fr]">
     <aside className="hidden border-r border-[#3a3434]/25 bg-white p-5 text-[#3a3434] md:flex md:flex-col">
-      <Link href="/app" className="flex items-center gap-2 text-lg font-black uppercase"><span className="grid size-10 place-items-center rounded-full bg-[#ffff50]">a</span>A medias</Link>
+      <Link href="/app" className="flex items-center gap-2 text-lg font-black uppercase"><span className="grid size-10 place-items-center rounded-full bg-[#ffff50] text-xl">½</span>Miti-Miti</Link>
 
       <div className="mt-8 rounded-2xl border border-[#3a3434]/15 p-3">
         <div className="flex items-center gap-3 px-2 pb-2"><span className="grid size-9 place-items-center rounded-full bg-[#e19bf5]"><UsersRound size={18}/></span><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-wider text-[#6e6464]">Hogar</p><p className="truncate text-sm font-black">{householdName}</p></div></div>
@@ -39,7 +39,7 @@ export function AppShell({ children, householdName, personalSpaceName }: { child
     </aside>
 
     <SectionSurface>
-      <header className="section-header sticky top-0 z-10 flex items-center justify-between border-b border-[#3a3434]/30 px-5 py-4 backdrop-blur md:px-8"><Link href="/app" className="font-black uppercase md:hidden">A medias</Link><AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName}/><div className="grid size-9 place-items-center rounded-full bg-white text-sm font-black">♡</div></header>
+      <header className="section-header sticky top-0 z-10 flex items-center justify-between border-b border-[#3a3434]/30 px-5 py-4 backdrop-blur md:px-8"><Link href="/app" className="font-black uppercase md:hidden">Miti-Miti</Link><AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName}/><div className="grid size-9 place-items-center rounded-full bg-white text-sm font-black">½</div></header>
       <main className="mx-auto max-w-7xl p-5 md:p-8">{children}</main>
     </SectionSurface>
 

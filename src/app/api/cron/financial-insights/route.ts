@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { escapeTelegramHtml, sendTelegramMessage } from "@/lib/telegram/api";
+import { sendTelegramMessage, withTelegramWebSuggestion } from "@/lib/telegram/api";
 import { getHouseholdFinancialInsight } from "@/services/financial-insights";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     if (deliveryError?.code === "23505") { skipped++; continue; }
     if (deliveryError || !delivery) { failed++; continue; }
 
-    const message = `💡 <b>${escapeTelegramHtml(insight.label)} financiero</b>\n\n${escapeTelegramHtml(insight.message)}\n${escapeTelegramHtml(insight.detail)}\n\nSi quieres revisar el detalle, ingresa a la web.\nEnlace: <a href="https://finanzas-app-six-kappa.vercel.app/">https://finanzas-app-six-kappa.vercel.app/</a>`;
+    const message = withTelegramWebSuggestion(`💡 Miti-Miti · ${insight.label} financiero\n\n${insight.message}\n${insight.detail}`);
     let telegramSent = false;
     try {
       await sendTelegramMessage(link.telegram_chat_id, message);

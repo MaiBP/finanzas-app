@@ -6,7 +6,7 @@ const interfaceFont = Archivo({ subsets: ["latin"], variable: "--font-interface"
 const displayFont = Oswald({ subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
-  title: "A medias · Finanzas en pareja",
+  title: "Miti-Miti · Finanzas en pareja",
   description: "Un lugar sencillo para organizar el dinero que compartís.",
 };
 

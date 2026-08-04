@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidWebhookSecret } from "@/lib/telegram/security";
-import { sendTelegramMessage } from "@/lib/telegram/api";
+import { sendTelegramMessage, withTelegramWebSuggestion } from "@/lib/telegram/api";
 import { parseFinancialMessage } from "@/services/financial-message-parser";
 import { financialActionSchema, type FinancialAction } from "@/services/financial-message-parser/schema";
 import { executeTelegramAction } from "@/services/transaction-service/telegram";
@@ -11,7 +11,6 @@ import { getMonthSummary, getRecentTransactions } from "@/services/query-service
 
 const updateSchema=z.object({message:z.object({chat:z.object({id:z.number()}),from:z.object({id:z.number()}),text:z.string().max(2000)}).optional()});
 const yes=/^(sí|si|confirmo|correcto|vale|ok)$/i; const no=/^(no|cancelar|cancela)$/i;
-const withWebSuggestion=(message:string)=>`${message}\n\nSi quieres revisar el detalle, ingresa a la web.\nEnlace: <a href="https://finanzas-app-six-kappa.vercel.app/">https://finanzas-app-six-kappa.vercel.app/</a>`;
 
 async function queueAction(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,action:FinancialAction){
   await db.from("pending_actions").delete().eq("user_id",userId);
@@ -59,16 +58,16 @@ export async function POST(request:Request){
   const parsed=updateSchema.safeParse(await request.json().catch(()=>null)); if(!parsed.success||!parsed.data.message)return NextResponse.json({ok:true});
   const {chat,from,text:raw}=parsed.data.message; const text=raw.trim(); const db=createAdminClient();
   try{
-    if(text.startsWith("/start")){await sendTelegramMessage(chat.id,"Hola 👋 Soy el asistente de A medias. Vincula tu cuenta desde Ajustes y envíame <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
-    if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"Puedes decirme “Gasté 42 euros en Mercadona”, o usar /resumen, /ultimos y /cancelar.");return NextResponse.json({ok:true});}
-    if(text.startsWith("/vincular")){const code=text.split(/\s+/)[1];if(!code){await sendTelegramMessage(chat.id,"Falta el código. Ejemplo: <code>/vincular ABC12345</code>");return NextResponse.json({ok:true});}const {error}=await db.rpc("link_telegram_account",{p_code:code,p_telegram_user_id:from.id,p_telegram_chat_id:chat.id});if(error)throw error;await sendTelegramMessage(chat.id,"¡Listo! Tu Telegram ya está vinculado con A medias.");return NextResponse.json({ok:true});}
+    if(text.startsWith("/start")){await sendTelegramMessage(chat.id,"Hola 👋 Soy el asistente de <b>Miti-Miti</b>. Vincula tu cuenta desde Ajustes y envíame <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
+    if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. Comandos: /resumen, /ultimos y /cancelar.");return NextResponse.json({ok:true});}
+    if(text.startsWith("/vincular")){const code=text.split(/\s+/)[1];if(!code){await sendTelegramMessage(chat.id,"Falta el código. Ejemplo: <code>/vincular ABC12345</code>");return NextResponse.json({ok:true});}const {error}=await db.rpc("link_telegram_account",{p_code:code,p_telegram_user_id:from.id,p_telegram_chat_id:chat.id});if(error)throw error;await sendTelegramMessage(chat.id,"¡Listo! Tu Telegram ya está vinculado con Miti-Miti.");return NextResponse.json({ok:true});}
     const {data:link}=await db.from("telegram_links").select("user_id").eq("telegram_user_id",from.id).maybeSingle();if(!link){await sendTelegramMessage(chat.id,"No reconozco esta cuenta. Genera un código en Ajustes y usa <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
     const {data:membership}=await db.from("household_members").select("household_id").eq("user_id",link.user_id).maybeSingle();if(!membership)throw new Error("Tu cuenta aún no pertenece a un hogar.");
     if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"Acción cancelada.");return NextResponse.json({ok:true});}
-    const accountSelectionReply=await handlePendingAccountSelection(db,link.user_id,membership.household_id,text);if(accountSelectionReply){await db.from("conversation_messages").insert([{user_id:link.user_id,household_id:membership.household_id,role:"user",content:text},{user_id:link.user_id,household_id:membership.household_id,role:"assistant",content:accountSelectionReply}]);await sendTelegramMessage(chat.id,withWebSuggestion(accountSelectionReply));return NextResponse.json({ok:true});}
-    if(yes.test(text)){await sendTelegramMessage(chat.id,withWebSuggestion(await confirmPending(db,link.user_id,membership.household_id)));return NextResponse.json({ok:true});}
-    if(text==="/resumen"){await sendTelegramMessage(chat.id,withWebSuggestion(await getMonthSummary(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
-    if(text==="/ultimos"){await sendTelegramMessage(chat.id,withWebSuggestion(await getRecentTransactions(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
+    const accountSelectionReply=await handlePendingAccountSelection(db,link.user_id,membership.household_id,text);if(accountSelectionReply){await db.from("conversation_messages").insert([{user_id:link.user_id,household_id:membership.household_id,role:"user",content:text},{user_id:link.user_id,household_id:membership.household_id,role:"assistant",content:accountSelectionReply}]);await sendTelegramMessage(chat.id,withTelegramWebSuggestion(accountSelectionReply));return NextResponse.json({ok:true});}
+    if(yes.test(text)){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(await confirmPending(db,link.user_id,membership.household_id)));return NextResponse.json({ok:true});}
+    if(text==="/resumen"){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(await getMonthSummary(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
+    if(text==="/ultimos"){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(await getRecentTransactions(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
     const [{data:categories},{data:accounts},{data:recent}]=await Promise.all([db.from("categories").select("name,kind").or(`household_id.eq.${membership.household_id},household_id.is.null`),db.from("accounts").select("name,is_shared").eq("household_id",membership.household_id).neq("type","joint").is("archived_at",null).or(`owner_user_id.eq.${link.user_id},is_shared.eq.true`),db.from("conversation_messages").select("role,content").eq("user_id",link.user_id).order("created_at",{ascending:false}).limit(6)]);
     await db.from("conversation_messages").insert({user_id:link.user_id,household_id:membership.household_id,role:"user",content:text});
     let action=await parseFinancialMessage({text,userId:link.user_id,householdId:membership.household_id,now:new Date().toISOString(),categories:categories??[],accounts:accounts??[],recentMessages:((recent??[]) as {role:"user"|"assistant";content:string}[]).reverse()});
@@ -83,7 +82,7 @@ export async function POST(request:Request){
       else {await queueAction(db,link.user_id,membership.household_id,action);reply="Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";}
     }
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";}
-    await db.from("conversation_messages").insert({user_id:link.user_id,household_id:membership.household_id,role:"assistant",content:reply});await sendTelegramMessage(chat.id,withWebSuggestion(reply));
-  }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("Indica qué cuenta")?error.message:"No he podido completar eso. Inténtalo de nuevo.";await sendTelegramMessage(chat.id,withWebSuggestion(safeMessage)).catch(()=>undefined);}
+    await db.from("conversation_messages").insert({user_id:link.user_id,household_id:membership.household_id,role:"assistant",content:reply});await sendTelegramMessage(chat.id,withTelegramWebSuggestion(reply));
+  }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("Indica qué cuenta")?error.message:"No he podido completar eso. Inténtalo de nuevo.";await sendTelegramMessage(chat.id,withTelegramWebSuggestion(safeMessage)).catch(()=>undefined);}
   return NextResponse.json({ok:true});
 }

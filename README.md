@@ -1,4 +1,4 @@
-# A medias
+# Miti-Miti
 
 MVP de finanzas personales para parejas. Cada persona tiene su sesión, comparte un hogar y puede registrar movimientos personales o comunes. El flujo vertical de autenticación, hogar, gasto web, dashboard mensual, auditoría, Telegram y consultas IA está implementado.
 
