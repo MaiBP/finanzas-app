@@ -85,6 +85,16 @@ npm run telegram:webhook
 
 Para consultar el estado sin modificarlo usa `npm run telegram:webhook:info`. Si el token pertenecía a otra aplicación y quieres descartar mensajes antiguos pendientes, ejecuta `npm run telegram:webhook -- --drop-pending`. Registrar un webhook nuevo reemplaza el anterior.
 
+## Acceso con Google
+
+La pantalla de acceso y registro usa OAuth con PKCE a través de Supabase. Para activarlo:
+
+1. En Google Cloud crea un cliente OAuth de tipo aplicación web y añade como URI autorizada el callback que muestra Supabase, con formato `https://TU-PROYECTO.supabase.co/auth/v1/callback`.
+2. En Supabase, abre Authentication → Providers → Google, habilita el proveedor y guarda el Client ID y Client Secret de Google.
+3. En Authentication → URL Configuration añade `https://finanzas-app-six-kappa.vercel.app/auth/callback` a Redirect URLs.
+
+Para reiniciar completamente los datos de prueba sin tocar el esquema ni las categorías globales, `npm run data:reset:test` muestra primero el proyecto y los conteos. La eliminación solo se ejecuta añadiendo `-- --confirm-reset`. Como alternativa sin terminal, ejecuta `supabase/reset-test-data.sql` desde SQL Editor.
+
 ## Deploy en Vercel
 
 Importa el repositorio en Vercel, añade las variables de entorno y usa los comandos estándar (`npm run build`). Actualiza `NEXT_PUBLIC_APP_URL` con el dominio final y añade su callback en Supabase Auth antes de publicar.
