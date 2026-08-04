@@ -74,7 +74,7 @@ export async function POST(request:Request){
     let action=await parseFinancialMessage({text,userId:link.user_id,householdId:membership.household_id,now:new Date().toISOString(),categories:categories??[],accounts:accounts??[],recentMessages:((recent??[]) as {role:"user"|"assistant";content:string}[]).reverse()});
     let reply:string;
     if(action.action==="request_clarification")reply=action.data.question;
-    else if(action.action==="query_finances")reply=action.data.query_type==="recent_transactions"?await getRecentTransactions(db,membership.household_id,link.user_id):await getMonthSummary(db,membership.household_id,link.user_id);
+    else if(action.action==="query_finances"){const scope=action.data.filters.scope??"combined";reply=action.data.query_type==="recent_transactions"?await getRecentTransactions(db,membership.household_id,link.user_id,5,scope):await getMonthSummary(db,membership.household_id,link.user_id,new Date(),scope);}
     else if(action.action==="cancel_action")reply="De acuerdo, no hago nada.";
     else if(action.action==="create_transaction"){
       const eligibleAccounts=accountsForAction(action,(accounts??[]) as AccountOption[]); action=assignOnlyAccount(action,eligibleAccounts);
