@@ -1,0 +1,59 @@
+import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { escapeTelegramHtml, sendTelegramMessage } from "@/lib/telegram/api";
+import { getHouseholdFinancialInsight } from "@/services/financial-insights";
+
+export const dynamic = "force-dynamic";
+
+type TelegramLink = { user_id: string; telegram_chat_id: number };
+
+function madridDate() {
+  const parts = new Intl.DateTimeFormat("en", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+export async function GET(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const db = createAdminClient();
+  const { data: links, error: linksError } = await db.from("telegram_links").select("user_id,telegram_chat_id");
+  if (linksError) throw linksError;
+
+  const today = madridDate();
+  const month = today.slice(0, 7);
+  const insights = new Map<string, ReturnType<typeof getHouseholdFinancialInsight>>();
+  let sent = 0; let skipped = 0; let failed = 0;
+
+  for (const link of (links ?? []) as TelegramLink[]) {
+    const { data: membership, error: membershipError } = await db.from("household_members").select("household_id").eq("user_id", link.user_id).maybeSingle();
+    if (membershipError || !membership) { failed++; continue; }
+
+    if (!insights.has(membership.household_id)) insights.set(membership.household_id, getHouseholdFinancialInsight(db, membership.household_id, month, today));
+    let insight;
+    try { insight = await insights.get(membership.household_id)!; }
+    catch (error) { console.error("Financial insight analysis failed", { householdId: membership.household_id, error }); failed++; continue; }
+    if (!insight.notifiable) { skipped++; continue; }
+
+    const { data: delivery, error: deliveryError } = await db.from("financial_insight_deliveries").insert({ household_id: membership.household_id, user_id: link.user_id, insight_key: insight.key, channel: "telegram", status: "pending" }).select("id").maybeSingle();
+    if (deliveryError?.code === "23505") { skipped++; continue; }
+    if (deliveryError || !delivery) { failed++; continue; }
+
+    const message = `💡 <b>${escapeTelegramHtml(insight.label)} financiero</b>\n\n${escapeTelegramHtml(insight.message)}\n${escapeTelegramHtml(insight.detail)}\n\nSi quieres revisar el detalle, ingresa a la web.\nEnlace: <a href="https://finanzas-app-six-kappa.vercel.app/">https://finanzas-app-six-kappa.vercel.app/</a>`;
+    let telegramSent = false;
+    try {
+      await sendTelegramMessage(link.telegram_chat_id, message);
+      telegramSent = true;
+      const { error } = await db.from("financial_insight_deliveries").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", delivery.id);
+      if (error) throw error;
+      sent++;
+    } catch (error) {
+      console.error("Financial insight notification failed", { userId: link.user_id, error });
+      if (!telegramSent) await db.from("financial_insight_deliveries").delete().eq("id", delivery.id).eq("status", "pending");
+      failed++;
+    }
+  }
+
+  return NextResponse.json({ ok: failed === 0, sent, skipped, failed });
+}

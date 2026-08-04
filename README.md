@@ -34,6 +34,7 @@ OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5.6-luna
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_WEBHOOK_SECRET=
+CRON_SECRET=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
@@ -50,7 +51,7 @@ npx supabase db seed
 ```
 
 
-También puedes ejecutar, en orden, `supabase/migrations/202608010001_initial_schema.sql` y `supabase/seed.sql` desde el SQL Editor. En Authentication configura la Site URL y añade `http://localhost:3000/auth/callback` como redirect URL. El seed crea categorías globales, no usuarios ni contraseñas.
+También puedes ejecutar todos los archivos de `supabase/migrations` en orden y después `supabase/seed.sql` desde el SQL Editor. En Authentication configura la Site URL y añade `http://localhost:3000/auth/callback` como redirect URL. El seed crea categorías globales, no usuarios ni contraseñas.
 
 Al crear un hogar se genera automáticamente una cuenta conjunta y una invitación válida durante siete días. El primer gasto compartido crea un reparto igual entre todos los miembros, distribuyendo cualquier céntimo sobrante sin perder dinero.
 
@@ -87,6 +88,8 @@ Para consultar el estado sin modificarlo usa `npm run telegram:webhook:info`. Si
 ## Deploy en Vercel
 
 Importa el repositorio en Vercel, añade las variables de entorno y usa los comandos estándar (`npm run build`). Actualiza `NEXT_PUBLIC_APP_URL` con el dominio final y añade su callback en Supabase Auth antes de publicar.
+
+El análisis financiero genera recordatorios de pagos recurrentes, tendencias de gasto por categoría y tasa de ahorro. `vercel.json` ejecuta una revisión diaria a las 08:00 UTC para avisar por Telegram sin repetir el mismo insight. Configura `CRON_SECRET` en producción con un valor aleatorio y ejecuta la migración `202608040001_financial_insight_notifications.sql` antes de activar el cron.
 
 ## Decisiones y límites actuales
 
