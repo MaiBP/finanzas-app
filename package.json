@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "data:reset:test": "node scripts/reset-test-data.mjs",
     "telegram:webhook": "node scripts/telegram-webhook.mjs",
-    "telegram:webhook:info": "node scripts/telegram-webhook.mjs --info"
+    "telegram:webhook:info": "node scripts/telegram-webhook.mjs --info",
+    "telegram:diagnostics": "node scripts/telegram-link-diagnostics.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",

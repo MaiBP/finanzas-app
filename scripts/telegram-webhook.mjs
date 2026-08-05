@@ -29,7 +29,7 @@ async function telegram(method, body) {
 }
 
 const bot = await telegram("getMe");
-console.log(`Bot verificado: @${bot.username}`);
+console.log(`Bot verificado: ${bot.first_name} (@${bot.username})`);
 
 if (!infoOnly) {
   if (!appUrl || !appUrl.startsWith("https://") || /localhost|127\.0\.0\.1/.test(appUrl)) {
