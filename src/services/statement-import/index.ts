@@ -1,0 +1,150 @@
+import OpenAI from "openai";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ResponseInputContent } from "openai/resources/responses/responses";
+import { zodTextFormat } from "openai/helpers/zod";
+import { z } from "zod";
+
+const MAX_IMPORTED_TRANSACTIONS = 60;
+const imageMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const fileExtensions = new Set(["pdf", "csv", "xls", "xlsx", "jpg", "jpeg", "png", "webp"]);
+
+export const importedTransactionSchema = z.object({
+  type: z.enum(["expense", "income"]),
+  amount_cents: z.int().positive(),
+  description: z.string().min(2).max(160),
+  category: z.string().min(1).max(60),
+  transaction_date: z.iso.date(),
+});
+
+const extractionSchema = z.object({
+  transactions: z.array(importedTransactionSchema).max(MAX_IMPORTED_TRANSACTIONS),
+  omitted_rows: z.int().nonnegative(),
+  note: z.string().max(300),
+});
+
+export const statementImportPayloadSchema = z.object({
+  kind: z.literal("statement_import"),
+  file_name: z.string().min(1).max(180),
+  account_name: z.string().min(1).max(80).nullable(),
+  scope: z.enum(["shared", "personal"]),
+  transactions: z.array(importedTransactionSchema).min(1).max(MAX_IMPORTED_TRANSACTIONS),
+  omitted_rows: z.int().nonnegative(),
+  note: z.string().max(300),
+});
+
+export type StatementImportPayload = z.infer<typeof statementImportPayloadSchema>;
+
+export interface StatementFile {
+  bytes: Uint8Array;
+  fileName: string;
+  mimeType: string;
+  caption?: string;
+}
+
+const extensionOf = (fileName: string) => fileName.split(".").pop()?.toLowerCase() ?? "";
+const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+function resolvedMimeType(fileName: string, mimeType: string) {
+  const byExtension: Record<string,string>={pdf:"application/pdf",csv:"text/csv",xls:"application/vnd.ms-excel",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp"};
+  return byExtension[extensionOf(fileName)]??mimeType.toLowerCase();
+}
+
+export function isSupportedStatementFile(fileName: string, mimeType: string) {
+  return imageMimeTypes.has(resolvedMimeType(fileName,mimeType)) || fileExtensions.has(extensionOf(fileName));
+}
+
+export function isPersonalStatementImport(caption = "") {
+  return /(?:\bpersonal\b|\bprivad[oa]\b|solo para m[ií]|solo m[ií][oa]|no compartid[oa])/i.test(caption);
+}
+
+function dataUrl(file: StatementFile) {
+  return `data:${resolvedMimeType(file.fileName,file.mimeType)};base64,${Buffer.from(file.bytes).toString("base64")}`;
+}
+
+export async function extractStatementTransactions(file: StatementFile, categories: { name: string; kind: string }[]) {
+  if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY no está configurada");
+  if (!isSupportedStatementFile(file.fileName, file.mimeType)) throw new Error("Formato no compatible");
+
+  const availableCategories = categories.filter(category => category.kind === "expense" || category.kind === "income");
+  const prompt = `Extrae los movimientos financieros reales de este resumen o extracto.
+Reglas obligatorias:
+- Devuelve como máximo ${MAX_IMPORTED_TRANSACTIONS} movimientos, en orden cronológico.
+- amount_cents siempre es un entero positivo en céntimos de EUR.
+- Los consumos, compras, comisiones e impuestos son expense. Abonos, devoluciones e ingresos son income.
+- Ignora saldo anterior/final, límites, totales, subtotales, cuotas pendientes y el pago del resumen de tarjeta: no son compras nuevas.
+- No inventes filas ni completes datos ilegibles. Cuenta esas filas en omitted_rows.
+- Usa la fecha de cada operación en formato YYYY-MM-DD. Si el año solo aparece en el encabezado, aplícalo a las filas correspondientes.
+- Usa únicamente uno de estos nombres exactos de categoría, respetando el tipo: ${JSON.stringify(availableCategories)}.
+- Si ninguna categoría específica corresponde, usa "Otros" para expense u "Otros ingresos" para income.
+- Descripciones breves, reconocibles y sin números completos de tarjeta o cuenta.
+Contexto opcional escrito por el usuario: ${JSON.stringify(file.caption ?? "")}.
+Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
+
+  const attachment: ResponseInputContent = imageMimeTypes.has(resolvedMimeType(file.fileName,file.mimeType))
+    ? { type: "input_image", image_url: dataUrl(file), detail: "low" }
+    : { type: "input_file", filename: file.fileName, file_data: dataUrl(file), ...(extensionOf(file.fileName) === "pdf" ? { detail: "low" as const } : {}) };
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const response = await client.responses.parse({
+    model: process.env.OPENAI_MODEL ?? "gpt-5.6-luna",
+    reasoning: { effort: "none" },
+    store: false,
+    input: [{ role: "user", content: [attachment, { type: "input_text", text: prompt }] }],
+    text: { format: zodTextFormat(extractionSchema, "statement_transactions") },
+  });
+  const parsed = extractionSchema.safeParse(response.output_parsed);
+  if (!parsed.success) throw new Error("No pude interpretar el documento con seguridad");
+
+  const allowed = new Set(availableCategories.map(category => `${category.kind}:${normalize(category.name)}`));
+  const seen = new Set<string>();
+  const transactions = parsed.data.transactions.flatMap(transaction => {
+    const fallback = transaction.type === "expense" ? "Otros" : "Otros ingresos";
+    const category = allowed.has(`${transaction.type}:${normalize(transaction.category)}`) ? transaction.category : fallback;
+    const normalizedTransaction = { ...transaction, category };
+    const key = `${transaction.type}|${transaction.transaction_date}|${transaction.amount_cents}|${normalize(transaction.description)}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [normalizedTransaction];
+  });
+  return { ...parsed.data, transactions };
+}
+
+export function statementPreview(payload: StatementImportPayload, accounts: { name: string }[]) {
+  const expenses = payload.transactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount_cents, 0);
+  const income = payload.transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount_cents, 0);
+  const examples = payload.transactions.slice(0, 6).map(item => `• ${item.transaction_date} · ${item.description} · ${(item.amount_cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}`).join("\n");
+  const totals = `Encontré ${payload.transactions.length} movimientos: ${(expenses / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })} en gastos y ${(income / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })} en ingresos.`;
+  const omitted = payload.omitted_rows ? `\nOmití ${payload.omitted_rows} filas que no eran movimientos o no se leían con seguridad.` : "";
+  const accountQuestion = payload.account_name
+    ? `\nCuenta: ${payload.account_name}. Responde “sí” para registrar todo o “no” para cancelar.`
+    : `\n¿En qué cuenta los registro?\n${accounts.map((account, index) => `${index + 1}. ${account.name}`).join("\n")}\nResponde con el número o el nombre.`;
+  return `${totals}${omitted}\n\nVista previa:\n${examples}${payload.transactions.length > 6 ? "\n…" : ""}${accountQuestion}`;
+}
+
+export async function executeStatementImport(db: SupabaseClient, userId: string, householdId: string, rawPayload: unknown) {
+  const payload = statementImportPayloadSchema.parse(rawPayload);
+  if (!payload.account_name) throw new Error("Falta seleccionar la cuenta para la importación");
+  let accountQuery=db.from("accounts").select("id,name").eq("household_id", householdId).eq("name", payload.account_name).eq("is_shared", payload.scope === "shared").is("archived_at", null);
+  if(payload.scope==="personal")accountQuery=accountQuery.eq("owner_user_id",userId);
+  const { data: account, error: accountError } = await accountQuery.maybeSingle();
+  if (accountError) throw accountError;
+  if (!account) throw new Error("La cuenta elegida ya no está disponible");
+  const { data: categories, error: categoryError } = await db.from("categories").select("id,name,kind").or(`household_id.eq.${householdId},household_id.is.null`);
+  if (categoryError) throw categoryError;
+  const categoryIds = new Map((categories ?? []).map(category => [`${category.kind}:${normalize(category.name)}`, category.id]));
+  const dates = payload.transactions.map(item => item.transaction_date).sort();
+  const { data: existing, error: existingError } = await db.from("transactions").select("type,amount_cents,description,transaction_date").eq("household_id", householdId).eq("account_id", account.id).eq("created_by", userId).eq("status", "confirmed").gte("transaction_date", dates[0]).lte("transaction_date", dates[dates.length - 1]);
+  if (existingError) throw existingError;
+  const existingKeys = new Set((existing ?? []).map(item => `${item.type}|${item.transaction_date}|${item.amount_cents}|${normalize(item.description)}`));
+  const pending = payload.transactions.filter(item => !existingKeys.has(`${item.type}|${item.transaction_date}|${item.amount_cents}|${normalize(item.description)}`));
+  let created = 0; let failed = 0;
+  for (let index = 0; index < pending.length; index += 5) {
+    const results = await Promise.all(pending.slice(index, index + 5).map(async item => {
+      const categoryId = categoryIds.get(`${item.type}:${normalize(item.category)}`) ?? categoryIds.get(`${item.type}:${normalize(item.type === "expense" ? "Otros" : "Otros ingresos")}`);
+      if (!categoryId) return false;
+      const { error } = await db.rpc("create_financial_transaction_as_user", { p_actor_user_id: userId, p_household_id: householdId, p_account_id: account.id, p_type: item.type, p_amount_cents: item.amount_cents, p_description: item.description, p_category_id: categoryId, p_scope: payload.scope, p_privacy: payload.scope === "shared" ? "visible" : "private", p_transaction_date: item.transaction_date, p_paid_by: userId, p_source: "telegram" });
+      return !error;
+    }));
+    created += results.filter(Boolean).length; failed += results.filter(result => !result).length;
+  }
+  return { created, duplicates: payload.transactions.length - pending.length, failed, accountName: account.name };
+}

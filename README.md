@@ -71,6 +71,10 @@ Las pruebas unitarias cubren importes, reparto 50/50, balances, permisos de edic
 
 El endpoint valida `X-Telegram-Bot-Api-Secret-Token`, vincula usuarios con códigos de diez minutos y soporta `/start`, `/ayuda`, `/vincular`, `/resumen`, `/ultimos` y `/cancelar`. Los mensajes libres se interpretan con Responses API y Structured Outputs, y vuelven a validarse con Zod antes de cualquier acción. Borrados y acciones ambiguas pasan por `pending_actions`.
 
+El bot acepta extractos PDF, Excel (`.xls`/`.xlsx`), CSV e imágenes JPG, PNG o WEBP de hasta 12 MB. La IA prepara una vista previa de hasta 60 movimientos y no escribe nada hasta recibir una confirmación explícita. Los movimientos son compartidos por defecto; la leyenda `personal` en el adjunto los dirige al espacio privado. Los posibles duplicados de la misma cuenta, fecha, importe y descripción se omiten al confirmar.
+
+Los adjuntos se envían como Base64 directamente a Responses API con `store: false`; Miti-Miti no conserva el archivo ni crea un objeto en Files API. La política estándar de OpenAI puede mantener registros de control de abuso durante un máximo de 30 días, salvo que el proyecto tenga controles de retención aprobados.
+
 Después del deploy, registra el webhook con el header secreto de Telegram apuntando a:
 
 ```text

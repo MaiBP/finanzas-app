@@ -17,3 +17,20 @@ export async function sendTelegramMessage(chatId: number, text: string) {
   });
   if (!response.ok) {const result=await response.json().catch(()=>null) as {description?:string}|null;throw new Error(result?.description??`Telegram respondió ${response.status}`);}
 }
+
+export const MAX_TELEGRAM_IMPORT_BYTES = 12 * 1024 * 1024;
+
+export async function downloadTelegramFile(fileId: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) throw new Error("TELEGRAM_BOT_TOKEN no está configurado");
+  const metadataResponse = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`);
+  const metadata = await metadataResponse.json().catch(() => null) as { ok?: boolean; result?: { file_path?: string; file_size?: number }; description?: string } | null;
+  const filePath = metadata?.result?.file_path;
+  if (!metadataResponse.ok || !metadata?.ok || !filePath || filePath.includes("..")) throw new Error(metadata?.description ?? "Telegram no entregó el archivo");
+  if ((metadata.result?.file_size ?? 0) > MAX_TELEGRAM_IMPORT_BYTES) throw new Error("El archivo supera el límite de 12 MB");
+  const fileResponse = await fetch(`https://api.telegram.org/file/bot${token}/${filePath}`);
+  if (!fileResponse.ok) throw new Error("No pude descargar el archivo de Telegram");
+  const bytes = new Uint8Array(await fileResponse.arrayBuffer());
+  if (bytes.byteLength > MAX_TELEGRAM_IMPORT_BYTES) throw new Error("El archivo supera el límite de 12 MB");
+  return bytes;
+}
