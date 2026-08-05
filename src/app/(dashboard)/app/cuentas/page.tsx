@@ -58,6 +58,11 @@ const typeNames: Record<string, string> = {
 export default async function AccountsPage() {
   const { supabase, household } = await getCurrentHousehold();
   if (!household) return null;
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const monthStart = `${month}-01`;
+  const nextMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1)).toISOString().slice(0, 10);
+  const monthName = new Intl.DateTimeFormat("es-ES", { month: "long" }).format(now);
   const [
     { data: accountsData },
     { data: balanceData },
@@ -83,7 +88,9 @@ export default async function AccountsPage() {
       .eq("household_id", household.id)
       .eq("scope", "shared")
       .eq("type", "expense")
-      .eq("status", "confirmed"),
+      .eq("status", "confirmed")
+      .gte("transaction_date", monthStart)
+      .lt("transaction_date", nextMonth),
     supabase
       .from("household_members")
       .select("user_id,profiles(display_name)")
@@ -146,7 +153,7 @@ export default async function AccountsPage() {
           </div>
           <div className="rounded-sm border border-[#3a3434]/20 bg-[#ff6e7d] p-5">
             <p className="w-fit bg-[#ffff50] px-1 text-xs font-black uppercase tracking-wide">
-              Gasto conjunto acumulado
+              Gasto conjunto · {monthName}
             </p>
             <p className="mt-3 text-3xl font-black">
               {formatMoney(totalExpenses)}
@@ -224,7 +231,7 @@ export default async function AccountsPage() {
                 </div>
                 <div className="border-t border-[#3a3434]/15 bg-[#ffff50] p-5">
                   <p className="text-xs font-black uppercase tracking-wide">
-                    Gasto acumulado
+                    Gasto del mes · {monthName}
                   </p>
                   <div className="mt-3 space-y-2">
                     {members.map((member) => (

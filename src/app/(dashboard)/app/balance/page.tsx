@@ -14,6 +14,11 @@ type MemberRow = {
 export default async function BalancePage() {
   const { supabase, household } = await getCurrentHousehold();
   if (!household) return null;
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const start = `${month}-01`;
+  const end = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1)).toISOString().slice(0, 10);
+  const monthName = new Intl.DateTimeFormat("es-ES", { month: "long" }).format(now);
   const [{ data: membersData }, { data: movementData }] = await Promise.all([
     supabase
       .from("household_members")
@@ -24,7 +29,9 @@ export default async function BalancePage() {
       .select("created_by,type,amount_cents")
       .eq("household_id", household.id)
       .eq("scope", "shared")
-      .eq("status", "confirmed"),
+      .eq("status", "confirmed")
+      .gte("transaction_date", start)
+      .lt("transaction_date", end),
   ]);
   const members = (membersData ?? []) as unknown as MemberRow[];
   const movements = (movementData ?? []) as MemberMovement[];
@@ -43,7 +50,7 @@ export default async function BalancePage() {
     <>
       <div>
         <div>
-          <p className="text-sm font-bold uppercase">Participación acumulada</p>
+          <p className="text-sm font-bold uppercase">Participación · {monthName}</p>
           <h1 className="mt-1 text-3xl font-black">Balance</h1>
           <p className="mt-2 text-[#6c7f7a]">
             Ingresos y gastos compartidos registrados por cada persona.
@@ -53,13 +60,13 @@ export default async function BalancePage() {
       <section className="mt-7 grid gap-4 sm:grid-cols-2">
         <article className="rounded-sm border border-[#3a3434]/20 bg-[#87cd64] p-5">
           <p className="w-fit bg-[#ffff50] px-1 text-xs font-black uppercase">
-            Ingresos acumulados
+            Ingresos del mes
           </p>
           <p className="mt-3 text-3xl font-black">{formatMoney(totalIncome)}</p>
         </article>
         <article className="rounded-sm border border-[#3a3434]/20 bg-[#ff6e7d] p-5">
           <p className="w-fit bg-[#ffff50] px-1 text-xs font-black uppercase">
-            Gastos acumulados
+            Gastos del mes
           </p>
           <p className="mt-3 text-3xl font-black">
             {formatMoney(totalExpenses)}
@@ -113,7 +120,7 @@ export default async function BalancePage() {
         <article className="card p-6">
           <h2 className="text-xl font-black">Reparto de gastos</h2>
           <p className="mt-1 text-sm text-[#6c7f7a]">
-            Participación sobre todos los gastos compartidos registrados.
+            Participación sobre los gastos compartidos del mes corriente.
           </p>
           <MemberFinancePie data={pieData} />
         </article>

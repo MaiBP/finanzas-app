@@ -45,15 +45,16 @@ export default async function DashboardPage({
   ]);
   const rows = (data ?? []) as unknown as DashboardRow[];
   const accounts = (accountsData ?? []) as DashboardAccount[];
-  const income = rows
+  const currentRows = rows.filter((row) => row.transaction_date.startsWith(currentMonth));
+  const income = currentRows
     .filter((r) => r.type === "income")
     .reduce((s, r) => s + r.amount_cents, 0);
-  const expenses = rows
+  const expenses = currentRows
     .filter((r) => r.type === "expense")
     .reduce((s, r) => s + r.amount_cents, 0);
   const currentBalance = accounts.reduce((total, account) => total + calculateAccountBalance(account.id, rows), 0);
   const byCategory = new Map<string, number>();
-  rows
+  currentRows
     .filter((r) => r.type === "expense")
     .forEach((r) => {
       const name = r.categories?.name ?? "Otros";
@@ -93,12 +94,12 @@ export default async function DashboardPage({
           detail="Según movimientos registrados"
         />
         <SummaryCard
-          label="Ingresos acumulados"
+          label="Ingresos del mes"
           value={formatMoney(income)}
           tone="green"
         />
         <SummaryCard
-          label="Gastos acumulados"
+          label="Gastos del mes"
           value={formatMoney(expenses)}
           tone="coral"
         />
@@ -113,9 +114,9 @@ export default async function DashboardPage({
       <section className="mt-6 grid gap-6 lg:grid-cols-[1.35fr_.9fr]">
         <article className="card p-5 md:p-7">
           <div>
-            <h2 className="text-lg font-black">Gastos acumulados por categoría</h2>
+            <h2 className="text-lg font-black">Gastos del mes por categoría</h2>
             <p className="text-sm text-[#6c7f7a]">
-              Distribución histórica de los gastos compartidos
+              Distribución del mes corriente
             </p>
           </div>
           <CategoryChart data={chart} />
