@@ -74,6 +74,7 @@ Reglas obligatorias:
 - Ignora saldo anterior/final, límites, totales, subtotales, cuotas pendientes y el pago del resumen de tarjeta: no son compras nuevas.
 - No inventes filas ni completes datos ilegibles. Cuenta esas filas en omitted_rows.
 - Usa la fecha de cada operación en formato YYYY-MM-DD. Si el año solo aparece en el encabezado, aplícalo a las filas correspondientes.
+- Si el contexto del usuario indica un mes o período, incluye únicamente movimientos de ese período; si no indica ninguno, usa todo el período del extracto.
 - Usa únicamente uno de estos nombres exactos de categoría, respetando el tipo: ${JSON.stringify(availableCategories)}.
 - Si ninguna categoría específica corresponde, usa "Otros" para expense u "Otros ingresos" para income.
 - Descripciones breves, reconocibles y sin números completos de tarjeta o cuenta.
