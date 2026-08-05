@@ -60,7 +60,18 @@ export async function POST(request:Request){
   try{
     if(text.startsWith("/start")){await sendTelegramMessage(chat.id,"Hola 👋 Soy el asistente de <b>Miti-Miti</b>. Vincula tu cuenta desde Ajustes y envíame <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
     if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. Comandos: /resumen, /ultimos y /cancelar.");return NextResponse.json({ok:true});}
-    if(text.startsWith("/vincular")){const code=text.split(/\s+/)[1];if(!code){await sendTelegramMessage(chat.id,"Falta el código. Ejemplo: <code>/vincular ABC12345</code>");return NextResponse.json({ok:true});}const {error}=await db.rpc("link_telegram_account",{p_code:code,p_telegram_user_id:from.id,p_telegram_chat_id:chat.id});if(error)throw error;await sendTelegramMessage(chat.id,"¡Listo! Tu Telegram ya está vinculado con Miti-Miti.");return NextResponse.json({ok:true});}
+    if(text.startsWith("/vincular")){
+      const code=text.split(/\s+/)[1]?.trim().toUpperCase();
+      if(!code){await sendTelegramMessage(chat.id,"Falta el código. Ejemplo: <code>/vincular ABC12345</code>");return NextResponse.json({ok:true});}
+      const {data:activeCode,error:codeError}=await db.from("telegram_link_codes").select("user_id").eq("code",code).is("used_at",null).gt("expires_at",new Date().toISOString()).maybeSingle();
+      if(codeError)throw codeError;
+      if(!activeCode){await sendTelegramMessage(chat.id,"Ese código no es válido o ha caducado. Genera uno nuevo en Ajustes e inténtalo otra vez.");return NextResponse.json({ok:true});}
+      const {error:unlinkError}=await db.from("telegram_links").delete().eq("telegram_user_id",from.id).neq("user_id",activeCode.user_id);
+      if(unlinkError)throw unlinkError;
+      const {error}=await db.rpc("link_telegram_account",{p_code:code,p_telegram_user_id:from.id,p_telegram_chat_id:chat.id});
+      if(error)throw error;
+      await sendTelegramMessage(chat.id,"¡Listo! Tu Telegram ya está vinculado con Miti-Miti.");return NextResponse.json({ok:true});
+    }
     const {data:link}=await db.from("telegram_links").select("user_id").eq("telegram_user_id",from.id).maybeSingle();if(!link){await sendTelegramMessage(chat.id,"No reconozco esta cuenta. Genera un código en Ajustes y usa <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
     const {data:membership}=await db.from("household_members").select("household_id").eq("user_id",link.user_id).maybeSingle();if(!membership)throw new Error("Tu cuenta aún no pertenece a un hogar.");
     if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"Acción cancelada.");return NextResponse.json({ok:true});}
