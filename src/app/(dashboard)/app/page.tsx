@@ -18,7 +18,7 @@ type DashboardRow = {
   account_id: string;
   categories: { name: string } | null;
 };
-type DashboardAccount = { id: string; type: string; current_balance_cents: number };
+type DashboardAccount = { id: string; type: string };
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -40,7 +40,7 @@ export default async function DashboardPage({
       .eq("status", "confirmed")
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase.from("accounts").select("id,type,current_balance_cents").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null),
+    supabase.from("accounts").select("id,type").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null),
     getHouseholdFinancialInsight(supabase, household.id, currentMonth),
   ]);
   const rows = (data ?? []) as unknown as DashboardRow[];
@@ -51,7 +51,7 @@ export default async function DashboardPage({
   const expenses = rows
     .filter((r) => r.type === "expense")
     .reduce((s, r) => s + r.amount_cents, 0);
-  const currentBalance = accounts.reduce((total, account) => total + calculateAccountBalance(account.current_balance_cents, account.id, rows), 0);
+  const currentBalance = accounts.reduce((total, account) => total + calculateAccountBalance(account.id, rows), 0);
   const byCategory = new Map<string, number>();
   rows
     .filter((r) => r.type === "expense")
@@ -90,7 +90,7 @@ export default async function DashboardPage({
           label="Saldo actual"
           value={formatMoney(currentBalance)}
           tone="plain"
-          detail={currentBalance >= 0 ? "Saldo disponible hoy" : "Saldo negativo actual"}
+          detail="Según movimientos registrados"
         />
         <SummaryCard
           label="Ingresos acumulados"

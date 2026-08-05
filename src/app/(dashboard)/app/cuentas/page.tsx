@@ -22,7 +22,6 @@ type AccountRow = {
   id: string;
   name: string;
   type: string;
-  current_balance_cents: number;
 };
 type BalanceMovement = {
   account_id: string;
@@ -67,7 +66,7 @@ export default async function AccountsPage() {
   ] = await Promise.all([
     supabase
       .from("accounts")
-      .select("id,name,type,current_balance_cents")
+      .select("id,name,type")
       .eq("household_id", household.id)
       .eq("is_shared", true)
       .is("archived_at", null)
@@ -101,11 +100,7 @@ export default async function AccountsPage() {
   const totalBalance = fundingAccounts.reduce(
     (total, account) =>
       total +
-      calculateAccountBalance(
-        account.current_balance_cents,
-        account.id,
-        balanceMovements,
-      ),
+      calculateAccountBalance(account.id, balanceMovements),
     0,
   );
   const totalExpenses = expenseMovements.reduce(
@@ -178,11 +173,7 @@ export default async function AccountsPage() {
             const allExpenses = accountMovements
               .filter((movement) => movement.type === "expense")
               .reduce((sum, movement) => sum + movement.amount_cents, 0);
-            const balance = calculateAccountBalance(
-              account.current_balance_cents,
-              account.id,
-              balanceMovements,
-            );
+            const balance = calculateAccountBalance(account.id, balanceMovements);
             const expenses = calculateParticipantExpenses(
               account.id,
               expenseMovements,
@@ -228,8 +219,7 @@ export default async function AccountsPage() {
                     {balanceLabel} actual
                   </p>
                   <p className="mt-3 text-xs text-[#6c7f7a]">
-                    Base contable {formatMoney(account.current_balance_cents)} + ingresos{" "}
-                    {formatMoney(allIncome)} − gastos {formatMoney(allExpenses)}
+                    Ingresos registrados {formatMoney(allIncome)} − gastos registrados {formatMoney(allExpenses)}
                   </p>
                 </div>
                 <div className="border-t border-[#3a3434]/15 bg-[#ffff50] p-5">
@@ -270,12 +260,8 @@ export default async function AccountsPage() {
                         <option value="investment">Inversión</option>
                       </select>
                     </label>
-                    <label>
-                      <span className="label">Saldo actual</span>
-                      <input className="field" name="balance" inputMode="decimal" defaultValue={(balance / 100).toFixed(2).replace(".", ",")} required />
-                    </label>
                     <button className="self-end rounded-xl px-5 py-3 font-bold">Guardar cambios</button>
-                    <p className="text-xs text-[#6c7f7a] sm:col-span-2">El ajuste conserva todos los movimientos históricos y recalibra únicamente la base contable.</p>
+                    <p className="text-xs text-[#6c7f7a] sm:col-span-2">El saldo no se edita manualmente: cambia al registrar, editar o eliminar movimientos.</p>
                   </form>
                 </details>
               </article>
@@ -295,8 +281,8 @@ export default async function AccountsPage() {
       <section className="card mt-7 max-w-3xl p-6">
         <h2 className="text-xl font-black">Crear otra cuenta conjunta</h2>
         <p className="mt-1 text-sm text-[#6c7f7a]">
-          El saldo inicial sirve como punto de partida; después cambiará según
-          los movimientos asignados a esta cuenta.
+          La cuenta comenzará en cero y su saldo se calculará exclusivamente
+          con los movimientos que registréis.
         </p>
         <form
           action={createSharedAccount}
@@ -321,18 +307,6 @@ export default async function AccountsPage() {
               <option value="savings">Ahorro</option>
               <option value="investment">Inversión</option>
             </select>
-          </label>
-          <label>
-            <span className="label">Saldo inicial</span>
-            <input
-              className="field"
-              name="balance"
-              inputMode="decimal"
-              placeholder="0,00"
-            />
-            <span className="mt-1 block text-xs text-[#6c7f7a]">
-              Puedes usar un valor negativo para deudas.
-            </span>
           </label>
           <button className="self-start rounded-xl px-5 py-3 font-bold sm:self-end">
             Crear cuenta conjunta

@@ -8,6 +8,20 @@ export function accessibleFinanceFilter(userId: string) {
 
 export type FinanceScope = "shared" | "personal" | "combined";
 
+export async function getRecordedBalance(db: DbClient, householdId: string, userId: string, scope: FinanceScope = "combined") {
+  let query = db.from("transactions").select("type,amount_cents,scope").eq("household_id", householdId).eq("status", "confirmed");
+  query = scope === "shared" ? query.eq("scope", "shared") : scope === "personal" ? query.eq("scope", "personal").eq("created_by", userId) : query.or(accessibleFinanceFilter(userId));
+  const { data, error } = await query;
+  if (error) throw error;
+  const rows = (data ?? []) as { type: "income" | "expense"; amount_cents: number; scope: "shared" | "personal" }[];
+  const balance = (target: "shared" | "personal") => rows.filter(row => row.scope === target).reduce((total, row) => total + (row.type === "income" ? row.amount_cents : -row.amount_cents), 0);
+  const shared = balance("shared");
+  const personal = balance("personal");
+  if (scope === "shared") return `El saldo actual del hogar es ${formatMoney(shared)}, calculado solo con movimientos registrados.`;
+  if (scope === "personal") return `El saldo actual de tu espacio personal es ${formatMoney(personal)}, calculado solo con movimientos registrados.`;
+  return `El saldo del hogar es ${formatMoney(shared)} y el de tu espacio personal es ${formatMoney(personal)}. El total combinado es ${formatMoney(shared + personal)}. Todos están calculados solo con movimientos registrados.`;
+}
+
 export async function getMonthSummary(db: DbClient, householdId: string, userId: string, now = new Date(), scope: FinanceScope = "combined") {
   const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
   const next = new Date(Date.UTC(now.getFullYear(),now.getMonth()+1,1)).toISOString().slice(0,10);

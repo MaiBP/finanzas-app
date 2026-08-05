@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { calculateAccountBalance, calculateBaseForTargetBalance, calculateParticipantExpenses } from "@/lib/finance/account-overview";
+import { calculateAccountBalance, calculateParticipantExpenses } from "@/lib/finance/account-overview";
 
 describe("shared account overview", () => {
   it("calculates the signed current balance for one account", () => {
-    expect(calculateAccountBalance(10_000,"joint",[
+    expect(calculateAccountBalance("joint",[
       {account_id:"joint",type:"income",amount_cents:5_000},
       {account_id:"joint",type:"expense",amount_cents:12_000},
       {account_id:"other",type:"expense",amount_cents:99_000},
-    ])).toBe(3_000);
+    ])).toBe(-7_000);
   });
 
   it("groups current-month expenses by payer", () => {
@@ -21,13 +21,10 @@ describe("shared account overview", () => {
     expect(totals.get("pablo")).toBe(2_500);
   });
 
-  it("reconciles the accounting base without changing historical movements", () => {
-    const movements = [
-      {account_id:"bank",type:"income" as const,amount_cents:200_000},
-      {account_id:"bank",type:"expense" as const,amount_cents:32_763},
-    ];
-    const base = calculateBaseForTargetBalance(196_375, "bank", movements);
-    expect(base).toBe(29_138);
-    expect(calculateAccountBalance(base, "bank", movements)).toBe(196_375);
+  it("ignores unregistered balances and uses only movements", () => {
+    expect(calculateAccountBalance("bank", [
+      {account_id:"bank",type:"income",amount_cents:200_000},
+      {account_id:"bank",type:"expense",amount_cents:32_763},
+    ])).toBe(167_237);
   });
 });
