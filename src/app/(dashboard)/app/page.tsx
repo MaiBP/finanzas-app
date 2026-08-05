@@ -6,6 +6,7 @@ import { SummaryCard } from "@/components/dashboard/summary-card";
 import { CategoryChart } from "@/components/charts/category-chart";
 import { getHouseholdFinancialInsight } from "@/services/financial-insights";
 import { groupCategoryChartData } from "@/lib/finance/category-chart";
+import { calculateAccountBalance } from "@/lib/finance/account-overview";
 
 type DashboardRow = {
   id: string;
@@ -14,49 +15,43 @@ type DashboardRow = {
   description: string;
   transaction_date: string;
   scope: "personal" | "shared";
+  account_id: string;
   categories: { name: string } | null;
 };
+type DashboardAccount = { id: string; type: string; current_balance_cents: number };
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; created?: string }>;
+  searchParams: Promise<{ created?: string }>;
 }) {
   const params = await searchParams;
   const now = new Date();
-  const fallback = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const month = /^\d{4}-\d{2}$/.test(params.month ?? "")
-    ? params.month!
-    : fallback;
-  const [year, monthNumber] = month.split("-").map(Number);
-  const start = `${month}-01`;
-  const end = new Date(Date.UTC(year, monthNumber, 1))
-    .toISOString()
-    .slice(0, 10);
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const { supabase, household } = await getCurrentHousehold();
   if (!household) return null;
-  const [{ data }, insight] = await Promise.all([
+  const [{ data }, { data: accountsData }, insight] = await Promise.all([
     supabase
       .from("transactions")
       .select(
-        "id,type,amount_cents,description,transaction_date,scope,categories(name)",
+        "id,type,amount_cents,description,transaction_date,scope,account_id,categories(name)",
       )
       .eq("household_id", household.id)
       .eq("scope", "shared")
       .eq("status", "confirmed")
-      .gte("transaction_date", start)
-      .lt("transaction_date", end)
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    getHouseholdFinancialInsight(supabase, household.id, month),
+    supabase.from("accounts").select("id,type,current_balance_cents").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null),
+    getHouseholdFinancialInsight(supabase, household.id, currentMonth),
   ]);
   const rows = (data ?? []) as unknown as DashboardRow[];
+  const accounts = (accountsData ?? []) as DashboardAccount[];
   const income = rows
     .filter((r) => r.type === "income")
     .reduce((s, r) => s + r.amount_cents, 0);
   const expenses = rows
     .filter((r) => r.type === "expense")
     .reduce((s, r) => s + r.amount_cents, 0);
-  const savings = income - expenses;
+  const currentBalance = accounts.reduce((total, account) => total + calculateAccountBalance(account.current_balance_cents, account.id, rows), 0);
   const byCategory = new Map<string, number>();
   rows
     .filter((r) => r.type === "expense")
@@ -73,22 +68,10 @@ export default async function DashboardPage({
         <div>
           <p className="text-sm font-bold text-[#6c7f7a]">Resumen del hogar</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight md:text-4xl">
-            Así va vuestro mes
+            Así están vuestras finanzas
           </h1>
         </div>
         <div className="flex gap-3">
-          <form className="flex items-center gap-2">
-            <input
-              aria-label="Mes"
-              className="field"
-              type="month"
-              name="month"
-              defaultValue={month}
-            />
-            <button className="rounded-xl px-4 py-3 text-sm font-bold">
-              Ver
-            </button>
-          </form>
           <Link
             href="/app/movimientos/nuevo"
             className="flex items-center gap-2 rounded-xl bg-[#26725c] px-4 py-3 text-sm font-bold text-white"
@@ -104,24 +87,20 @@ export default async function DashboardPage({
       )}
       <section className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <SummaryCard
-          label="Ingresos"
+          label="Saldo actual"
+          value={formatMoney(currentBalance)}
+          tone="plain"
+          detail={currentBalance >= 0 ? "Saldo disponible hoy" : "Saldo negativo actual"}
+        />
+        <SummaryCard
+          label="Ingresos acumulados"
           value={formatMoney(income)}
           tone="green"
         />
         <SummaryCard
-          label="Gastos"
+          label="Gastos acumulados"
           value={formatMoney(expenses)}
           tone="coral"
-        />
-        <SummaryCard
-          label="Ahorro"
-          value={formatMoney(savings)}
-          tone="plain"
-          detail={
-            income
-              ? `${Math.round((savings / income) * 100)} % de los ingresos`
-              : "Sin ingresos este mes"
-          }
         />
         <SummaryCard
           label={insight.label}
@@ -134,9 +113,9 @@ export default async function DashboardPage({
       <section className="mt-6 grid gap-6 lg:grid-cols-[1.35fr_.9fr]">
         <article className="card p-5 md:p-7">
           <div>
-            <h2 className="text-lg font-black">Gastos por categoría</h2>
+            <h2 className="text-lg font-black">Gastos acumulados por categoría</h2>
             <p className="text-sm text-[#6c7f7a]">
-              Dónde se está yendo el dinero
+              Distribución histórica de los gastos compartidos
             </p>
           </div>
           <CategoryChart data={chart} />
@@ -146,7 +125,7 @@ export default async function DashboardPage({
             <div>
               <h2 className="text-lg font-black">Últimos movimientos</h2>
               <p className="text-sm text-[#6c7f7a]">
-                Los más recientes del mes
+                Los más recientes, sin importar el mes
               </p>
             </div>
             <Link

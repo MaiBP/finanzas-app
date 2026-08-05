@@ -8,6 +8,13 @@ export function calculateAccountBalance(initialBalance: number, accountId: strin
   }, initialBalance);
 }
 
+export function calculateBaseForTargetBalance(targetBalance: number, accountId: string, movements: BalanceMovement[]) {
+  return movements.reduce((base, movement) => {
+    if (movement.account_id !== accountId) return base;
+    return base - (movement.type === "income" ? movement.amount_cents : -movement.amount_cents);
+  }, targetBalance);
+}
+
 export function calculateParticipantExpenses(accountId: string, movements: ExpenseMovement[]) {
   const totals = new Map<string, number>();
   for (const movement of movements) {

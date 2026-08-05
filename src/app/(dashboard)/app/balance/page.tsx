@@ -11,27 +11,7 @@ type MemberRow = {
   profiles: { display_name: string | null } | null;
 };
 
-export default async function BalancePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ month?: string }>;
-}) {
-  const params = await searchParams;
-  const now = new Date();
-  const fallback = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const month = /^\d{4}-\d{2}$/.test(params.month ?? "")
-    ? params.month!
-    : fallback;
-  const [year, monthNumber] = month.split("-").map(Number);
-  const start = `${month}-01`;
-  const end = new Date(Date.UTC(year, monthNumber, 1))
-    .toISOString()
-    .slice(0, 10);
-  const monthName = new Intl.DateTimeFormat("es-ES", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${start}T00:00:00Z`));
+export default async function BalancePage() {
   const { supabase, household } = await getCurrentHousehold();
   if (!household) return null;
   const [{ data: membersData }, { data: movementData }] = await Promise.all([
@@ -44,9 +24,7 @@ export default async function BalancePage({
       .select("created_by,type,amount_cents")
       .eq("household_id", household.id)
       .eq("scope", "shared")
-      .eq("status", "confirmed")
-      .gte("transaction_date", start)
-      .lt("transaction_date", end),
+      .eq("status", "confirmed"),
   ]);
   const members = (membersData ?? []) as unknown as MemberRow[];
   const movements = (movementData ?? []) as MemberMovement[];
@@ -63,35 +41,25 @@ export default async function BalancePage({
   }));
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div>
         <div>
-          <p className="text-sm font-bold uppercase">Participación mensual</p>
+          <p className="text-sm font-bold uppercase">Participación acumulada</p>
           <h1 className="mt-1 text-3xl font-black">Balance</h1>
           <p className="mt-2 text-[#6c7f7a]">
             Ingresos y gastos compartidos registrados por cada persona.
           </p>
         </div>
-        <form className="flex items-center gap-2">
-          <input
-            aria-label="Mes"
-            className="field"
-            type="month"
-            name="month"
-            defaultValue={month}
-          />
-          <button className="rounded-xl px-4 py-3 text-sm font-bold">Ver</button>
-        </form>
       </div>
       <section className="mt-7 grid gap-4 sm:grid-cols-2">
         <article className="rounded-sm border border-[#3a3434]/20 bg-[#87cd64] p-5">
           <p className="w-fit bg-[#ffff50] px-1 text-xs font-black uppercase">
-            Ingresos · {monthName}
+            Ingresos acumulados
           </p>
           <p className="mt-3 text-3xl font-black">{formatMoney(totalIncome)}</p>
         </article>
         <article className="rounded-sm border border-[#3a3434]/20 bg-[#ff6e7d] p-5">
           <p className="w-fit bg-[#ffff50] px-1 text-xs font-black uppercase">
-            Gastos · {monthName}
+            Gastos acumulados
           </p>
           <p className="mt-3 text-3xl font-black">
             {formatMoney(totalExpenses)}
@@ -145,7 +113,7 @@ export default async function BalancePage({
         <article className="card p-6">
           <h2 className="text-xl font-black">Reparto de gastos</h2>
           <p className="mt-1 text-sm text-[#6c7f7a]">
-            Participación sobre los gastos compartidos del mes.
+            Participación sobre todos los gastos compartidos registrados.
           </p>
           <MemberFinancePie data={pieData} />
         </article>

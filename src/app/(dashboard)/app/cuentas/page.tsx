@@ -16,7 +16,7 @@ import {
   calculateAccountBalance,
   calculateParticipantExpenses,
 } from "@/lib/finance/account-overview";
-import { archiveSharedAccount, createSharedAccount } from "./actions";
+import { archiveSharedAccount, createSharedAccount, updateSharedAccount } from "./actions";
 
 type AccountRow = {
   id: string;
@@ -56,29 +56,9 @@ const typeNames: Record<string, string> = {
   investment: "Inversión",
 };
 
-export default async function AccountsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ month?: string }>;
-}) {
-  const params = await searchParams;
+export default async function AccountsPage() {
   const { supabase, household } = await getCurrentHousehold();
   if (!household) return null;
-  const now = new Date();
-  const fallback = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const month = /^\d{4}-\d{2}$/.test(params.month ?? "")
-    ? params.month!
-    : fallback;
-  const [year, monthNumber] = month.split("-").map(Number);
-  const monthStart = `${month}-01`;
-  const nextMonth = new Date(Date.UTC(year, monthNumber, 1))
-    .toISOString()
-    .slice(0, 10);
-  const monthName = new Intl.DateTimeFormat("es-ES", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${monthStart}T00:00:00Z`));
   const [
     { data: accountsData },
     { data: balanceData },
@@ -104,9 +84,7 @@ export default async function AccountsPage({
       .eq("household_id", household.id)
       .eq("scope", "shared")
       .eq("type", "expense")
-      .eq("status", "confirmed")
-      .gte("transaction_date", monthStart)
-      .lt("transaction_date", nextMonth),
+      .eq("status", "confirmed"),
     supabase
       .from("household_members")
       .select("user_id,profiles(display_name)")
@@ -130,7 +108,7 @@ export default async function AccountsPage({
       ),
     0,
   );
-  const totalMonthlyExpenses = expenseMovements.reduce(
+  const totalExpenses = expenseMovements.reduce(
     (total, movement) => total + movement.amount_cents,
     0,
   );
@@ -142,7 +120,7 @@ export default async function AccountsPage({
         : "En equilibrio";
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div>
         <div>
           <p className="text-sm font-bold uppercase">Fondos compartidos</p>
           <h1 className="mt-1 text-3xl font-black">Cuentas conjuntas</h1>
@@ -151,16 +129,6 @@ export default async function AccountsPage({
             entra o sale cada movimiento.
           </p>
         </div>
-        <form className="flex items-center gap-2">
-          <input
-            aria-label="Mes"
-            className="field"
-            type="month"
-            name="month"
-            defaultValue={month}
-          />
-          <button className="rounded-xl px-4 py-3 text-sm font-bold">Ver</button>
-        </form>
       </div>
       <section className="card mt-7 overflow-hidden">
         <div className="grid gap-6 p-6 md:grid-cols-[1.2fr_.8fr] md:items-end">
@@ -183,10 +151,10 @@ export default async function AccountsPage({
           </div>
           <div className="rounded-sm border border-[#3a3434]/20 bg-[#ff6e7d] p-5">
             <p className="w-fit bg-[#ffff50] px-1 text-xs font-black uppercase tracking-wide">
-              Gasto conjunto · {monthName}
+              Gasto conjunto acumulado
             </p>
             <p className="mt-3 text-3xl font-black">
-              {formatMoney(totalMonthlyExpenses)}
+              {formatMoney(totalExpenses)}
             </p>
             <p className="mt-1 text-xs text-[#3a3434]/75">
               Acumulado entre todas las cuentas operativas.
@@ -266,7 +234,7 @@ export default async function AccountsPage({
                 </div>
                 <div className="border-t border-[#3a3434]/15 bg-[#ffff50] p-5">
                   <p className="text-xs font-black uppercase tracking-wide">
-                    Gasto acumulado · {monthName}
+                    Gasto acumulado
                   </p>
                   <div className="mt-3 space-y-2">
                     {members.map((member) => (
@@ -284,6 +252,32 @@ export default async function AccountsPage({
                     ))}
                   </div>
                 </div>
+                <details className="border-t border-[#3a3434]/15 bg-white p-5">
+                  <summary className="cursor-pointer text-sm font-black">Editar cuenta</summary>
+                  <form action={updateSharedAccount} className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <input type="hidden" name="id" value={account.id} />
+                    <label>
+                      <span className="label">Nombre</span>
+                      <input className="field" name="name" defaultValue={account.name} required maxLength={80} />
+                    </label>
+                    <label>
+                      <span className="label">Tipo</span>
+                      <select className="field" name="type" defaultValue={account.type}>
+                        <option value="cash">Efectivo</option>
+                        <option value="bank">Banco</option>
+                        <option value="card">Tarjeta</option>
+                        <option value="savings">Ahorro</option>
+                        <option value="investment">Inversión</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span className="label">Saldo actual</span>
+                      <input className="field" name="balance" inputMode="decimal" defaultValue={(balance / 100).toFixed(2).replace(".", ",")} required />
+                    </label>
+                    <button className="self-end rounded-xl px-5 py-3 font-bold">Guardar cambios</button>
+                    <p className="text-xs text-[#6c7f7a] sm:col-span-2">El ajuste conserva todos los movimientos históricos y recalibra únicamente la base contable.</p>
+                  </form>
+                </details>
               </article>
             );
           })}
