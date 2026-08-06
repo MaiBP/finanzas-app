@@ -26,7 +26,9 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams;
   const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const currentYear = now.getFullYear();
+  const currentMonth = `${currentYear}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const today = `${currentMonth}-${String(now.getDate()).padStart(2, "0")}`;
   const { supabase, household } = await getCurrentHousehold();
   if (!household) return null;
   const [{ data }, { data: accountsData }, insight] = await Promise.all([
@@ -46,10 +48,19 @@ export default async function DashboardPage({
   const rows = (data ?? []) as unknown as DashboardRow[];
   const accounts = (accountsData ?? []) as DashboardAccount[];
   const currentRows = rows.filter((row) => row.transaction_date.startsWith(currentMonth));
+  const currentYearRows = rows.filter(
+    (row) => row.transaction_date.startsWith(`${currentYear}-`) && row.transaction_date <= today,
+  );
   const income = currentRows
     .filter((r) => r.type === "income")
     .reduce((s, r) => s + r.amount_cents, 0);
   const expenses = currentRows
+    .filter((r) => r.type === "expense")
+    .reduce((s, r) => s + r.amount_cents, 0);
+  const annualIncome = currentYearRows
+    .filter((r) => r.type === "income")
+    .reduce((s, r) => s + r.amount_cents, 0);
+  const annualExpenses = currentYearRows
     .filter((r) => r.type === "expense")
     .reduce((s, r) => s + r.amount_cents, 0);
   const currentBalance = accounts.reduce((total, account) => total + calculateAccountBalance(account.id, rows), 0);
@@ -97,11 +108,13 @@ export default async function DashboardPage({
           label="Ingresos del mes"
           value={formatMoney(income)}
           tone="green"
+          detail={`Acumulado ${currentYear}: ${formatMoney(annualIncome)}`}
         />
         <SummaryCard
           label="Gastos del mes"
           value={formatMoney(expenses)}
           tone="coral"
+          detail={`Acumulado ${currentYear}: ${formatMoney(annualExpenses)}`}
         />
         <SummaryCard
           label={insight.label}
