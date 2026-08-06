@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
+  Download,
   Pencil,
   Plus,
   Search,
@@ -90,6 +91,13 @@ export default async function TransactionsPage({
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilters = Boolean(search || type || from || to);
+  const exportParams = new URLSearchParams();
+  if (search) exportParams.set("q", search);
+  if (type) exportParams.set("type", type);
+  if (from) exportParams.set("from", from);
+  if (to) exportParams.set("to", to);
+  const exportQuery = exportParams.toString();
+  const exportHref = `/app/movimientos/exportar${exportQuery ? `?${exportQuery}` : ""}`;
   const paginationHref = (targetPage: number) => {
     const next = new URLSearchParams();
     if (search) next.set("q", search);
@@ -108,12 +116,20 @@ export default async function TransactionsPage({
           <p className="text-sm font-bold text-[#6c7f7a]">Todo en un sitio</p>
           <h1 className="text-3xl font-black">Movimientos</h1>
         </div>
-        <Link
-          href="/app/movimientos/nuevo"
-          className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold"
-        >
-          <Plus size={18} /> Nuevo movimiento
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={exportHref}
+            className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold"
+          >
+            <Download size={18} /> {hasFilters ? "Excel · selección" : "Excel · todo"}
+          </Link>
+          <Link
+            href="/app/movimientos/nuevo"
+            className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold"
+          >
+            <Plus size={18} /> Nuevo movimiento
+          </Link>
+        </div>
       </div>
       {params.error && (
         <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">
@@ -130,7 +146,8 @@ export default async function TransactionsPage({
                 size={17}
               />
               <input
-                className="field pl-11"
+                className="field"
+                style={{ paddingLeft: "3rem" }}
                 name="q"
                 defaultValue={search}
                 placeholder="Supermercado, alquiler…"
