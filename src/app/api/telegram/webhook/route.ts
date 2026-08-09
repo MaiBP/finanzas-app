@@ -9,6 +9,7 @@ import { executeTelegramAction } from "@/services/transaction-service/telegram";
 import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, matchAccountSelection, type AccountOption, type CreateTransactionAction } from "@/services/transaction-service/account-selection";
 import { executeFinanceQuery, getMonthSummary, getRecentTransactions } from "@/services/query-service";
 import { executeStatementImport, extractStatementTransactions, isPersonalStatementImport, isSupportedStatementFile, statementImportPayloadSchema, statementPreview } from "@/services/statement-import";
+import { fetchRecentMessages, recordMessage } from "@/services/conversation-history";
 
 export const maxDuration=60;
 
@@ -117,16 +118,17 @@ export async function POST(request:Request){
     const importReply=await handleStatementAttachment(db,message,link.user_id,membership.household_id);if(importReply){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(importReply));return NextResponse.json({ok:true});}
     if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"Acción cancelada.");return NextResponse.json({ok:true});}
     const importAccountReply=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,text);if(importAccountReply){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(importAccountReply));return NextResponse.json({ok:true});}
-    const accountSelectionReply=await handlePendingAccountSelection(db,link.user_id,membership.household_id,text);if(accountSelectionReply){await db.from("conversation_messages").insert([{user_id:link.user_id,household_id:membership.household_id,role:"user",content:text},{user_id:link.user_id,household_id:membership.household_id,role:"assistant",content:accountSelectionReply}]);await sendTelegramMessage(chat.id,withTelegramWebSuggestion(accountSelectionReply));return NextResponse.json({ok:true});}
+    const accountSelectionReply=await handlePendingAccountSelection(db,link.user_id,membership.household_id,text);if(accountSelectionReply){await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:accountSelectionReply});await sendTelegramMessage(chat.id,withTelegramWebSuggestion(accountSelectionReply));return NextResponse.json({ok:true});}
     if(yes.test(text)){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(await confirmPending(db,link.user_id,membership.household_id)));return NextResponse.json({ok:true});}
     if(text==="/resumen"){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(await getMonthSummary(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
     if(text==="/ultimos"){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(await getRecentTransactions(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
-    const [{data:categories},{data:accounts},{data:recent}]=await Promise.all([db.from("categories").select("name,kind").or(`household_id.eq.${membership.household_id},household_id.is.null`),db.from("accounts").select("name,is_shared").eq("household_id",membership.household_id).neq("type","joint").is("archived_at",null).or(`owner_user_id.eq.${link.user_id},is_shared.eq.true`),db.from("conversation_messages").select("role,content").eq("user_id",link.user_id).order("created_at",{ascending:false}).limit(6)]);
-    await db.from("conversation_messages").insert({user_id:link.user_id,household_id:membership.household_id,role:"user",content:text});
-    let action=await parseFinancialMessage({text,userId:link.user_id,householdId:membership.household_id,now:new Date().toISOString(),categories:categories??[],accounts:accounts??[],recentMessages:((recent??[]) as {role:"user"|"assistant";content:string}[]).reverse()});
+    const [{data:categories},{data:accounts},recent]=await Promise.all([db.from("categories").select("name,kind").or(`household_id.eq.${membership.household_id},household_id.is.null`),db.from("accounts").select("name,is_shared").eq("household_id",membership.household_id).neq("type","joint").is("archived_at",null).or(`owner_user_id.eq.${link.user_id},is_shared.eq.true`),fetchRecentMessages(db,link.user_id)]);
+    await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});
+    let action=await parseFinancialMessage({text,userId:link.user_id,householdId:membership.household_id,now:new Date().toISOString(),categories:categories??[],accounts:accounts??[],recentMessages:recent});
     let reply:string;
     if(action.action==="request_clarification")reply=action.data.question;
-    else if(action.action==="query_finances")reply=await executeFinanceQuery(db,membership.household_id,link.user_id,action.data);
+    else if(action.action==="general_question")reply=action.data.answer;
+    else if(action.action==="query_finances")reply=await executeFinanceQuery(db,membership.household_id,link.user_id,action.data,new Date(),{question:text,recentMessages:recent});
     else if(action.action==="cancel_action")reply="De acuerdo, no hago nada.";
     else if(action.action==="create_transaction"){
       const eligibleAccounts=accountsForAction(action,(accounts??[]) as AccountOption[]); action=assignOnlyAccount(action,eligibleAccounts);
@@ -135,7 +137,7 @@ export async function POST(request:Request){
       else {await queueAction(db,link.user_id,membership.household_id,action);reply="Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";}
     }
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";}
-    await db.from("conversation_messages").insert({user_id:link.user_id,household_id:membership.household_id,role:"assistant",content:reply});await sendTelegramMessage(chat.id,withTelegramWebSuggestion(reply));
+    await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:reply});await sendTelegramMessage(chat.id,withTelegramWebSuggestion(reply));
   }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("IMPORT_USER:")?error.message.slice("IMPORT_USER:".length):error instanceof Error&&error.message.startsWith("Indica qué cuenta")?error.message:"No he podido completar eso. Inténtalo de nuevo.";await sendTelegramMessage(chat.id,withTelegramWebSuggestion(safeMessage)).catch(()=>undefined);}
   return NextResponse.json({ok:true});
 }

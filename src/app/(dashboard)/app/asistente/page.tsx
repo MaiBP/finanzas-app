@@ -1,7 +1,12 @@
 import { Bot } from "lucide-react";
 import { AssistantForm } from "@/components/assistant/assistant-form";
+import { getCurrentHousehold } from "@/lib/household";
+import { fetchRecentMessages } from "@/services/conversation-history";
 
-export default function AssistantPage() {
+export default async function AssistantPage() {
+  const { supabase, user, household } = await getCurrentHousehold();
+  const initialMessages = household ? await fetchRecentMessages(supabase, user.id, 20) : [];
+
   return (
     <div className="mx-auto max-w-2xl">
       <p className="text-sm font-bold uppercase">Herramienta general</p>
@@ -16,11 +21,11 @@ export default function AssistantPage() {
             <b>¿Qué quieres saber?</b>
             <p className="mt-1 text-sm text-(--ink)/70">
               Distingo las finanzas compartidas de tus movimientos privados y solo combino ambos espacios cuando la
-              consulta lo requiere. No genero SQL.
+              consulta lo requiere. También puedo responder dudas generales de finanzas personales.
             </p>
           </div>
         </div>
-        <AssistantForm />
+        <AssistantForm initialMessages={initialMessages} />
       </section>
     </div>
   );

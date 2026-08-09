@@ -1,5 +1,7 @@
 import { formatMoney } from "@/lib/finance/money";
 import type { FinancialAction } from "@/services/financial-message-parser/schema";
+import type { ConversationMessage } from "@/services/conversation-history";
+import { phraseFinanceReply } from "@/services/finance-reply";
 
 interface DbClient {
   from: (table: string) => ReturnType<import("@supabase/supabase-js").SupabaseClient["from"]>;
@@ -19,6 +21,24 @@ type QueryRow = {
   accounts: { name: string } | null;
 };
 type PeriodRange = { from: string | null; to: string | null; label: string };
+type Totals = { income: number; expenses: number; result: number };
+
+export type FinanceQueryFacts =
+  | { kind: "no_data"; scope: FinanceScope; rangeLabel: string }
+  | { kind: "household_balance"; scope: FinanceScope; totals: Totals; shared?: Totals; personal?: Totals }
+  | {
+      kind: "recent_transactions";
+      items: { scope: "shared" | "personal"; account: string; type: "expense" | "income"; amount_cents: number; description: string; date: string }[];
+    }
+  | { kind: "category_spending"; scope: FinanceScope; rangeLabel: string; empty: true }
+  | { kind: "category_spending"; scope: FinanceScope; rangeLabel: string; empty?: false; categories: { name: string; amount_cents: number }[] }
+  | { kind: "user_contributions"; rangeLabel: string; members: { name: string; income: number; expenses: number }[] }
+  | { kind: "account_summary"; rangeLabel: string; accounts: { name: string; income: number; expenses: number; result: number }[] }
+  | { kind: "largest_transactions"; movementType: "expense" | "income"; rangeLabel: string; empty: true }
+  | { kind: "largest_transactions"; movementType: "expense" | "income"; rangeLabel: string; empty?: false; items: { description: string; amount_cents: number; date: string }[] }
+  | { kind: "monthly_trend"; scope: FinanceScope; months: { month: string; income: number; expenses: number; result: number }[] }
+  | { kind: "compare_months"; targetMonth: string; previousMonth: string; current: Totals; previous: Totals; expenseDifference: number }
+  | { kind: "summary"; scope: FinanceScope; rangeLabel: string; totals: Totals; shared?: Totals; personal?: Totals };
 
 export function accessibleFinanceFilter(userId: string) {
   return `scope.eq.shared,and(scope.eq.personal,created_by.eq.${userId})`;
@@ -93,7 +113,7 @@ export function resolveFinancePeriod(filters: QueryFilters, now = new Date()): P
   }
 }
 
-export function calculateTransactionTotals(rows: Pick<QueryRow, "type" | "amount_cents">[]) {
+export function calculateTransactionTotals(rows: Pick<QueryRow, "type" | "amount_cents">[]): Totals {
   const income = rows
     .filter((row) => row.type === "income")
     .reduce((total, row) => total + row.amount_cents, 0);
@@ -169,23 +189,28 @@ async function fetchQueryRows(
   return { rows, names, scope };
 }
 
-function summaryReply(rows: QueryRow[], scope: FinanceScope, label: string) {
+function summaryFacts(rows: QueryRow[], scope: FinanceScope, rangeLabel: string): FinanceQueryFacts {
   const totals = calculateTransactionTotals(rows);
   if (scope === "combined") {
-    const shared = calculateTransactionTotals(rows.filter((row) => row.scope === "shared"));
-    const personal = calculateTransactionTotals(rows.filter((row) => row.scope === "personal"));
-    return `Durante ${label}, en el hogar: ingresos ${formatMoney(shared.income)}, gastos ${formatMoney(shared.expenses)}, resultado ${formatMoney(shared.result)}. En tu espacio personal: ingresos ${formatMoney(personal.income)}, gastos ${formatMoney(personal.expenses)}, resultado ${formatMoney(personal.result)}. Resultado combinado: ${formatMoney(totals.result)}.`;
+    return {
+      kind: "summary",
+      scope,
+      rangeLabel,
+      totals,
+      shared: calculateTransactionTotals(rows.filter((row) => row.scope === "shared")),
+      personal: calculateTransactionTotals(rows.filter((row) => row.scope === "personal")),
+    };
   }
-  return `En ${scopeLabel(scope)}, durante ${label}: ${formatMoney(totals.income)} de ingresos y ${formatMoney(totals.expenses)} de gastos. El resultado es ${formatMoney(totals.result)}.`;
+  return { kind: "summary", scope, rangeLabel, totals };
 }
 
-export async function executeFinanceQuery(
+export async function computeFinanceQueryFacts(
   db: DbClient,
   householdId: string,
   userId: string,
   data: FinanceQuery,
   now = new Date(),
-) {
+): Promise<FinanceQueryFacts> {
   const filters = data.filters;
   const today = madridToday(now);
   let range = resolveFinancePeriod(filters, now);
@@ -204,21 +229,31 @@ export async function executeFinanceQuery(
     range = { from: `${previousMonth}-01`, to: targetMonth === today.slice(0, 7) ? today : monthEnd(targetMonth), label: "la comparación solicitada" };
   }
   const { rows, names, scope } = await fetchQueryRows(db, householdId, userId, filters, range);
-  if (!rows.length) return `No hay movimientos confirmados en ${scopeLabel(scope)} para ${range.label}.`;
+  if (!rows.length) return { kind: "no_data", scope, rangeLabel: range.label };
 
   if (data.query_type === "household_balance") {
     const totals = calculateTransactionTotals(rows);
     if (scope === "combined") {
-      const shared = calculateTransactionTotals(rows.filter((row) => row.scope === "shared"));
-      const personal = calculateTransactionTotals(rows.filter((row) => row.scope === "personal"));
-      return `El saldo actual del hogar es ${formatMoney(shared.result)} y el de tu espacio personal es ${formatMoney(personal.result)}. El saldo combinado es ${formatMoney(totals.result)}. Todo está calculado con movimientos confirmados.`;
+      return {
+        kind: "household_balance",
+        scope,
+        totals,
+        shared: calculateTransactionTotals(rows.filter((row) => row.scope === "shared")),
+        personal: calculateTransactionTotals(rows.filter((row) => row.scope === "personal")),
+      };
     }
-    return `El saldo actual de ${scopeLabel(scope)} es ${formatMoney(totals.result)}: ${formatMoney(totals.income)} de ingresos menos ${formatMoney(totals.expenses)} de gastos registrados.`;
+    return { kind: "household_balance", scope, totals };
   }
   if (data.query_type === "recent_transactions") {
-    return rows.slice(0, filters.limit ?? 5).map((row) =>
-      `${row.scope === "shared" ? "Conjunto" : "Personal"} · ${row.accounts?.name ?? "Sin cuenta"} · ${row.type === "expense" ? "−" : "+"}${formatMoney(row.amount_cents)} · ${row.description} (${row.transaction_date})`,
-    ).join("\n");
+    const items = rows.slice(0, filters.limit ?? 5).map((row) => ({
+      scope: row.scope,
+      account: row.accounts?.name ?? "Sin cuenta",
+      type: row.type,
+      amount_cents: row.amount_cents,
+      description: row.description,
+      date: row.transaction_date,
+    }));
+    return { kind: "recent_transactions", items };
   }
   if (data.query_type === "category_spending") {
     const expenses = rows.filter((row) => row.type === "expense");
@@ -227,18 +262,18 @@ export async function executeFinanceQuery(
       const category = row.categories?.name ?? "Sin categoría";
       totals.set(category, (totals.get(category) ?? 0) + row.amount_cents);
     }
-    if (!totals.size) return `No hay gastos confirmados en ${scopeLabel(scope)} para ${range.label}.`;
-    const detail = [...totals].sort((a, b) => b[1] - a[1]).map(([name, amount]) => `${name}: ${formatMoney(amount)}`).join("; ");
-    return `Gastos por categoría en ${scopeLabel(scope)}, durante ${range.label}: ${detail}.`;
+    if (!totals.size) return { kind: "category_spending", scope, rangeLabel: range.label, empty: true };
+    const categories = [...totals].sort((a, b) => b[1] - a[1]).map(([name, amount_cents]) => ({ name, amount_cents }));
+    return { kind: "category_spending", scope, rangeLabel: range.label, categories };
   }
   if (data.query_type === "user_contributions") {
     const totals = new Map<string, QueryRow[]>();
     for (const row of rows) totals.set(row.created_by, [...(totals.get(row.created_by) ?? []), row]);
-    const detail = [...totals].map(([id, memberRows]) => {
+    const members = [...totals].map(([id, memberRows]) => {
       const values = calculateTransactionTotals(memberRows);
-      return `${names.get(id) ?? "Miembro"}: ingresos ${formatMoney(values.income)}, gastos ${formatMoney(values.expenses)}`;
-    }).join("; ");
-    return `Detalle por persona durante ${range.label}: ${detail}.`;
+      return { name: names.get(id) ?? "Miembro", income: values.income, expenses: values.expenses };
+    });
+    return { kind: "user_contributions", rangeLabel: range.label, members };
   }
   if (data.query_type === "account_summary") {
     const totals = new Map<string, QueryRow[]>();
@@ -246,39 +281,92 @@ export async function executeFinanceQuery(
       const account = row.accounts?.name ?? "Sin cuenta";
       totals.set(account, [...(totals.get(account) ?? []), row]);
     }
-    const detail = [...totals].map(([account, accountRows]) => {
+    const accounts = [...totals].map(([name, accountRows]) => {
       const values = calculateTransactionTotals(accountRows);
-      return `${account}: ingresos ${formatMoney(values.income)}, gastos ${formatMoney(values.expenses)}, saldo ${formatMoney(values.result)}`;
-    }).join("; ");
-    return `Actividad por cuenta durante ${range.label}: ${detail}.`;
+      return { name, income: values.income, expenses: values.expenses, result: values.result };
+    });
+    return { kind: "account_summary", rangeLabel: range.label, accounts };
   }
   if (data.query_type === "largest_transactions") {
     const movementType = filters.movement_type === "income" ? "income" : "expense";
     const selected = rows.filter((row) => row.type === movementType).sort((a, b) => b.amount_cents - a.amount_cents).slice(0, filters.limit ?? 5);
-    if (!selected.length) return `No hay ${movementType === "expense" ? "gastos" : "ingresos"} confirmados para ${range.label}.`;
-    return selected.map((row, index) => `${index + 1}. ${row.description}: ${formatMoney(row.amount_cents)} (${row.transaction_date})`).join("\n");
+    if (!selected.length) return { kind: "largest_transactions", movementType, rangeLabel: range.label, empty: true };
+    const items = selected.map((row) => ({ description: row.description, amount_cents: row.amount_cents, date: row.transaction_date }));
+    return { kind: "largest_transactions", movementType, rangeLabel: range.label, items };
   }
   if (data.query_type === "monthly_trend") {
-    const months = new Map<string, QueryRow[]>();
+    const monthsMap = new Map<string, QueryRow[]>();
     for (const row of rows) {
       const month = row.transaction_date.slice(0, 7);
-      months.set(month, [...(months.get(month) ?? []), row]);
+      monthsMap.set(month, [...(monthsMap.get(month) ?? []), row]);
     }
-    const detail = [...months].sort(([a], [b]) => a.localeCompare(b)).map(([month, monthRows]) => {
+    const months = [...monthsMap].sort(([a], [b]) => a.localeCompare(b)).map(([month, monthRows]) => {
       const values = calculateTransactionTotals(monthRows);
-      return `${month}: ingresos ${formatMoney(values.income)}, gastos ${formatMoney(values.expenses)}, resultado ${formatMoney(values.result)}`;
-    }).join("\n");
-    return `Evolución mensual de ${scopeLabel(scope)}:\n${detail}`;
+      return { month, income: values.income, expenses: values.expenses, result: values.result };
+    });
+    return { kind: "monthly_trend", scope, months };
   }
   if (data.query_type === "compare_months") {
     const targetMonth = filters.month ?? today.slice(0, 7);
     const previousMonth = shiftMonth(targetMonth, -1);
-    const currentTotals = calculateTransactionTotals(rows.filter((row) => row.transaction_date.startsWith(targetMonth)));
-    const previousTotals = calculateTransactionTotals(rows.filter((row) => row.transaction_date.startsWith(previousMonth)));
-    const expenseDifference = currentTotals.expenses - previousTotals.expenses;
-    return `${targetMonth}: ingresos ${formatMoney(currentTotals.income)}, gastos ${formatMoney(currentTotals.expenses)}. ${previousMonth}: ingresos ${formatMoney(previousTotals.income)}, gastos ${formatMoney(previousTotals.expenses)}. La diferencia de gastos es ${expenseDifference >= 0 ? "+" : ""}${formatMoney(expenseDifference)}.`;
+    const current = calculateTransactionTotals(rows.filter((row) => row.transaction_date.startsWith(targetMonth)));
+    const previous = calculateTransactionTotals(rows.filter((row) => row.transaction_date.startsWith(previousMonth)));
+    return { kind: "compare_months", targetMonth, previousMonth, current, previous, expenseDifference: current.expenses - previous.expenses };
   }
-  return summaryReply(rows, scope, range.label);
+  return summaryFacts(rows, scope, range.label);
+}
+
+export function formatFinanceReply(facts: FinanceQueryFacts): string {
+  switch (facts.kind) {
+    case "no_data":
+      return `No hay movimientos confirmados en ${scopeLabel(facts.scope)} para ${facts.rangeLabel}.`;
+    case "household_balance":
+      if (facts.scope === "combined" && facts.shared && facts.personal) {
+        return `El saldo actual del hogar es ${formatMoney(facts.shared.result)} y el de tu espacio personal es ${formatMoney(facts.personal.result)}. El saldo combinado es ${formatMoney(facts.totals.result)}. Todo está calculado con movimientos confirmados.`;
+      }
+      return `El saldo actual de ${scopeLabel(facts.scope)} es ${formatMoney(facts.totals.result)}: ${formatMoney(facts.totals.income)} de ingresos menos ${formatMoney(facts.totals.expenses)} de gastos registrados.`;
+    case "recent_transactions":
+      return facts.items.map((item) =>
+        `${item.scope === "shared" ? "Conjunto" : "Personal"} · ${item.account} · ${item.type === "expense" ? "−" : "+"}${formatMoney(item.amount_cents)} · ${item.description} (${item.date})`,
+      ).join("\n");
+    case "category_spending":
+      if (facts.empty) return `No hay gastos confirmados en ${scopeLabel(facts.scope)} para ${facts.rangeLabel}.`;
+      return `Gastos por categoría en ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: ${facts.categories.map((c) => `${c.name}: ${formatMoney(c.amount_cents)}`).join("; ")}.`;
+    case "user_contributions":
+      return `Detalle por persona durante ${facts.rangeLabel}: ${facts.members.map((m) => `${m.name}: ingresos ${formatMoney(m.income)}, gastos ${formatMoney(m.expenses)}`).join("; ")}.`;
+    case "account_summary":
+      return `Actividad por cuenta durante ${facts.rangeLabel}: ${facts.accounts.map((a) => `${a.name}: ingresos ${formatMoney(a.income)}, gastos ${formatMoney(a.expenses)}, saldo ${formatMoney(a.result)}`).join("; ")}.`;
+    case "largest_transactions":
+      if (facts.empty) return `No hay ${facts.movementType === "expense" ? "gastos" : "ingresos"} confirmados para ${facts.rangeLabel}.`;
+      return facts.items.map((item, index) => `${index + 1}. ${item.description}: ${formatMoney(item.amount_cents)} (${item.date})`).join("\n");
+    case "monthly_trend":
+      return `Evolución mensual de ${scopeLabel(facts.scope)}:\n${facts.months.map((m) => `${m.month}: ingresos ${formatMoney(m.income)}, gastos ${formatMoney(m.expenses)}, resultado ${formatMoney(m.result)}`).join("\n")}`;
+    case "compare_months":
+      return `${facts.targetMonth}: ingresos ${formatMoney(facts.current.income)}, gastos ${formatMoney(facts.current.expenses)}. ${facts.previousMonth}: ingresos ${formatMoney(facts.previous.income)}, gastos ${formatMoney(facts.previous.expenses)}. La diferencia de gastos es ${facts.expenseDifference >= 0 ? "+" : ""}${formatMoney(facts.expenseDifference)}.`;
+    case "summary":
+      if (facts.scope === "combined" && facts.shared && facts.personal) {
+        return `Durante ${facts.rangeLabel}, en el hogar: ingresos ${formatMoney(facts.shared.income)}, gastos ${formatMoney(facts.shared.expenses)}, resultado ${formatMoney(facts.shared.result)}. En tu espacio personal: ingresos ${formatMoney(facts.personal.income)}, gastos ${formatMoney(facts.personal.expenses)}, resultado ${formatMoney(facts.personal.result)}. Resultado combinado: ${formatMoney(facts.totals.result)}.`;
+      }
+      return `En ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: ${formatMoney(facts.totals.income)} de ingresos y ${formatMoney(facts.totals.expenses)} de gastos. El resultado es ${formatMoney(facts.totals.result)}.`;
+  }
+}
+
+export async function executeFinanceQuery(
+  db: DbClient,
+  householdId: string,
+  userId: string,
+  data: FinanceQuery,
+  now = new Date(),
+  context?: { question: string; recentMessages?: ConversationMessage[] },
+): Promise<string> {
+  const facts = await computeFinanceQueryFacts(db, householdId, userId, data, now);
+  if (!context) return formatFinanceReply(facts);
+  try {
+    return await phraseFinanceReply(facts, context.question, context.recentMessages ?? []);
+  } catch (error) {
+    console.error("phraseFinanceReply failed, falling back to template", error);
+    return formatFinanceReply(facts);
+  }
 }
 
 export async function getRecordedBalance(db: DbClient, householdId: string, userId: string, scope: FinanceScope = "combined") {
