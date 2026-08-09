@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, Plus } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, PiggyBank, Plus } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
-import { SummaryCard } from "@/components/dashboard/summary-card";
+import { StatTile } from "@/components/ui/stat-tile";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LinkButton } from "@/components/ui/button";
 import { CategoryChart } from "@/components/charts/category-chart";
 import { getHouseholdFinancialInsight } from "@/services/financial-insights";
 import { groupCategoryChartData } from "@/lib/finance/category-chart";
@@ -78,45 +80,43 @@ export default async function DashboardPage({
     <>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-bold text-[#6c7f7a]">Resumen del hogar</p>
+          <p className="text-sm font-bold text-(--muted)">Resumen del hogar</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight md:text-4xl">
             Así están vuestras finanzas
           </h1>
         </div>
         <div className="flex gap-3">
-          <Link
-            href="/app/movimientos/nuevo"
-            className="flex items-center gap-2 rounded-xl bg-[#26725c] px-4 py-3 text-sm font-bold text-white"
-          >
+          <LinkButton href="/app/movimientos/nuevo" size="sm">
             <Plus size={18} /> <span className="hidden sm:inline">Añadir</span>
-          </Link>
+          </LinkButton>
         </div>
       </div>
       {params.created && (
-        <p className="mt-5 rounded-xl bg-[#dceee6] p-3 text-sm font-bold text-[#26725c]">
+        <p className="mt-5 rounded-xl bg-(--lime) p-3 text-sm font-bold text-(--ink)">
           Movimiento guardado y resumen actualizado.
         </p>
       )}
       <section className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryCard
+        <StatTile
           label="Saldo actual"
           value={formatMoney(currentBalance)}
           tone="plain"
           detail="Según movimientos registrados"
+          icon={PiggyBank}
         />
-        <SummaryCard
+        <StatTile
           label="Ingresos del mes"
           value={formatMoney(income)}
           tone="green"
           detail={`Acumulado ${currentYear}: ${formatMoney(annualIncome)}`}
         />
-        <SummaryCard
+        <StatTile
           label="Gastos del mes"
           value={formatMoney(expenses)}
           tone="coral"
           detail={`Acumulado ${currentYear}: ${formatMoney(annualExpenses)}`}
         />
-        <SummaryCard
+        <StatTile
           label={insight.label}
           value={insight.message}
           tone="lilac"
@@ -128,7 +128,7 @@ export default async function DashboardPage({
         <article className="card p-5 md:p-7">
           <div>
             <h2 className="text-lg font-black">Gastos del mes por categoría</h2>
-            <p className="text-sm text-[#6c7f7a]">
+            <p className="text-sm text-(--muted)">
               Distribución del mes corriente
             </p>
           </div>
@@ -138,13 +138,13 @@ export default async function DashboardPage({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black">Últimos movimientos</h2>
-              <p className="text-sm text-[#6c7f7a]">
+              <p className="text-sm text-(--muted)">
                 Los más recientes, sin importar el mes
               </p>
             </div>
             <Link
               href="/app/movimientos"
-              className="text-sm font-bold text-[#26725c]"
+              className="text-sm font-bold text-(--ink) hover:underline"
             >
               Ver todos
             </Link>
@@ -153,7 +153,7 @@ export default async function DashboardPage({
             {rows.slice(0, 6).map((row) => (
               <div key={row.id} className="flex items-center gap-3 py-3">
                 <span
-                  className={`grid size-10 shrink-0 place-items-center rounded-xl ${row.type === "expense" ? "bg-[#f7ddd4] text-[#b34f36]" : "bg-[#dceee6] text-[#26725c]"}`}
+                  className={`grid size-10 shrink-0 place-items-center rounded-xl ${row.type === "expense" ? "bg-(--pink) text-[#b34f36]" : "bg-(--lime) text-(--ink)"}`}
                 >
                   {row.type === "expense" ? (
                     <ArrowUpRight size={18} />
@@ -165,7 +165,7 @@ export default async function DashboardPage({
                   <p className="truncate text-sm font-bold">
                     {row.description}
                   </p>
-                  <p className="text-xs text-[#6c7f7a]">
+                  <p className="text-xs text-(--muted)">
                     {row.categories?.name ?? "Sin categoría"}
                   </p>
                 </div>
@@ -176,9 +176,12 @@ export default async function DashboardPage({
               </div>
             ))}
             {!rows.length && (
-              <p className="py-12 text-center text-sm text-[#6c7f7a]">
-                Aún no hay movimientos. El primero se apunta en un minuto.
-              </p>
+              <EmptyState
+                icon={ArrowDownLeft}
+                title="Aún no hay movimientos"
+                description="El primero se apunta en un minuto."
+                action={{ label: "Añadir movimiento", href: "/app/movimientos/nuevo" }}
+              />
             )}
           </div>
         </article>

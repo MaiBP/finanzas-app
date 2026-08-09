@@ -5,6 +5,7 @@ import {
   type MemberMovement,
 } from "@/lib/finance/member-summary";
 import { formatMoney } from "@/lib/finance/money";
+import { StatTile } from "@/components/ui/stat-tile";
 
 type MemberRow = {
   user_id: string;
@@ -52,26 +53,14 @@ export default async function BalancePage() {
         <div>
           <p className="text-sm font-bold uppercase">Participación · {monthName}</p>
           <h1 className="mt-1 text-3xl font-black">Balance</h1>
-          <p className="mt-2 text-[#6c7f7a]">
+          <p className="mt-2 text-(--muted)">
             Ingresos y gastos compartidos registrados por cada persona.
           </p>
         </div>
       </div>
       <section className="mt-7 grid gap-4 sm:grid-cols-2">
-        <article className="rounded-sm border border-[#3a3434]/20 bg-[#87cd64] p-5">
-          <p className="w-fit bg-[#ffff50] px-1 text-xs font-black uppercase">
-            Ingresos del mes
-          </p>
-          <p className="mt-3 text-3xl font-black">{formatMoney(totalIncome)}</p>
-        </article>
-        <article className="rounded-sm border border-[#3a3434]/20 bg-[#ff6e7d] p-5">
-          <p className="w-fit bg-[#ffff50] px-1 text-xs font-black uppercase">
-            Gastos del mes
-          </p>
-          <p className="mt-3 text-3xl font-black">
-            {formatMoney(totalExpenses)}
-          </p>
-        </article>
+        <StatTile label="Ingresos del mes" value={formatMoney(totalIncome)} tone="green" />
+        <StatTile label="Gastos del mes" value={formatMoney(totalExpenses)} tone="coral" />
       </section>
       <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_.9fr]">
         <article className="card p-6">
@@ -85,22 +74,22 @@ export default async function BalancePage() {
               return (
                 <div
                   key={member.user_id}
-                  className="rounded-xl bg-[#f6f4ec] p-4"
+                  className="rounded-xl bg-(--canvas) p-4"
                 >
                   <p className="font-black">
                     {member.profiles?.display_name ?? "Miembro"}
                   </p>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <span className="block text-xs font-bold uppercase text-[#6c7f7a]">
+                      <span className="block text-xs font-bold uppercase text-(--muted)">
                         Ingresos
                       </span>
-                      <b className="text-[#26725c]">
+                      <b className="text-(--ink)">
                         {formatMoney(values.income)}
                       </b>
                     </div>
                     <div>
-                      <span className="block text-xs font-bold uppercase text-[#6c7f7a]">
+                      <span className="block text-xs font-bold uppercase text-(--muted)">
                         Gastos
                       </span>
                       <b className="text-[#b34f36]">
@@ -112,14 +101,14 @@ export default async function BalancePage() {
               );
             })}
           </div>
-          <p className="mt-5 text-xs text-[#6c7f7a]">
+          <p className="mt-5 text-xs text-(--muted)">
             Los movimientos se atribuyen a quien los registró. Un extracto
             importado queda asociado a la persona que lo subió.
           </p>
         </article>
         <article className="card p-6">
           <h2 className="text-xl font-black">Reparto de gastos</h2>
-          <p className="mt-1 text-sm text-[#6c7f7a]">
+          <p className="mt-1 text-sm text-(--muted)">
             Participación sobre los gastos compartidos del mes corriente.
           </p>
           <MemberFinancePie data={pieData} />

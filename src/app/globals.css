@@ -16,26 +16,32 @@
   --success: #2e7d32;
 }
 
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  color: var(--ink);
-  background: var(--canvas);
-  font-family: var(--font-interface), Arial, Helvetica, sans-serif;
-  line-height: 1.5;
-}
-button, input, select { font: inherit; }
-button, a { -webkit-tap-highlight-color: transparent; }
-a { color: inherit; }
-::selection { background: var(--highlight); color: var(--ink); }
-:focus-visible { outline: 3px solid var(--highlight); outline-offset: 3px; }
+/* @layer base coloca este reset por debajo de @layer utilities (declarado por
+   Tailwind) en la cascada, para que las utilidades de color/tipografía puedan
+   sobreescribirlo sin necesitar !important. Fuera de un @layer, este CSS
+   quedaría "sin capa" y ganaría automáticamente sobre cualquier utilidad. */
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background: var(--canvas);
+    font-family: var(--font-interface), Arial, Helvetica, sans-serif;
+    line-height: 1.5;
+  }
+  button, input, select { font: inherit; }
+  button, a { -webkit-tap-highlight-color: transparent; }
+  a { color: inherit; }
+  ::selection { background: var(--highlight); color: var(--ink); }
+  :focus-visible { outline: 3px solid var(--highlight); outline-offset: 3px; }
 
-h1, .display-title {
-  font-family: var(--font-display), "Arial Narrow", sans-serif;
-  font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: .95;
-  text-transform: uppercase;
+  h1, .display-title {
+    font-family: var(--font-display), "Arial Narrow", sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: .95;
+    text-transform: uppercase;
+  }
 }
 
 .card {
@@ -89,10 +95,12 @@ h1, .display-title {
 }
 
 /* Botones: amarillo y carbón en reposo; colores invertidos al interactuar. */
+/* data-button-theme="custom" es la salida de escape del componente <Button>/<LinkButton>,
+   que trae sus propias variantes explícitas y no depende de este hack. */
 main button:not([data-button-theme="custom"]),
-main a[class~="rounded-full"],
-main a[class~="rounded-lg"],
-main a[class~="rounded-xl"] {
+main a[class~="rounded-full"]:not([data-button-theme="custom"]),
+main a[class~="rounded-lg"]:not([data-button-theme="custom"]),
+main a[class~="rounded-xl"]:not([data-button-theme="custom"]) {
   border-color: var(--ink) !important;
   background-color: var(--highlight) !important;
   color: var(--ink) !important;
@@ -104,10 +112,10 @@ main a[data-button-theme="inverse"] {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  main button:not(:disabled):hover,
-  main a[class~="rounded-full"]:hover,
-  main a[class~="rounded-lg"]:hover,
-  main a[class~="rounded-xl"]:hover {
+  main button:not([data-button-theme="custom"]):not(:disabled):hover,
+  main a[class~="rounded-full"]:not([data-button-theme="custom"]):hover,
+  main a[class~="rounded-lg"]:not([data-button-theme="custom"]):hover,
+  main a[class~="rounded-xl"]:not([data-button-theme="custom"]):hover {
     border-color: var(--ink) !important;
     background-color: var(--ink) !important;
     color: var(--highlight) !important;
@@ -120,10 +128,10 @@ main a[data-button-theme="inverse"] {
     color: var(--ink) !important;
   }
 
-  main button:not(:disabled):active,
-  main a[class~="rounded-full"]:active,
-  main a[class~="rounded-lg"]:active,
-  main a[class~="rounded-xl"]:active {
+  main button:not([data-button-theme="custom"]):not(:disabled):active,
+  main a[class~="rounded-full"]:not([data-button-theme="custom"]):active,
+  main a[class~="rounded-lg"]:not([data-button-theme="custom"]):active,
+  main a[class~="rounded-xl"]:not([data-button-theme="custom"]):active {
     box-shadow: none;
     transform: translateY(0);
   }

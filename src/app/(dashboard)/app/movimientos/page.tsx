@@ -12,6 +12,9 @@ import {
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
 import { softDeleteTransaction } from "../actions";
+import { Button, LinkButton } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Banner } from "@/components/ui/banner";
 
 type Row = {
   id: string;
@@ -113,36 +116,26 @@ export default async function TransactionsPage({
     <>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-bold text-[#6c7f7a]">Todo en un sitio</p>
+          <p className="text-sm font-bold text-(--muted)">Todo en un sitio</p>
           <h1 className="text-3xl font-black">Movimientos</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            href={exportHref}
-            className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold"
-          >
+          <LinkButton href={exportHref} variant="outline" size="sm">
             <Download size={18} /> {hasFilters ? "Excel · selección" : "Excel · todo"}
-          </Link>
-          <Link
-            href="/app/movimientos/nuevo"
-            className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold"
-          >
+          </LinkButton>
+          <LinkButton href="/app/movimientos/nuevo" size="sm">
             <Plus size={18} /> Nuevo movimiento
-          </Link>
+          </LinkButton>
         </div>
       </div>
-      {params.error && (
-        <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">
-          {params.error}
-        </p>
-      )}
+      <Banner kind="error">{params.error}</Banner>
       <form className="card mt-6 p-5">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_160px_160px_160px_auto] xl:items-end">
           <label>
             <span className="label">Buscar movimiento</span>
             <div className="relative">
               <Search
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#6e6464]"
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-(--muted)"
                 size={17}
               />
               <input
@@ -171,24 +164,19 @@ export default async function TransactionsPage({
             <input className="field" type="date" name="to" defaultValue={to} />
           </label>
           <div className="flex gap-2 md:col-span-2 xl:col-span-1">
-            <button className="min-h-12 flex-1 rounded-xl px-5 py-2.5 font-bold xl:flex-none">
+            <Button type="submit" className="min-h-12 flex-1 xl:flex-none">
               Aplicar filtros
-            </button>
+            </Button>
             {hasFilters && (
-              <Link
-                href="/app/movimientos"
-                aria-label="Limpiar filtros"
-                data-button-theme="inverse"
-                className="grid min-h-12 min-w-12 place-items-center rounded-xl"
-              >
+              <LinkButton href="/app/movimientos" aria-label="Limpiar filtros" variant="inverse" size="icon">
                 <X size={18} />
-              </Link>
+              </LinkButton>
             )}
           </div>
         </div>
       </form>
       <section className="card mt-5 overflow-hidden">
-        <div className="hidden grid-cols-[minmax(0,1.2fr)_120px_110px_110px_100px_120px_76px] gap-3 border-b border-black/10 px-6 py-3 text-xs font-bold uppercase tracking-wide text-[#6c7f7a] xl:grid">
+        <div className="hidden grid-cols-[minmax(0,1.2fr)_120px_110px_110px_100px_120px_76px] gap-3 border-b border-black/10 px-6 py-3 text-xs font-bold uppercase tracking-wide text-(--muted) xl:grid">
           <span>Descripción</span><span>Registrado por</span><span>Cuenta</span>
           <span>Categoría</span><span>Fecha</span>
           <span className="text-right">Importe</span><span />
@@ -202,7 +190,7 @@ export default async function TransactionsPage({
             >
               <div className="min-w-0">
                 <p className="truncate font-bold">{row.description}</p>
-                <p className="mt-1 text-xs text-[#6c7f7a] xl:hidden">
+                <p className="mt-1 text-xs text-(--muted) xl:hidden">
                   {row.accounts?.name ?? "Sin cuenta"} · {row.categories?.name ?? "Sin categoría"} · {row.transaction_date}
                 </p>
                 <p className="mt-1 text-xs font-bold xl:hidden">Registrado por {creator}</p>
@@ -210,8 +198,8 @@ export default async function TransactionsPage({
               <span className="hidden truncate text-sm font-bold xl:block">{creator}</span>
               <span className="hidden truncate text-sm font-bold xl:block">{row.accounts?.name ?? "Sin cuenta"}</span>
               <span className="hidden truncate text-sm xl:block">{row.categories?.name ?? "Sin categoría"}</span>
-              <span className="hidden text-sm text-[#6c7f7a] xl:block">{row.transaction_date}</span>
-              <b className={`self-start text-right xl:self-auto ${row.type === "income" ? "text-[#26725c]" : ""}`}>
+              <span className="hidden text-sm text-(--muted) xl:block">{row.transaction_date}</span>
+              <b className={`self-start text-right xl:self-auto ${row.type === "income" ? "text-(--ink)" : ""}`}>
                 {row.type === "expense" ? "−" : "+"}{formatMoney(row.amount_cents)}
               </b>
               {row.created_by === user.id ? (
@@ -231,33 +219,35 @@ export default async function TransactionsPage({
           );
         })}
         {!rows.length && (
-          <div className="p-14 text-center">
-            <p className="font-bold">No hay movimientos</p>
-            <p className="mt-1 text-sm text-[#6c7f7a]">Prueba otros filtros o añade el primero.</p>
-          </div>
+          <EmptyState
+            icon={Search}
+            title="No hay movimientos"
+            description="Prueba otros filtros o añade el primero."
+            action={{ label: "Nuevo movimiento", href: "/app/movimientos/nuevo" }}
+          />
         )}
         {total > 0 && (
           <nav aria-label="Paginación de movimientos" className="flex flex-wrap items-center justify-between gap-3 border-t border-black/10 bg-white px-4 py-4 sm:px-6">
-            <p className="text-sm font-bold text-[#6c7f7a]">
+            <p className="text-sm font-bold text-(--muted)">
               {offset + 1}–{Math.min(offset + rows.length, total)} de {total}
             </p>
             <div className="flex items-center gap-2">
               {page > 1 ? (
-                <Link href={paginationHref(page - 1)} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold">
+                <LinkButton href={paginationHref(page - 1)} variant="outline" size="sm">
                   <ChevronLeft size={17} /> Anterior
-                </Link>
+                </LinkButton>
               ) : (
-                <span className="flex items-center gap-1 rounded-xl border border-black/10 px-4 py-2 text-sm font-bold opacity-40">
+                <span className="flex items-center gap-1 rounded-full border border-black/10 px-4 py-2.5 text-xs font-bold opacity-40">
                   <ChevronLeft size={17} /> Anterior
                 </span>
               )}
               <span className="min-w-20 text-center text-sm font-black">{page} / {totalPages}</span>
               {page < totalPages ? (
-                <Link href={paginationHref(page + 1)} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold">
+                <LinkButton href={paginationHref(page + 1)} variant="outline" size="sm">
                   Siguiente <ChevronRight size={17} />
-                </Link>
+                </LinkButton>
               ) : (
-                <span className="flex items-center gap-1 rounded-xl border border-black/10 px-4 py-2 text-sm font-bold opacity-40">
+                <span className="flex items-center gap-1 rounded-full border border-black/10 px-4 py-2.5 text-xs font-bold opacity-40">
                   Siguiente <ChevronRight size={17} />
                 </span>
               )}

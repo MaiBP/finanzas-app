@@ -1,7 +1,76 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "framer-motion";
 
-const tones={blue:"bg-[#73c8dc]",lime:"bg-[#87cd64]",lilac:"bg-[#e19bf5]"} as const;
+const TONES = {
+  blue: "bg-(--blue)",
+  lime: "bg-(--lime)",
+  lilac: "bg-(--lilac)",
+} as const;
 
-export function AuthCard({ title, subtitle, children, footer, tone="blue" }: { title: string; subtitle: string; children: React.ReactNode; footer: React.ReactNode; tone?: keyof typeof tones }) {
-  return <main className="relative grid min-h-screen place-items-center overflow-hidden px-5 py-10"><div aria-hidden className="absolute -left-24 top-16 size-52 rounded-full bg-[#73c8dc] opacity-80"/><div aria-hidden className="absolute -right-20 bottom-10 size-64 rounded-full bg-[#e19bf5] opacity-75"/><div aria-hidden className="absolute bottom-[-5rem] left-1/3 size-40 rotate-12 bg-[#87cd64] opacity-70"/><div className="relative z-10 w-full max-w-md"><Link href="/" className="mb-7 flex items-center justify-center gap-3 text-lg font-black"><span className="grid size-10 place-items-center rounded-full bg-[#3a3434] text-xl text-[#ffff50]">½</span><span className="bg-[#ffff50] px-1">Miti-Miti</span></Link><section className="card overflow-hidden"><div className="grid h-2 grid-cols-4"><span className="bg-[#73c8dc]"/><span className="bg-[#87cd64]"/><span className="bg-[#e19bf5]"/><span className="bg-[#ff6e7d]"/></div><header className={`${tones[tone]} border-b border-[#3a3434]/20 p-7 md:px-9`}><p className="mb-3 w-fit bg-[#ffff50] px-1 text-xs font-black uppercase tracking-wider">Tu dinero, bien organizado</p><h1 className="text-3xl font-black tracking-tight">{title}</h1><p className="mt-2 max-w-sm text-[#3a3434]/80">{subtitle}</p></header><div className="bg-white p-7 md:p-9"><div>{children}</div><div className="mt-6 border-t border-[#3a3434]/15 pt-5 text-center text-sm text-[#6c7f7a]">{footer}</div></div></section></div></main>;
+export function AuthCard({
+  title,
+  subtitle,
+  children,
+  footer,
+  tone = "blue",
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+  footer: React.ReactNode;
+  tone?: keyof typeof TONES;
+}) {
+  return (
+    <main className="relative grid min-h-screen place-items-center overflow-hidden px-5 py-10">
+      <motion.div
+        aria-hidden
+        className="absolute -left-24 top-16 size-52 rounded-full bg-(--blue) opacity-80"
+        animate={{ y: [0, 14, 0] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        aria-hidden
+        className="absolute -right-20 bottom-10 size-64 rounded-full bg-(--lilac) opacity-75"
+        animate={{ y: [0, -16, 0] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <div aria-hidden className="absolute -bottom-20 left-1/3 size-40 rotate-12 bg-(--lime) opacity-70" />
+
+      <motion.div
+        className="relative z-10 w-full max-w-md"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <Link href="/" className="mb-7 flex items-center justify-center gap-3 text-lg font-black">
+          <span className="grid size-10 place-items-center rounded-full bg-(--ink) text-xl text-(--highlight)">
+            ½
+          </span>
+          <span className="bg-(--highlight) px-1">Miti-Miti</span>
+        </Link>
+
+        <section className="card overflow-hidden">
+          <div className="grid h-2 grid-cols-4">
+            <span className="bg-(--blue)" />
+            <span className="bg-(--lime)" />
+            <span className="bg-(--lilac)" />
+            <span className="bg-(--expense)" />
+          </div>
+          <header className={`${TONES[tone]} border-b border-(--ink)/20 p-7 md:px-9`}>
+            <p className="mb-3 w-fit bg-(--highlight) px-1 text-xs font-black uppercase tracking-wider">
+              Tu dinero, bien organizado
+            </p>
+            <h1 className="text-3xl font-black tracking-tight">{title}</h1>
+            <p className="mt-2 max-w-sm text-(--ink)/80">{subtitle}</p>
+          </header>
+          <div className="bg-white p-7 md:p-9">
+            <div>{children}</div>
+            <div className="mt-6 border-t border-(--ink)/15 pt-5 text-center text-sm text-(--muted)">{footer}</div>
+          </div>
+        </section>
+      </motion.div>
+    </main>
+  );
 }

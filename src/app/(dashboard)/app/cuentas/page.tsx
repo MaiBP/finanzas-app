@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   Archive,
   ArrowRight,
@@ -17,6 +16,9 @@ import {
   calculateParticipantExpenses,
 } from "@/lib/finance/account-overview";
 import { archiveSharedAccount, createSharedAccount, updateSharedAccount } from "./actions";
+import { StatTile } from "@/components/ui/stat-tile";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Button, LinkButton } from "@/components/ui/button";
 
 type AccountRow = {
   id: string;
@@ -126,7 +128,7 @@ export default async function AccountsPage() {
         <div>
           <p className="text-sm font-bold uppercase">Fondos compartidos</p>
           <h1 className="mt-1 text-3xl font-black">Cuentas conjuntas</h1>
-          <p className="mt-2 max-w-2xl text-[#6c7f7a]">
+          <p className="mt-2 max-w-2xl text-(--muted)">
             Separad efectivo, banco, tarjetas o inversiones y elegid de dónde
             entra o sale cada movimiento.
           </p>
@@ -135,38 +137,33 @@ export default async function AccountsPage() {
       <section className="card mt-7 overflow-hidden">
         <div className="grid gap-6 p-6 md:grid-cols-[1.2fr_.8fr] md:items-end">
           <div>
-            <p className="w-fit bg-[#ffff50] px-1 text-xs font-black uppercase tracking-wide">
+            <p className="w-fit bg-(--highlight) px-1 text-xs font-black uppercase tracking-wide">
               {generalAccount?.name ?? "Cuenta conjunta general"}
             </p>
             <p
-              className={`mt-3 text-5xl font-black ${totalBalance < 0 ? "text-[#b34f36]" : "text-[#2e7d32]"}`}
+              className={`mt-3 text-5xl font-black ${totalBalance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}
             >
               {totalBalance > 0 ? "+" : ""}
               {formatMoney(totalBalance)}
             </p>
-            <p className="mt-2 text-xs font-bold uppercase tracking-wide text-[#6e6464]">
+            <p className="mt-2 text-xs font-bold uppercase tracking-wide text-(--muted)">
               {totalBalanceLabel} · {fundingAccounts.length}{" "}
               {fundingAccounts.length === 1
                 ? "cuenta operativa activa"
                 : "cuentas operativas activas"}
             </p>
           </div>
-          <div className="rounded-sm border border-[#3a3434]/20 bg-[#ff6e7d] p-5">
-            <p className="w-fit bg-[#ffff50] px-1 text-xs font-black uppercase tracking-wide">
-              Gasto conjunto · {monthName}
-            </p>
-            <p className="mt-3 text-3xl font-black">
-              {formatMoney(totalExpenses)}
-            </p>
-            <p className="mt-1 text-xs text-[#3a3434]/75">
-              Acumulado entre todas las cuentas operativas.
-            </p>
-          </div>
+          <StatTile
+            label={`Gasto conjunto · ${monthName}`}
+            value={formatMoney(totalExpenses)}
+            detail="Acumulado entre todas las cuentas operativas."
+            tone="coral"
+          />
         </div>
       </section>
       <div className="mt-7">
         <h2 className="text-xl font-black">Cuentas operativas</h2>
-        <p className="mt-1 text-sm text-[#6c7f7a]">
+        <p className="mt-1 text-sm text-(--muted)">
           Aquí se discrimina de dónde entra o sale el dinero.
         </p>
         <div className="mt-4 grid gap-5 lg:grid-cols-2">
@@ -195,11 +192,11 @@ export default async function AccountsPage() {
               <article className="card overflow-hidden" key={account.id}>
                 <div className="p-6">
                   <div className="flex items-center justify-between">
-                    <span className="grid size-11 place-items-center rounded-xl bg-[#87cd64]">
+                    <span className="grid size-11 place-items-center rounded-xl bg-(--lime)">
                       <AccountIcon type={account.type} />
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-[#e19bf5] px-2.5 py-1 text-xs font-bold">
+                      <span className="rounded-full bg-(--lilac) px-2.5 py-1 text-xs font-bold">
                         {typeNames[account.type] ?? "Conjunta"}
                       </span>
                       {fundingAccounts.length > 1 && (
@@ -217,19 +214,19 @@ export default async function AccountsPage() {
                   </div>
                   <h3 className="mt-5 text-lg font-black">{account.name}</h3>
                   <p
-                    className={`mt-1 text-4xl font-black ${balance < 0 ? "text-[#b34f36]" : "text-[#2e7d32]"}`}
+                    className={`mt-1 text-4xl font-black ${balance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}
                   >
                     {balance > 0 ? "+" : ""}
                     {formatMoney(balance)}
                   </p>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-wide text-[#6e6464]">
+                  <p className="mt-1 text-xs font-bold uppercase tracking-wide text-(--muted)">
                     {balanceLabel} actual
                   </p>
-                  <p className="mt-3 text-xs text-[#6c7f7a]">
+                  <p className="mt-3 text-xs text-(--muted)">
                     Ingresos registrados {formatMoney(allIncome)} − gastos registrados {formatMoney(allExpenses)}
                   </p>
                 </div>
-                <div className="border-t border-[#3a3434]/15 bg-[#ffff50] p-5">
+                <div className="border-t border-(--ink)/15 bg-(--highlight) p-5">
                   <p className="text-xs font-black uppercase tracking-wide">
                     Gasto del mes · {monthName}
                   </p>
@@ -249,7 +246,7 @@ export default async function AccountsPage() {
                     ))}
                   </div>
                 </div>
-                <details className="border-t border-[#3a3434]/15 bg-white p-5">
+                <details className="border-t border-(--ink)/15 bg-white p-5">
                   <summary className="cursor-pointer text-sm font-black">Editar cuenta</summary>
                   <form action={updateSharedAccount} className="mt-4 grid gap-3 sm:grid-cols-2">
                     <input type="hidden" name="id" value={account.id} />
@@ -267,27 +264,27 @@ export default async function AccountsPage() {
                         <option value="investment">Inversión</option>
                       </select>
                     </label>
-                    <button className="self-end rounded-xl px-5 py-3 font-bold">Guardar cambios</button>
-                    <p className="text-xs text-[#6c7f7a] sm:col-span-2">El saldo no se edita manualmente: cambia al registrar, editar o eliminar movimientos.</p>
+                    <Button type="submit" size="sm" className="self-end">Guardar cambios</Button>
+                    <p className="text-xs text-(--muted) sm:col-span-2">El saldo no se edita manualmente: cambia al registrar, editar o eliminar movimientos.</p>
                   </form>
                 </details>
               </article>
             );
           })}
           {!fundingAccounts.length && (
-            <div className="card p-6">
-              <p className="font-bold">Aún no hay cuentas operativas.</p>
-              <p className="mt-1 text-sm text-[#6c7f7a]">
-                Crea efectivo, banco, tarjeta u otra cuenta para poder registrar
-                nuevos movimientos.
-              </p>
+            <div className="card">
+              <EmptyState
+                icon={WalletCards}
+                title="Aún no hay cuentas operativas"
+                description="Crea efectivo, banco, tarjeta u otra cuenta para poder registrar nuevos movimientos."
+              />
             </div>
           )}
         </div>
       </div>
       <section className="card mt-7 max-w-3xl p-6">
         <h2 className="text-xl font-black">Crear otra cuenta conjunta</h2>
-        <p className="mt-1 text-sm text-[#6c7f7a]">
+        <p className="mt-1 text-sm text-(--muted)">
           La cuenta comenzará en cero y su saldo se calculará exclusivamente
           con los movimientos que registréis.
         </p>
@@ -315,9 +312,9 @@ export default async function AccountsPage() {
               <option value="investment">Inversión</option>
             </select>
           </label>
-          <button className="self-start rounded-xl px-5 py-3 font-bold sm:self-end">
+          <Button type="submit" className="self-start sm:self-end">
             Crear cuenta conjunta
-          </button>
+          </Button>
         </form>
       </section>
       <section className="card mt-7 flex max-w-2xl flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -325,17 +322,14 @@ export default async function AccountsPage() {
           <UsersRound className="shrink-0" />
           <div>
             <h2 className="font-black">¿Quieres gestionar dinero solo tuyo?</h2>
-            <p className="mt-1 text-sm text-[#6c7f7a]">
+            <p className="mt-1 text-sm text-(--muted)">
               Crea cuentas y movimientos privados en un espacio separado.
             </p>
           </div>
         </div>
-        <Link
-          href="/app/personal"
-          className="flex shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-3 font-bold"
-        >
+        <LinkButton href="/app/personal" size="sm">
           Mi espacio <ArrowRight size={17} />
-        </Link>
+        </LinkButton>
       </section>
     </>
   );

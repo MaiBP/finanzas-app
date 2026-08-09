@@ -1,7 +1,25 @@
 "use client";
-import { useFormStatus } from "react-dom";
 
-export function SubmitButton({ children, pendingText = "Guardando…" }: { children: React.ReactNode; pendingText?: string }) {
+import { useFormStatus } from "react-dom";
+import { Loader2 } from "lucide-react";
+import { Button, type ButtonVariant } from "@/components/ui/button";
+
+export function SubmitButton({
+  children,
+  pendingText = "Guardando…",
+  variant = "primary",
+  className,
+}: {
+  children: React.ReactNode;
+  pendingText?: string;
+  variant?: ButtonVariant;
+  className?: string;
+}) {
   const { pending } = useFormStatus();
-  return <button disabled={pending} className="w-full rounded-xl bg-[#26725c] px-5 py-3 font-bold text-white transition hover:bg-[#1e5d4b] disabled:opacity-60">{pending ? pendingText : children}</button>;
+  return (
+    <Button type="submit" disabled={pending} variant={variant} className={`w-full ${className ?? ""}`}>
+      {pending && <Loader2 size={17} className="animate-spin" />}
+      {pending ? pendingText : children}
+    </Button>
+  );
 }
