@@ -1,14 +1,14 @@
 "use server";
 import { getCurrentHousehold } from "@/lib/household";
 import { parseFinancialMessage } from "@/services/financial-message-parser";
-import { getMonthSummary, getRecentTransactions } from "@/services/query-service";
+import { executeFinanceQuery } from "@/services/query-service";
 
 export type AssistantState={reply?:string;error?:string};
 export async function askAssistant(_state:AssistantState,formData:FormData):Promise<AssistantState>{
   const text=String(formData.get("message")??"").trim();if(text.length<2)return{error:"Escribe una pregunta un poco más concreta."};
   const {supabase,user,household}=await getCurrentHousehold();if(!household)return{error:"No tienes un hogar activo."};
   try{const [{data:categories},{data:accounts}]=await Promise.all([supabase.from("categories").select("name,kind").or(`household_id.eq.${household.id},household_id.is.null`),supabase.from("accounts").select("name,is_shared").eq("household_id",household.id).neq("type","joint").is("archived_at",null)]);const action=await parseFinancialMessage({text,userId:user.id,householdId:household.id,now:new Date().toISOString(),categories:categories??[],accounts:accounts??[],recentMessages:[]});
-    if(action.action==="query_finances"){const scope=action.data.filters.scope??"combined";return{reply:action.data.query_type==="recent_transactions"?await getRecentTransactions(supabase,household.id,user.id,5,scope):await getMonthSummary(supabase,household.id,user.id,new Date(),scope)}};
+    if(action.action==="query_finances")return{reply:await executeFinanceQuery(supabase,household.id,user.id,action.data)};
     if(action.action==="request_clarification")return{reply:action.data.question};
     return{reply:"He entendido una acción sobre un movimiento. Por ahora, confírmala desde Movimientos o envíala al bot de Telegram."};
   }catch(error){return{error:error instanceof Error?error.message:"No se pudo consultar el asistente."};}

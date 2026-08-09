@@ -48,7 +48,7 @@ describe("financial conversational defaults", () => {
       requires_confirmation: false,
       data: {
         query_type: "month_summary",
-        filters: { category: null, user_name: null, date_from: null, date_to: null, month: null, scope: "personal" },
+        filters: { category: null, user_name: null, account_name: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope: "personal" },
       },
     };
     expect(applyFinancialDefaults(query, "¿Cuánto gastamos?")).toBe(query);
