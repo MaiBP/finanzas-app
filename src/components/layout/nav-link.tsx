@@ -2,18 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export function NavLink({
   href,
   label,
-  icon: Icon,
+  icon,
   variant = "sidebar",
 }: {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: React.ReactNode;
   variant?: "sidebar" | "mobile";
 }) {
   const pathname = usePathname();
@@ -29,7 +28,7 @@ export function NavLink({
           active ? "bg-(--highlight) font-bold" : "hover:bg-(--highlight)",
         )}
       >
-        <Icon size={19} />
+        {icon}
         {label}
       </Link>
     );
@@ -44,7 +43,7 @@ export function NavLink({
         active ? "bg-(--ink) text-(--highlight)" : "text-(--ink) hover:bg-(--highlight)",
       )}
     >
-      <Icon size={19} />
+      {icon}
       {label}
     </Link>
   );

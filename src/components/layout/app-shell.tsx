@@ -52,7 +52,7 @@ export function AppShell({
           </div>
           <nav className="mt-1 space-y-1">
             {householdNav.map((item) => (
-              <NavLink key={item.href} {...item} />
+              <NavLink key={item.href} href={item.href} label={item.label} icon={<item.icon size={19} />} />
             ))}
           </nav>
         </div>
@@ -69,7 +69,7 @@ export function AppShell({
           </div>
           <nav className="mt-1 space-y-1">
             {personalNav.map((item) => (
-              <NavLink key={item.href} {...item} />
+              <NavLink key={item.href} href={item.href} label={item.label} icon={<item.icon size={19} />} />
             ))}
           </nav>
         </div>
@@ -78,7 +78,7 @@ export function AppShell({
           <p className="px-3 text-[10px] font-black uppercase tracking-wider text-(--muted)">General</p>
           <nav className="mt-2 space-y-1">
             {generalNav.map((item) => (
-              <NavLink key={item.href} {...item} />
+              <NavLink key={item.href} href={item.href} label={item.label} icon={<item.icon size={19} />} />
             ))}
           </nav>
         </div>
@@ -104,7 +104,7 @@ export function AppShell({
 
       <nav className="fixed inset-x-3 bottom-3 z-20 flex overflow-x-auto rounded-full border border-(--ink)/20 bg-white px-2 py-2 text-(--ink) shadow-2xl md:hidden">
         {mobileNav.map((item) => (
-          <NavLink key={item.href} {...item} variant="mobile" />
+          <NavLink key={item.href} href={item.href} label={item.label} icon={<item.icon size={19} />} variant="mobile" />
         ))}
       </nav>
     </div>
