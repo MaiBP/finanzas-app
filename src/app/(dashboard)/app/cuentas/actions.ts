@@ -1,6 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { getCurrentHousehold } from "@/lib/household";
+import { calculateAccountBalance } from "@/lib/finance/account-overview";
+import { eurosToCentsSigned } from "@/lib/finance/money";
 
 const accountTypes=["bank","card","cash","savings","investment"] as const;
 
@@ -42,6 +44,46 @@ export async function updateSharedAccount(formData: FormData) {
 
 export async function archiveAccount(formData:FormData){
   const {supabase,user}=await getCurrentHousehold(); const {error}=await supabase.from("accounts").update({archived_at:new Date().toISOString()}).eq("id",String(formData.get("id"))).eq("owner_user_id",user.id); if(error)throw new Error(error.message); revalidatePath("/app/personal");
+}
+
+export async function adjustSharedAccountBalance(formData: FormData) {
+  const { supabase, user, household } = await getCurrentHousehold();
+  if (!household) throw new Error("Sin hogar");
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("Cuenta no válida");
+  const { data: account, error: accountError } = await supabase.from("accounts").select("id").eq("id", id).eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).maybeSingle();
+  if (accountError) throw new Error(accountError.message);
+  if (!account) throw new Error("Cuenta no encontrada");
+
+  const targetCents = eurosToCentsSigned(String(formData.get("targetBalance") ?? ""));
+
+  const { data: movementsData, error: movementsError } = await supabase.from("transactions").select("account_id,type,amount_cents").eq("household_id", household.id).eq("account_id", id).eq("scope", "shared").eq("status", "confirmed");
+  if (movementsError) throw new Error(movementsError.message);
+  const currentBalance = calculateAccountBalance(id, movementsData ?? []);
+  const delta = targetCents - currentBalance;
+  if (delta === 0) return;
+
+  const type = delta > 0 ? "income" : "expense";
+  const { data: category, error: categoryError } = await supabase.from("categories").select("id").eq("name", "Ajuste de saldo").eq("kind", type).or(`household_id.eq.${household.id},household_id.is.null`).limit(1).maybeSingle();
+  if (categoryError) throw new Error(categoryError.message);
+  if (!category) throw new Error("Falta la categoría «Ajuste de saldo». Aplica la migración correspondiente.");
+
+  const { error } = await supabase.rpc("create_financial_transaction", {
+    p_household_id: household.id,
+    p_account_id: id,
+    p_type: type,
+    p_amount_cents: Math.abs(delta),
+    p_description: "Ajuste de saldo",
+    p_category_id: category.id,
+    p_scope: "shared",
+    p_privacy: "visible",
+    p_transaction_date: new Date().toISOString().slice(0, 10),
+    p_paid_by: user.id,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/app");
+  revalidatePath("/app/cuentas");
+  revalidatePath("/app/movimientos");
 }
 
 export async function archiveSharedAccount(formData:FormData){

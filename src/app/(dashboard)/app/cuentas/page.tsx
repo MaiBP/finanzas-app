@@ -15,7 +15,7 @@ import {
   calculateAccountBalance,
   calculateParticipantExpenses,
 } from "@/lib/finance/account-overview";
-import { archiveSharedAccount, createSharedAccount, updateSharedAccount } from "./actions";
+import { adjustSharedAccountBalance, archiveSharedAccount, createSharedAccount, updateSharedAccount } from "./actions";
 import { StatTile } from "@/components/ui/stat-tile";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -265,7 +265,27 @@ export default async function AccountsPage() {
                       </select>
                     </label>
                     <Button type="submit" size="sm" className="self-end">Guardar cambios</Button>
-                    <p className="text-xs text-(--muted) sm:col-span-2">El saldo no se edita manualmente: cambia al registrar, editar o eliminar movimientos.</p>
+                    <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez.</p>
+                  </form>
+                </details>
+                <details className="border-t border-(--ink)/15 bg-white p-5">
+                  <summary className="cursor-pointer text-sm font-black">Ajustar saldo</summary>
+                  <form action={adjustSharedAccountBalance} className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <input type="hidden" name="id" value={account.id} />
+                    <label>
+                      <span className="label">Saldo real (según el banco)</span>
+                      <input
+                        className="field"
+                        name="targetBalance"
+                        required
+                        inputMode="decimal"
+                        defaultValue={(balance / 100).toFixed(2).replace(".", ",")}
+                      />
+                    </label>
+                    <Button type="submit" size="sm">Ajustar saldo</Button>
+                    <p className="text-xs text-(--muted) sm:col-span-2">
+                      Si no coincide con lo calculado, se creará un movimiento de «Ajuste de saldo» por la diferencia.
+                    </p>
                   </form>
                 </details>
               </article>
