@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CreateTransactionAction } from "@/services/transaction-service/account-selection";
 import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, matchAccountSelection } from "@/services/transaction-service/account-selection";
+import { accountSelectionKeyboard, confirmCancelKeyboard } from "@/lib/telegram/keyboards";
 
 const action: CreateTransactionAction = {
   action: "create_transaction",
@@ -43,5 +44,26 @@ describe("account selection", () => {
     expect(matchAccountSelection("2", eligible)?.name).toBe("Banco común");
     expect(matchAccountSelection("banco comun", eligible)?.name).toBe("Banco común");
     expect(matchAccountSelection("Usa Efectivo de casa", eligible)?.name).toBe("Efectivo de casa");
+  });
+});
+
+describe("telegram inline keyboards", () => {
+  it("builds one button per account with a 1-based callback index", () => {
+    const eligible = accountsForAction(action, accounts);
+    expect(accountSelectionKeyboard(eligible)).toEqual({
+      inline_keyboard: [
+        [{ text: "Efectivo de casa", callback_data: "account:1" }],
+        [{ text: "Banco común", callback_data: "account:2" }],
+      ],
+    });
+  });
+
+  it("builds a confirm/cancel row carrying the action type", () => {
+    expect(confirmCancelKeyboard("create_transaction")).toEqual({
+      inline_keyboard: [[
+        { text: "✅ Sí", callback_data: "confirm:yes:create_transaction" },
+        { text: "❌ No", callback_data: "confirm:no:create_transaction" },
+      ]],
+    });
   });
 });

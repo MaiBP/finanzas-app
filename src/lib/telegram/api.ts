@@ -1,3 +1,6 @@
+export type InlineKeyboardButton = { text: string; callback_data: string };
+export type InlineKeyboardMarkup = { inline_keyboard: InlineKeyboardButton[][] };
+
 export function escapeTelegramHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
@@ -8,14 +11,26 @@ export function withTelegramWebSuggestion(message: string) {
   return `${escapeTelegramHtml(message)}\n\nSi quieres revisar el detalle, ingresa a la web.\nEnlace: <a href="${escapeTelegramHtml(appUrl)}">${escapeTelegramHtml(appUrl)}</a>`;
 }
 
-export async function sendTelegramMessage(chatId: number, text: string) {
+async function callTelegramApi(method: string, body: Record<string, unknown>) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error("TELEGRAM_BOT_TOKEN no está configurado");
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {const result=await response.json().catch(()=>null) as {description?:string}|null;throw new Error(result?.description??`Telegram respondió ${response.status}`);}
+}
+
+export async function sendTelegramMessage(chatId: number, text: string, replyMarkup?: InlineKeyboardMarkup) {
+  await callTelegramApi("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", reply_markup: replyMarkup });
+}
+
+export async function answerCallbackQuery(callbackQueryId: string, text?: string) {
+  await callTelegramApi("answerCallbackQuery", { callback_query_id: callbackQueryId, text });
+}
+
+export async function editMessageReplyMarkup(chatId: number, messageId: number, replyMarkup: InlineKeyboardMarkup) {
+  await callTelegramApi("editMessageReplyMarkup", { chat_id: chatId, message_id: messageId, reply_markup: replyMarkup });
 }
 
 export const MAX_TELEGRAM_IMPORT_BYTES = 12 * 1024 * 1024;
