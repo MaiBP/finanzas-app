@@ -12,6 +12,8 @@ type MemberRow = {
   profiles: { display_name: string | null } | null;
 };
 
+const memberTones = ["bg-(--lilac)", "bg-(--blue)", "bg-(--lime)", "bg-(--expense)", "bg-(--savings)"];
+
 export default async function BalancePage() {
   const { supabase, household } = await getCurrentHousehold();
   if (!household) return null;
@@ -65,36 +67,30 @@ export default async function BalancePage() {
       <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_.9fr]">
         <article className="card p-6">
           <h2 className="text-xl font-black">Detalle por persona</h2>
-          <div className="mt-5 space-y-3">
-            {members.map((member) => {
+          <div className="mt-5 space-y-2.5">
+            {members.map((member, index) => {
               const values = totals.get(member.user_id) ?? {
                 expenses: 0,
                 income: 0,
               };
+              const name = member.profiles?.display_name ?? "Miembro";
               return (
                 <div
                   key={member.user_id}
-                  className="rounded-xl bg-(--canvas) p-4"
+                  className={`flex items-center gap-3 rounded-xl p-3 ${memberTones[index % memberTones.length]}`}
                 >
-                  <p className="font-black">
-                    {member.profiles?.display_name ?? "Miembro"}
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="block text-xs font-bold uppercase text-(--muted)">
-                        Ingresos
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-sm font-black">
+                    {name.charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black">{name}</p>
+                    <div className="mt-0.5 flex gap-4 text-xs">
+                      <span>
+                        Ingresos <b className="text-(--ink)">{formatMoney(values.income)}</b>
                       </span>
-                      <b className="text-(--ink)">
-                        {formatMoney(values.income)}
-                      </b>
-                    </div>
-                    <div>
-                      <span className="block text-xs font-bold uppercase text-(--muted)">
-                        Gastos
+                      <span>
+                        Gastos <b className="text-[#b34f36]">{formatMoney(values.expenses)}</b>
                       </span>
-                      <b className="text-[#b34f36]">
-                        {formatMoney(values.expenses)}
-                      </b>
                     </div>
                   </div>
                 </div>
