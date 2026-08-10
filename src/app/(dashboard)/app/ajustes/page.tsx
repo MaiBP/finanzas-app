@@ -1,12 +1,14 @@
-import { Copy, Home, Send, UserRound } from "lucide-react";
+import { Check, Copy, Home, Send, UserRound } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { generateTelegramCode, updateHouseholdName, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
 
+type MemberRow = { user_id: string; profiles: { display_name: string | null } | null };
+
 export default async function SettingsPage() {
   const { supabase, user, household } = await getCurrentHousehold();
   if (!household) return null;
-  const [{ data: invite }, { data: link }, { data: linkCode }, { data: profile }] = await Promise.all([
+  const [{ data: invite }, { data: link }, { data: linkCode }, { data: profile }, { data: membersData }] = await Promise.all([
     household.role === "owner"
       ? supabase
           .from("household_invites")
@@ -29,9 +31,12 @@ export default async function SettingsPage() {
       .limit(1)
       .maybeSingle(),
     supabase.from("profiles").select("personal_space_name").eq("id", user.id).maybeSingle(),
+    supabase.from("household_members").select("user_id,profiles(display_name)").eq("household_id", household.id),
   ]);
   const personalSpaceName = profile?.personal_space_name ?? "Mi espacio";
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "Finzy_AssistantBot";
+  const partner = ((membersData ?? []) as unknown as MemberRow[]).find((member) => member.user_id !== user.id);
+  const partnerName = partner?.profiles?.display_name ?? "tu pareja";
 
   return (
     <>
@@ -68,14 +73,31 @@ export default async function SettingsPage() {
           )}
           <div className="mt-6 border-t border-black/10 pt-5">
             <h3 className="font-black">Invitar al hogar</h3>
-            <p className="mt-1 text-sm text-(--muted)">Comparte este código con tu pareja. Caduca automáticamente.</p>
-            {household.role === "owner" ? (
-              <div className="mt-4 flex items-center justify-between rounded-xl bg-(--canvas) p-4">
-                <code className="text-xl font-black tracking-[.2em]">{invite?.code ?? "SIN CÓDIGO"}</code>
-                <Copy size={18} />
-              </div>
+            {partner ? (
+              <>
+                <p className="mt-1 text-sm text-(--muted)">Tu hogar ya está completo.</p>
+                <div className="mt-4 flex items-center gap-3 rounded-xl bg-(--lime)/25 p-4">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-(--lime)">
+                    <Check size={18} />
+                  </span>
+                  <div>
+                    <p className="font-bold">Vinculado con {partnerName}</p>
+                    <p className="text-xs text-(--muted)">Ya comparten este hogar.</p>
+                  </div>
+                </div>
+              </>
             ) : (
-              <p className="mt-4 text-sm">La invitación la administra la persona propietaria.</p>
+              <>
+                <p className="mt-1 text-sm text-(--muted)">Comparte este código con tu pareja. Caduca automáticamente.</p>
+                {household.role === "owner" ? (
+                  <div className="mt-4 flex items-center justify-between rounded-xl bg-(--canvas) p-4">
+                    <code className="text-xl font-black tracking-[.2em]">{invite?.code ?? "SIN CÓDIGO"}</code>
+                    <Copy size={18} />
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm">La invitación la administra la persona propietaria.</p>
+                )}
+              </>
             )}
           </div>
         </section>
