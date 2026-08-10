@@ -1,6 +1,6 @@
 import { Check, Copy, Home, Send, UserRound } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
-import { generateTelegramCode, updateHouseholdName, updatePersonalSpaceName } from "./actions";
+import { generateHouseholdInvite, generateTelegramCode, updateHouseholdName, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
 
 type MemberRow = { user_id: string; profiles: { display_name: string | null } | null };
@@ -90,10 +90,21 @@ export default async function SettingsPage() {
               <>
                 <p className="mt-1 text-sm text-(--muted)">Comparte este código con tu pareja. Caduca automáticamente.</p>
                 {household.role === "owner" ? (
-                  <div className="mt-4 flex items-center justify-between rounded-xl bg-(--canvas) p-4">
-                    <code className="text-xl font-black tracking-[.2em]">{invite?.code ?? "SIN CÓDIGO"}</code>
-                    <Copy size={18} />
-                  </div>
+                  invite ? (
+                    <div className="mt-4 flex items-center justify-between rounded-xl bg-(--canvas) p-4">
+                      <code className="text-xl font-black tracking-[.2em]">{invite.code}</code>
+                      <Copy size={18} />
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      <p className="text-sm text-(--muted)">Todavía no tienes un código activo.</p>
+                      <form action={generateHouseholdInvite}>
+                        <Button type="submit" size="sm" className="mt-3">
+                          Generar código de invitación
+                        </Button>
+                      </form>
+                    </div>
+                  )
                 ) : (
                   <p className="mt-4 text-sm">La invitación la administra la persona propietaria.</p>
                 )}

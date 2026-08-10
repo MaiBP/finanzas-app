@@ -11,6 +11,15 @@ export async function generateTelegramCode(){
   if(error) throw new Error(error.message); revalidatePath("/app/ajustes");
 }
 
+export async function generateHouseholdInvite(){
+  const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("No tienes un hogar activo.");
+  if(household.role!=="owner")throw new Error("Solo la persona propietaria puede generar la invitación.");
+  const code=randomBytes(4).toString("hex").toUpperCase();
+  await supabase.from("household_invites").delete().eq("household_id",household.id).is("used_at",null);
+  const {error}=await supabase.from("household_invites").insert({household_id:household.id,code,created_by:user.id,expires_at:new Date(Date.now()+7*24*60*60*1000).toISOString()});
+  if(error) throw new Error(error.message); revalidatePath("/app/ajustes");
+}
+
 export async function updateHouseholdName(formData:FormData){
   const {supabase,household}=await getCurrentHousehold(); if(!household)throw new Error("No tienes un hogar activo.");
   if(household.role!=="owner")throw new Error("Solo la persona propietaria puede cambiar el nombre del hogar.");
