@@ -6,8 +6,8 @@ function getSectionTheme(pathname: string) {
   if (pathname.startsWith("/app/movimientos")) return "section-pink";
   if (pathname.startsWith("/app/cuentas")) return "section-blue";
   if (pathname.startsWith("/app/personal")) return "section-savings";
-  if (pathname.startsWith("/app/balance")) return "section-lime";
-  if (pathname.startsWith("/app/asistente")) return "section-lilac";
+  if (pathname.startsWith("/app/balance")) return "section-lilac";
+  if (pathname.startsWith("/app/asistente")) return "section-lime";
   if (pathname.startsWith("/app/ajustes")) return "section-yellow";
   return "section-orange";
 }
