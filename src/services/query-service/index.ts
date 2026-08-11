@@ -351,6 +351,18 @@ export function formatFinanceReply(facts: FinanceQueryFacts): string {
   }
 }
 
+// Every numeric field in FinanceQueryFacts is an amount in cents. The phrasing model has no
+// notion of "cents" vs "euros", so it must never see raw numbers — only pre-formatted euro
+// strings — or it reads e.g. 2043314 as "2.043.314" instead of 20.433,14 €.
+export function formatFactsForPrompt(value: unknown): unknown {
+  if (typeof value === "number") return formatMoney(value);
+  if (Array.isArray(value)) return value.map(formatFactsForPrompt);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, val]) => [key, formatFactsForPrompt(val)]));
+  }
+  return value;
+}
+
 export async function executeFinanceQuery(
   db: DbClient,
   householdId: string,
@@ -362,7 +374,7 @@ export async function executeFinanceQuery(
   const facts = await computeFinanceQueryFacts(db, householdId, userId, data, now);
   if (!context) return formatFinanceReply(facts);
   try {
-    return await phraseFinanceReply(facts, context.question, context.recentMessages ?? []);
+    return await phraseFinanceReply(formatFactsForPrompt(facts), context.question, context.recentMessages ?? []);
   } catch (error) {
     console.error("phraseFinanceReply failed, falling back to template", error);
     return formatFinanceReply(facts);

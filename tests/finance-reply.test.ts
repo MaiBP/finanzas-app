@@ -3,6 +3,7 @@ import { formatMoney } from "@/lib/finance/money";
 import {
   computeFinanceQueryFacts,
   executeFinanceQuery,
+  formatFactsForPrompt,
   formatFinanceReply,
   type FinanceQuery,
 } from "@/services/query-service";
@@ -147,5 +148,28 @@ describe("executeFinanceQuery fallback", () => {
       filters: baseFilters,
     });
     expect(reply).toBe(formatFinanceReply(facts));
+  });
+});
+
+describe("formatFactsForPrompt", () => {
+  it("converts every cent amount into a formatted euro string so the AI never sees raw numbers", () => {
+    const formatted = formatFactsForPrompt({
+      kind: "household_balance",
+      scope: "shared",
+      totals: { income: 2_043_314, expenses: 1_000_000, result: 1_043_314 },
+    });
+    expect(formatted).toEqual({
+      kind: "household_balance",
+      scope: "shared",
+      totals: { income: formatMoney(2_043_314), expenses: formatMoney(1_000_000), result: formatMoney(1_043_314) },
+    });
+  });
+
+  it("formats amounts nested inside arrays", () => {
+    const formatted = formatFactsForPrompt({
+      kind: "recent_transactions",
+      items: [{ scope: "shared", account: "Banco", type: "expense", amount_cents: 4250, description: "Super", date: "2026-08-01" }],
+    }) as { items: { amount_cents: string }[] };
+    expect(formatted.items[0].amount_cents).toBe(formatMoney(4250));
   });
 });
