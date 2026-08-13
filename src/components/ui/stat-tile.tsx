@@ -17,6 +17,7 @@ export function StatTile({
   tone = "green",
   compact = false,
   icon: Icon,
+  breakdown,
 }: {
   label: string;
   value: string;
@@ -24,6 +25,7 @@ export function StatTile({
   tone?: StatTileTone;
   compact?: boolean;
   icon?: LucideIcon;
+  breakdown?: { label: string; value: string }[];
 }) {
   return (
     <article className={cn("rounded-sm border border-(--ink)/20 p-5", TONES[tone])}>
@@ -39,6 +41,16 @@ export function StatTile({
       </div>
       <p className={cn("mt-2 font-black tracking-tight", compact ? "text-lg leading-snug" : "text-2xl")}>{value}</p>
       {detail && <p className="mt-1 w-fit bg-(--highlight) px-1 text-xs text-(--ink)">{detail}</p>}
+      {breakdown && breakdown.length > 0 && (
+        <ul className="mt-2 space-y-0.5 border-t border-(--ink)/15 pt-2 text-xs">
+          {breakdown.map((item) => (
+            <li key={item.label} className="flex items-center justify-between gap-2">
+              <span className="truncate text-(--ink)/75">{item.label}</span>
+              <span className="font-bold">{item.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </article>
   );
 }

@@ -20,7 +20,7 @@ type DashboardRow = {
   account_id: string;
   categories: { name: string } | null;
 };
-type DashboardAccount = { id: string; type: string };
+type DashboardAccount = { id: string; name: string; type: string };
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -44,7 +44,7 @@ export default async function DashboardPage({
       .eq("status", "confirmed")
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase.from("accounts").select("id,type").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null),
+    supabase.from("accounts").select("id,name,type").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).order("created_at"),
     getHouseholdFinancialInsight(supabase, household.id, currentMonth),
   ]);
   const rows = (data ?? []) as unknown as DashboardRow[];
@@ -66,6 +66,10 @@ export default async function DashboardPage({
     .filter((r) => r.type === "expense")
     .reduce((s, r) => s + r.amount_cents, 0);
   const currentBalance = accounts.reduce((total, account) => total + calculateAccountBalance(account.id, rows), 0);
+  const accountBalances = accounts.map((account) => ({
+    label: account.name,
+    value: formatMoney(calculateAccountBalance(account.id, rows)),
+  }));
   const byCategory = new Map<string, number>();
   currentRows
     .filter((r) => r.type === "expense")
@@ -103,6 +107,7 @@ export default async function DashboardPage({
           tone="plain"
           detail="Según movimientos registrados"
           icon={PiggyBank}
+          breakdown={accountBalances}
         />
         <StatTile
           label="Ingresos del mes"
