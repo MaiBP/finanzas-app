@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramMessage, withTelegramWebSuggestion } from "@/lib/telegram/api";
 import { buildDailySummaryMessage, isReminderDay, WEEKLY_REMINDER_MESSAGE, type DailyMovementRow } from "@/services/household-notifications";
+import { isTimingSafeEqual } from "@/lib/security/timing-safe";
+import { getHouseholdRoster } from "@/services/household-roster";
 
 export const dynamic = "force-dynamic";
 
 type TelegramLink = { user_id: string; telegram_chat_id: number };
-type MemberRow = { user_id: string; profiles: { display_name: string | null } | null };
 
 function madridDate() {
   const parts = new Intl.DateTimeFormat("en", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -16,7 +17,7 @@ function madridDate() {
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!secret || !isTimingSafeEqual(request.headers.get("authorization"), `Bearer ${secret}`)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = createAdminClient();
   const { data: linksData, error: linksError } = await db.from("telegram_links").select("user_id,telegram_chat_id");
@@ -50,8 +51,8 @@ export async function GET(request: Request) {
     let insightKey = "";
 
     if (rows.length) {
-      const { data: membersData } = await db.from("household_members").select("user_id,profiles(display_name)").eq("household_id", householdId);
-      const names = new Map((membersData as unknown as MemberRow[] ?? []).map((member) => [member.user_id, member.profiles?.display_name ?? "Alguien"]));
+      const roster = await getHouseholdRoster(db, householdId);
+      const names = new Map(roster.map((member) => [member.userId, member.displayName]));
       message = buildDailySummaryMessage(rows, names);
       insightKey = `daily-summary:${today}`;
     } else if (isReminderDay(householdId, today)) {

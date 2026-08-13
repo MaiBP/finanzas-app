@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramMessage, withTelegramWebSuggestion } from "@/lib/telegram/api";
 import { getHouseholdFinancialInsight } from "@/services/financial-insights";
+import { isTimingSafeEqual } from "@/lib/security/timing-safe";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ function madridDate() {
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!secret || !isTimingSafeEqual(request.headers.get("authorization"), `Bearer ${secret}`)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = createAdminClient();
   const { data: links, error: linksError } = await db.from("telegram_links").select("user_id,telegram_chat_id");
