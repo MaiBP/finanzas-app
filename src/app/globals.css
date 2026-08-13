@@ -49,6 +49,8 @@
   border-radius: .35rem;
   background: var(--paper);
   box-shadow: 6px 6px 0 rgba(58, 52, 52, 0.14);
+  min-width: 0;
+  overflow: hidden;
 }
 .field {
   width: 100%;

@@ -57,7 +57,7 @@ export default async function BalancePage() {
         <StatTile label="Gastos del mes" value={formatMoney(totalExpenses)} tone="coral" />
       </section>
       <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_.9fr]">
-        <article className="card p-6">
+        <article className="card min-w-0 p-6">
           <h2 className="text-xl font-black">Detalle por persona</h2>
           <div className="mt-5 space-y-2.5">
             {members.map((member, index) => {
@@ -94,7 +94,7 @@ export default async function BalancePage() {
             importado queda asociado a la persona que lo subió.
           </p>
         </article>
-        <article className="card p-6">
+        <article className="card min-w-0 p-6">
           <h2 className="text-xl font-black">Reparto de gastos</h2>
           <p className="mt-1 text-sm text-(--muted)">
             Participación sobre los gastos compartidos del mes corriente.

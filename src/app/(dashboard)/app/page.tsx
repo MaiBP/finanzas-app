@@ -102,14 +102,20 @@ export default async function DashboardPage({
         </p>
       )}
       <section className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile
-          label="Saldo actual"
-          value={formatMoney(currentBalance)}
-          tone="plain"
-          detail="Según movimientos registrados"
-          icon={PiggyBank}
-          breakdown={accountBalances}
-        />
+        {/* Saldo actual and the behavior insight have variable-length content (account
+            breakdown, insight sentence) that can grow much taller than their row-mate on the
+            2-column mobile grid, stretching the shorter card and leaving uneven blank space —
+            give both the full row on mobile so only same-height cards ever share a row. */}
+        <div className="col-span-2 lg:col-span-1">
+          <StatTile
+            label="Saldo actual"
+            value={formatMoney(currentBalance)}
+            tone="plain"
+            detail="Según movimientos registrados"
+            icon={PiggyBank}
+            breakdown={accountBalances}
+          />
+        </div>
         <StatTile
           label="Ingresos del mes"
           value={formatMoney(income)}
@@ -122,16 +128,21 @@ export default async function DashboardPage({
           tone="coral"
           detail={`Acumulado ${currentYear}: ${formatMoney(annualExpenses)}`}
         />
-        <StatTile
-          label={insight.label}
-          value={insight.message}
-          tone="lilac"
-          detail={insight.detail}
-          compact
-        />
+        <div className="col-span-2 lg:col-span-1">
+          <StatTile
+            label={insight.label}
+            value={insight.message}
+            tone="lilac"
+            detail={insight.detail}
+            compact
+          />
+        </div>
       </section>
       <section className="mt-6 grid gap-6 lg:grid-cols-[1.35fr_.9fr]">
-        <article className="card p-5 md:p-7">
+        {/* min-w-0 on both grid items: without it, a wide child (the chart's SVG, a long
+            description) can force its whole track past the viewport instead of shrinking to it —
+            the classic grid/flex overflow trap. */}
+        <article className="card min-w-0 p-5 md:p-7">
           <div>
             <h2 className="text-lg font-black">Gastos del mes por categoría</h2>
             <p className="text-sm text-(--muted)">
@@ -140,7 +151,7 @@ export default async function DashboardPage({
           </div>
           <CategoryChart data={chart} />
         </article>
-        <article className="card p-5 md:p-7">
+        <article className="card min-w-0 p-5 md:p-7">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black">Últimos movimientos</h2>

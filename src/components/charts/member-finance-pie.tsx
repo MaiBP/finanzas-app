@@ -19,8 +19,8 @@ export function MemberFinancePie({
   const total = visible.reduce((sum, item) => sum + item.value, 0);
   return (
     <div>
-      <div className="relative h-56 w-full">
-        <ResponsiveContainer>
+      <div className="relative h-56 w-full min-w-0 overflow-hidden">
+        <ResponsiveContainer width="99%">
           <PieChart>
             <Pie
               data={visible}
