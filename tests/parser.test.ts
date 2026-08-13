@@ -24,6 +24,9 @@ it("accepts an annual accumulated finance query", () => {
         category: null,
         user_name: null,
         account_name: null,
+        search_text: null,
+        ratio_category_a: null,
+        ratio_category_b: null,
         date_from: null,
         date_to: null,
         month: null,
@@ -33,5 +36,57 @@ it("accepts an annual accumulated finance query", () => {
         scope: "shared",
       },
     },
+  }).success).toBe(true);
+});
+
+it("accepts a merchant search query", () => {
+  expect(financialActionSchema.safeParse({
+    action: "query_finances",
+    confidence: 0.95,
+    requires_confirmation: false,
+    data: {
+      query_type: "period_summary",
+      filters: {
+        category: null,
+        user_name: null,
+        account_name: null,
+        search_text: "Amazon",
+        ratio_category_a: null,
+        ratio_category_b: null,
+        date_from: null,
+        date_to: null,
+        month: null,
+        period: "current_year",
+        movement_type: "expense",
+        limit: null,
+        scope: "shared",
+      },
+    },
+  }).success).toBe(true);
+});
+
+it("accepts an average_daily_spend and a spending_ratio query", () => {
+  const baseData = {
+    category: null,
+    user_name: null,
+    account_name: null,
+    search_text: null,
+    ratio_category_a: null,
+    ratio_category_b: null,
+    date_from: null,
+    date_to: null,
+    month: null,
+    period: "current_month" as const,
+    movement_type: "both" as const,
+    limit: null,
+    scope: "shared" as const,
+  };
+  expect(financialActionSchema.safeParse({
+    action: "query_finances", confidence: 0.9, requires_confirmation: false,
+    data: { query_type: "average_daily_spend", filters: baseData },
+  }).success).toBe(true);
+  expect(financialActionSchema.safeParse({
+    action: "query_finances", confidence: 0.9, requires_confirmation: false,
+    data: { query_type: "spending_ratio", filters: { ...baseData, ratio_category_a: "Alquiler", ratio_category_b: "Restaurantes" } },
   }).success).toBe(true);
 });

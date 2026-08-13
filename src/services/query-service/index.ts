@@ -40,7 +40,12 @@ export type FinanceQueryFacts =
   | { kind: "monthly_trend"; scope: FinanceScope; months: { month: string; income: number; expenses: number; result: number }[] }
   | { kind: "compare_months"; targetMonth: string; previousMonth: string; current: Totals; previous: Totals; expenseDifference: number }
   | { kind: "summary"; scope: FinanceScope; rangeLabel: string; movementType: "both"; totals: Totals; shared?: Totals; personal?: Totals }
-  | { kind: "summary"; scope: FinanceScope; rangeLabel: string; movementType: "expense" | "income"; amount: number; sharedAmount?: number; personalAmount?: number };
+  | { kind: "summary"; scope: FinanceScope; rangeLabel: string; movementType: "expense" | "income"; amount: number; sharedAmount?: number; personalAmount?: number }
+  | { kind: "average_daily_spend"; scope: FinanceScope; rangeLabel: string; totalExpenses: number; dailyAverage: number; daysLabel: string }
+  // ratio/avgB are amounts in cents (auto-formatted to euros for the prompt); countLabel is a
+  // plain integer already turned into a string so formatFactsForPrompt never mistakes it for cents.
+  | { kind: "spending_ratio"; rangeLabel: string; labelA: string; labelB: string; empty: true }
+  | { kind: "spending_ratio"; rangeLabel: string; labelA: string; labelB: string; empty?: false; amountA: number; avgB: number; countLabel: string };
 
 export function accessibleFinanceFilter(userId: string) {
   return `scope.eq.shared,and(scope.eq.personal,created_by.eq.${userId})`;
@@ -72,6 +77,12 @@ function shiftMonth(month: string, offset: number) {
 function monthEnd(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
   return new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+}
+
+function daysBetweenInclusive(from: string | null, to: string | null): number | null {
+  if (!from || !to) return null;
+  const days = Math.round((new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / (24 * 3600 * 1000)) + 1;
+  return days > 0 ? days : null;
 }
 
 function displayPeriod(from: string | null, to: string | null) {
@@ -188,6 +199,12 @@ async function fetchQueryRows(
     const account = normalize(filters.account_name);
     rows = rows.filter((row) => normalize(row.accounts?.name ?? "").includes(account));
   }
+  if (filters.search_text) {
+    // Free-text/merchant search (e.g. "Amazon") — matches the description or the category name,
+    // since a merchant is rarely its own category.
+    const term = normalize(filters.search_text);
+    rows = rows.filter((row) => normalize(row.description).includes(term) || normalize(row.categories?.name ?? "").includes(term));
+  }
   if (filters.user_name) {
     const userName = normalize(filters.user_name);
     if (["tu", "yo", "mi"].includes(userName)) {
@@ -261,6 +278,9 @@ export async function computeFinanceQueryFacts(
     const targetMonth = filters.month ?? today.slice(0, 7);
     const previousMonth = shiftMonth(targetMonth, -1);
     range = { from: `${previousMonth}-01`, to: targetMonth === today.slice(0, 7) ? today : monthEnd(targetMonth), label: "la comparación solicitada" };
+  }
+  if (data.query_type === "spending_ratio" && !filters.period && !filters.month && !filters.date_from && !filters.date_to) {
+    range = { from: null, to: null, label: "todo el historial" };
   }
   const { rows, names, scope } = await fetchQueryRows(db, householdId, userId, filters, range);
   if (!rows.length) return { kind: "no_data", scope, rangeLabel: range.label };
@@ -347,6 +367,25 @@ export async function computeFinanceQueryFacts(
     const previous = calculateTransactionTotals(rows.filter((row) => row.transaction_date.startsWith(previousMonth)));
     return { kind: "compare_months", targetMonth, previousMonth, current, previous, expenseDifference: current.expenses - previous.expenses };
   }
+  if (data.query_type === "average_daily_spend") {
+    const totalExpenses = calculateTransactionTotals(rows).expenses;
+    const days = daysBetweenInclusive(range.from, range.to);
+    if (!days) return { kind: "no_data", scope, rangeLabel: range.label };
+    return { kind: "average_daily_spend", scope, rangeLabel: range.label, totalExpenses, dailyAverage: Math.round(totalExpenses / days), daysLabel: String(days) };
+  }
+  if (data.query_type === "spending_ratio") {
+    const labelA = filters.ratio_category_a ?? "";
+    const labelB = filters.ratio_category_b ?? "";
+    const termA = normalize(labelA);
+    const termB = normalize(labelB);
+    const matches = (row: QueryRow, term: string) => normalize(row.categories?.name ?? "").includes(term) || normalize(row.description).includes(term);
+    const rowsA = termA ? rows.filter((row) => row.type === "expense" && matches(row, termA)) : [];
+    const rowsB = termB ? rows.filter((row) => row.type === "expense" && matches(row, termB)) : [];
+    const amountA = rowsA.reduce((sum, row) => sum + row.amount_cents, 0);
+    const avgB = rowsB.length ? Math.round(rowsB.reduce((sum, row) => sum + row.amount_cents, 0) / rowsB.length) : 0;
+    if (!amountA || !avgB) return { kind: "spending_ratio", rangeLabel: range.label, labelA, labelB, empty: true };
+    return { kind: "spending_ratio", rangeLabel: range.label, labelA, labelB, amountA, avgB, countLabel: String(Math.round(amountA / avgB)) };
+  }
   return summaryFacts(rows, scope, range.label, filters.movement_type ?? "both");
 }
 
@@ -395,6 +434,11 @@ export function formatFinanceReply(facts: FinanceQueryFacts): string {
       }
       return `📊 En ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: 💰 ${formatMoney(facts.totals.income)} de ingresos y 💸 ${formatMoney(facts.totals.expenses)} de gastos. El resultado es ${formatMoney(facts.totals.result)}.`;
     }
+    case "average_daily_spend":
+      return `📆 Durante ${facts.rangeLabel} (${facts.daysLabel} días), gastaron ${formatMoney(facts.totalExpenses)} en total, un promedio de ${formatMoney(facts.dailyAverage)} por día.`;
+    case "spending_ratio":
+      if (facts.empty) return `🤷 No tengo suficientes movimientos de "${facts.labelA}" o "${facts.labelB}" durante ${facts.rangeLabel} para calcular esa equivalencia.`;
+      return `🧮 Con lo gastado en "${facts.labelA}" (${formatMoney(facts.amountA)}) durante ${facts.rangeLabel}, cubrirían unas ${facts.countLabel} veces el gasto promedio en "${facts.labelB}" (${formatMoney(facts.avgB)} cada uno).`;
   }
 }
 
@@ -431,20 +475,20 @@ export async function executeFinanceQuery(
 export async function getRecordedBalance(db: DbClient, householdId: string, userId: string, scope: FinanceScope = "combined") {
   return executeFinanceQuery(db, householdId, userId, {
     query_type: "household_balance",
-    filters: { category: null, user_name: null, account_name: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit: null, scope },
+    filters: { category: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit: null, scope },
   });
 }
 
 export async function getMonthSummary(db: DbClient, householdId: string, userId: string, now = new Date(), scope: FinanceScope = "combined") {
   return executeFinanceQuery(db, householdId, userId, {
     query_type: "month_summary",
-    filters: { category: null, user_name: null, account_name: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope },
+    filters: { category: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope },
   }, now);
 }
 
 export async function getRecentTransactions(db: DbClient, householdId: string, userId: string, limit = 5, scope: FinanceScope = "combined") {
   return executeFinanceQuery(db, householdId, userId, {
     query_type: "recent_transactions",
-    filters: { category: null, user_name: null, account_name: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit, scope },
+    filters: { category: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit, scope },
   });
 }

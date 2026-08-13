@@ -53,6 +53,9 @@ const baseFilters: FinanceQuery["filters"] = {
   category: null,
   user_name: null,
   account_name: null,
+  search_text: null,
+  ratio_category_a: null,
+  ratio_category_b: null,
   date_from: null,
   date_to: null,
   month: null,
@@ -149,6 +152,48 @@ describe("user_name filter resolves by role, not by real name", () => {
       filters: { ...baseFilters, user_name: "tu pareja" },
     });
     expect(facts).toEqual({ kind: "household_balance", scope: "shared", totals: { income: 0, expenses: 5_000, result: -5_000 } });
+  });
+});
+
+describe("search_text filters by merchant/keyword in the description", () => {
+  it("sums only the rows whose description matches the search term", async () => {
+    const db = createDb(rows, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "period_summary",
+      filters: { ...baseFilters, movement_type: "expense", search_text: "super" },
+    });
+    expect(facts).toEqual({ kind: "summary", scope: "shared", rangeLabel: "todo el historial", movementType: "expense", amount: 30_000 });
+  });
+});
+
+describe("average_daily_spend", () => {
+  it("divides total expenses by the number of days in the resolved period", async () => {
+    const db = createDb(rows, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "average_daily_spend",
+      filters: { ...baseFilters, period: "current_month" },
+    }, new Date("2026-08-03T10:00:00Z"));
+    expect(facts).toEqual({ kind: "average_daily_spend", scope: "shared", rangeLabel: "el mes corriente", totalExpenses: 35_000, dailyAverage: 11_667, daysLabel: "3" });
+  });
+});
+
+describe("spending_ratio", () => {
+  it("divides the total of category A by the average transaction of category B", async () => {
+    const db = createDb(rows, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "spending_ratio",
+      filters: { ...baseFilters, ratio_category_a: "Supermercado", ratio_category_b: "Ocio" },
+    });
+    expect(facts).toEqual({ kind: "spending_ratio", rangeLabel: "todo el historial", labelA: "Supermercado", labelB: "Ocio", amountA: 30_000, avgB: 5_000, countLabel: "6" });
+  });
+
+  it("reports empty when one side has no matching expenses", async () => {
+    const db = createDb(rows, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "spending_ratio",
+      filters: { ...baseFilters, ratio_category_a: "Supermercado", ratio_category_b: "Inexistente" },
+    });
+    expect(facts).toEqual({ kind: "spending_ratio", rangeLabel: "todo el historial", labelA: "Supermercado", labelB: "Inexistente", empty: true });
   });
 });
 
