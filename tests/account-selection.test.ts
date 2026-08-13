@@ -52,8 +52,9 @@ describe("telegram inline keyboards", () => {
     const eligible = accountsForAction(action, accounts);
     expect(accountSelectionKeyboard(eligible)).toEqual({
       inline_keyboard: [
-        [{ text: "Efectivo de casa", callback_data: "account:1" }],
-        [{ text: "Banco común", callback_data: "account:2" }],
+        [{ text: "🏦 Efectivo de casa", callback_data: "account:1" }],
+        [{ text: "🏦 Banco común", callback_data: "account:2" }],
+        [{ text: "❌ Cancelar", callback_data: "confirm:no:create_transaction" }],
       ],
     });
   });

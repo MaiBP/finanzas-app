@@ -15,5 +15,5 @@ export async function executeTelegramAction(db: SupabaseClient, userId:string, h
   const account=accounts[0];
   const {error}=await db.rpc("create_financial_transaction_as_user",{p_actor_user_id:userId,p_household_id:householdId,p_account_id:account.id,p_type:action.data.type,p_amount_cents:action.data.amount_cents,p_description:action.data.description,p_category_id:category.id,p_scope:action.data.scope,p_privacy:action.data.privacy,p_transaction_date:action.data.transaction_date,p_paid_by:userId,p_source:"telegram"});
   if(error)throw error;
-  return `He registrado ${formatMoney(action.data.amount_cents)} en ${category.name} desde ${account.name}, como ${action.data.scope==="shared"?"compartido":"personal"}.`;
+  return `✅ He registrado ${formatMoney(action.data.amount_cents)} en ${category.name} desde ${account.name}, como ${action.data.scope==="shared"?"compartido":"personal"}.`;
 }

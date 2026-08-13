@@ -1,5 +1,5 @@
 import type { InlineKeyboardMarkup } from "@/lib/telegram/api";
-import type { AccountOption } from "@/services/transaction-service/account-selection";
+import { accountEmoji, type AccountOption } from "@/services/transaction-service/account-selection";
 
 export function confirmCancelKeyboard(actionType: string): InlineKeyboardMarkup {
   return {
@@ -14,8 +14,11 @@ export function confirmCancelKeyboard(actionType: string): InlineKeyboardMarkup 
 
 export function accountSelectionKeyboard(accounts: AccountOption[]): InlineKeyboardMarkup {
   return {
-    inline_keyboard: accounts.map((account, index) => [
-      { text: account.name, callback_data: `account:${index + 1}` },
-    ]),
+    inline_keyboard: [
+      ...accounts.map((account, index) => [
+        { text: `${accountEmoji(account.type)} ${account.name}`, callback_data: `account:${index + 1}` },
+      ]),
+      [{ text: "❌ Cancelar", callback_data: "confirm:no:create_transaction" }],
+    ],
   };
 }

@@ -1,6 +1,18 @@
 import type { FinancialAction } from "@/services/financial-message-parser/schema";
 
-export type AccountOption = { name: string; is_shared: boolean };
+export type AccountOption = { name: string; is_shared: boolean; type?: string };
+
+const ACCOUNT_EMOJIS: Record<string, string> = {
+  bank: "🏦",
+  card: "💳",
+  cash: "💵",
+  savings: "🐷",
+  investment: "📈",
+};
+
+export function accountEmoji(type?: string) {
+  return ACCOUNT_EMOJIS[type ?? ""] ?? "🏦";
+}
 export type CreateTransactionAction = Extract<FinancialAction, { action: "create_transaction" }>;
 
 const normalize = (value: string) => value
@@ -32,6 +44,6 @@ export function matchAccountSelection(text: string, accounts: AccountOption[]) {
 }
 
 export function accountSelectionQuestion(action: CreateTransactionAction, accounts: AccountOption[]) {
-  const question = action.data.type === "expense" ? "¿De qué cuenta sale el dinero?" : "¿En qué cuenta entra el dinero?";
-  return `${question}\n${accounts.map((account, index) => `${index + 1}. ${account.name}`).join("\n")}\nResponde con el número o el nombre de la cuenta.`;
+  const question = action.data.type === "expense" ? "🤔 ¿De qué cuenta sale el dinero?" : "🤔 ¿En qué cuenta entra el dinero?";
+  return `${question}\n${accounts.map((account, index) => `${index + 1}. ${accountEmoji(account.type)} ${account.name}`).join("\n")}\nResponde con el número o el nombre de la cuenta.`;
 }
