@@ -102,7 +102,7 @@ export function analyzeFinancialBehavior(transactions: InsightTransaction[], mon
     return savings >= 0 ? {
       key: `${month}:savings:positive`,
       label: "Ahorro",
-      message: `Este mes habéis ahorrado un ${savingsRate} %.`,
+      message: `Este mes ahorraron un ${savingsRate} %.`,
       detail: `Ahorro actual: ${formatMoney(savings)}.`,
       notifiable: month === todayMonth && Number(today.slice(8, 10)) >= 7,
     } : {

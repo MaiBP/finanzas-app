@@ -31,7 +31,7 @@ describe("financial insights", () => {
       transaction("2026-08-01", "income", 100000, "Nómina", "Ingresos"),
       transaction("2026-08-02", "expense", 82000, "Gastos", "Otros"),
     ], "2026-08", "2026-08-12");
-    expect(insight.message).toBe("Este mes habéis ahorrado un 18 %.");
+    expect(insight.message).toBe("Este mes ahorraron un 18 %.");
     expect(insight.notifiable).toBe(true);
   });
 
