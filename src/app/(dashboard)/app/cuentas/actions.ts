@@ -2,7 +2,13 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentHousehold } from "@/lib/household";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
-import { eurosToCentsSigned } from "@/lib/finance/money";
+import { eurosToCentsSigned, formatMoney } from "@/lib/finance/money";
+import { notifyOtherMembers } from "@/services/telegram-notify";
+
+async function actorName(supabase: Awaited<ReturnType<typeof getCurrentHousehold>>["supabase"], userId: string) {
+  const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
+  return data?.display_name ?? "Tu pareja";
+}
 
 const accountTypes=["bank","card","cash","savings","investment"] as const;
 
@@ -42,6 +48,9 @@ export async function createSharedAccount(formData:FormData){
     });
     if(txError)throw new Error(txError.message);
   }
+  const actor=await actorName(supabase,user.id);
+  const balanceNote=initialCents!==0?` (saldo inicial ${formatMoney(Math.abs(initialCents))})`:"";
+  await notifyOtherMembers(household.id,user.id,`🏦 ${actor} creó una cuenta nueva: ${name}${balanceNote}.`);
   revalidatePath("/app"); revalidatePath("/app/cuentas"); revalidatePath("/app/movimientos"); revalidatePath("/app/movimientos/nuevo");
 }
 
@@ -74,7 +83,7 @@ export async function adjustSharedAccountBalance(formData: FormData) {
   if (!household) throw new Error("Sin hogar");
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("Cuenta no válida");
-  const { data: account, error: accountError } = await supabase.from("accounts").select("id").eq("id", id).eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).maybeSingle();
+  const { data: account, error: accountError } = await supabase.from("accounts").select("id,name").eq("id", id).eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).maybeSingle();
   if (accountError) throw new Error(accountError.message);
   if (!account) throw new Error("Cuenta no encontrada");
 
@@ -104,6 +113,8 @@ export async function adjustSharedAccountBalance(formData: FormData) {
     p_paid_by: user.id,
   });
   if (error) throw new Error(error.message);
+  const actor = await actorName(supabase, user.id);
+  await notifyOtherMembers(household.id, user.id, `⚖️ ${actor} ajustó el saldo de ${account.name} a ${formatMoney(targetCents)}.`);
   revalidatePath("/app");
   revalidatePath("/app/cuentas");
   revalidatePath("/app/movimientos");
