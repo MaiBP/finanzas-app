@@ -15,6 +15,8 @@ import { softDeleteTransaction } from "../actions";
 import { Button, LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Banner } from "@/components/ui/banner";
+import { decryptField } from "@/lib/security/field-encryption";
+import { getHouseholdRoster } from "@/services/household-roster";
 
 type Row = {
   id: string;
@@ -28,12 +30,16 @@ type Row = {
   categories: { name: string } | null;
   accounts: { name: string } | null;
 };
-type MemberRow = {
-  user_id: string;
-  profiles: { display_name: string | null } | null;
-};
 
 const PAGE_SIZE = 25;
+// Description is encrypted at rest (non-deterministic ciphertext), so a text search can't run
+// as a SQL ilike anymore — fetch a bounded window, decrypt, and filter/paginate in JS instead.
+const SEARCH_FETCH_LIMIT = 1000;
+const DIACRITICS_PATTERN = new RegExp("[\\u0300-\\u036f]", "g");
+
+function normalize(value: string) {
+  return value.normalize("NFD").replace(DIACRITICS_PATTERN, "").toLocaleLowerCase("es").trim();
+}
 
 export default async function TransactionsPage({
   searchParams,
@@ -59,39 +65,51 @@ export default async function TransactionsPage({
   const from = /^\d{4}-\d{2}-\d{2}$/.test(params.from ?? "") ? params.from : undefined;
   const to = /^\d{4}-\d{2}-\d{2}$/.test(params.to ?? "") ? params.to : undefined;
 
-  let query = supabase
-    .from("transactions")
-    .select(
-      "id,created_by,created_at,type,amount_cents,description,transaction_date,scope,categories(name),accounts(name)",
-      { count: "exact" },
-    )
-    .eq("household_id", household.id)
-    .eq("scope", "shared")
-    .eq("status", "confirmed")
-    .order("transaction_date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .range(offset, offset + PAGE_SIZE - 1);
-  if (search) query = query.ilike("description", `%${search.replace(/[%_]/g, "")}%`);
-  if (type) query = query.eq("type", type);
-  if (from) query = query.gte("transaction_date", from);
-  if (to) query = query.lte("transaction_date", to);
-
-  const [{ data, count }, { data: membersData }] = await Promise.all([
-    query,
-    supabase
-      .from("household_members")
-      .select("user_id,profiles(display_name)")
-      .eq("household_id", household.id),
-  ]);
-  const rows = (data ?? []) as unknown as Row[];
-  const members = (membersData ?? []) as unknown as MemberRow[];
-  const memberNames = new Map(
-    members.map((member) => [
-      member.user_id,
-      member.profiles?.display_name ?? "Miembro",
-    ]),
-  );
-  const total = count ?? 0;
+  let rows: Row[];
+  let total: number;
+  if (search) {
+    // Description is encrypted, so the search term can't be matched in SQL: fetch a bounded
+    // window with the other filters applied, decrypt, then filter and paginate in JS.
+    let searchQuery = supabase
+      .from("transactions")
+      .select("id,created_by,created_at,type,amount_cents,description,transaction_date,scope,categories(name),accounts(name)")
+      .eq("household_id", household.id)
+      .eq("scope", "shared")
+      .eq("status", "confirmed")
+      .order("transaction_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(SEARCH_FETCH_LIMIT);
+    if (type) searchQuery = searchQuery.eq("type", type);
+    if (from) searchQuery = searchQuery.gte("transaction_date", from);
+    if (to) searchQuery = searchQuery.lte("transaction_date", to);
+    const { data } = await searchQuery;
+    const decrypted = ((data ?? []) as unknown as Row[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+    const term = normalize(search);
+    const matched = decrypted.filter((row) => normalize(row.description).includes(term));
+    total = matched.length;
+    rows = matched.slice(offset, offset + PAGE_SIZE);
+  } else {
+    let query = supabase
+      .from("transactions")
+      .select(
+        "id,created_by,created_at,type,amount_cents,description,transaction_date,scope,categories(name),accounts(name)",
+        { count: "exact" },
+      )
+      .eq("household_id", household.id)
+      .eq("scope", "shared")
+      .eq("status", "confirmed")
+      .order("transaction_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (type) query = query.eq("type", type);
+    if (from) query = query.gte("transaction_date", from);
+    if (to) query = query.lte("transaction_date", to);
+    const { data, count } = await query;
+    rows = ((data ?? []) as unknown as Row[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+    total = count ?? 0;
+  }
+  const roster = await getHouseholdRoster(supabase, household.id);
+  const memberNames = new Map(roster.map((member) => [member.userId, member.displayName]));
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilters = Boolean(search || type || from || to);
   const exportParams = new URLSearchParams();

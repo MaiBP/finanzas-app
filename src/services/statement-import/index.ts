@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ResponseInputContent } from "openai/resources/responses/responses";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
+import { decryptField, encryptField } from "@/lib/security/field-encryption";
 
 const MAX_IMPORTED_TRANSACTIONS = 60;
 const imageMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -135,14 +136,14 @@ export async function executeStatementImport(db: SupabaseClient, userId: string,
   const dates = payload.transactions.map(item => item.transaction_date).sort();
   const { data: existing, error: existingError } = await db.from("transactions").select("type,amount_cents,description,transaction_date").eq("household_id", householdId).eq("account_id", account.id).eq("created_by", userId).eq("status", "confirmed").gte("transaction_date", dates[0]).lte("transaction_date", dates[dates.length - 1]);
   if (existingError) throw existingError;
-  const existingKeys = new Set((existing ?? []).map(item => `${item.type}|${item.transaction_date}|${item.amount_cents}|${normalize(item.description)}`));
+  const existingKeys = new Set((existing ?? []).map(item => `${item.type}|${item.transaction_date}|${item.amount_cents}|${normalize(decryptField(item.description))}`));
   const pending = payload.transactions.filter(item => !existingKeys.has(`${item.type}|${item.transaction_date}|${item.amount_cents}|${normalize(item.description)}`));
   let created = 0; let failed = 0;
   for (let index = 0; index < pending.length; index += 5) {
     const results = await Promise.all(pending.slice(index, index + 5).map(async item => {
       const categoryId = categoryIds.get(`${item.type}:${normalize(item.category)}`) ?? categoryIds.get(`${item.type}:${normalize(item.type === "expense" ? "Otros" : "Otros ingresos")}`);
       if (!categoryId) return false;
-      const { error } = await db.rpc("create_financial_transaction_as_user", { p_actor_user_id: userId, p_household_id: householdId, p_account_id: account.id, p_type: item.type, p_amount_cents: item.amount_cents, p_description: item.description, p_category_id: categoryId, p_scope: payload.scope, p_privacy: payload.scope === "shared" ? "visible" : "private", p_transaction_date: item.transaction_date, p_paid_by: userId, p_source: "telegram" });
+      const { error } = await db.rpc("create_financial_transaction_as_user", { p_actor_user_id: userId, p_household_id: householdId, p_account_id: account.id, p_type: item.type, p_amount_cents: item.amount_cents, p_description: encryptField(item.description), p_category_id: categoryId, p_scope: payload.scope, p_privacy: payload.scope === "shared" ? "visible" : "private", p_transaction_date: item.transaction_date, p_paid_by: userId, p_source: "telegram" });
       return !error;
     }));
     created += results.filter(Boolean).length; failed += results.filter(result => !result).length;

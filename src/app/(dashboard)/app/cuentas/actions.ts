@@ -4,10 +4,11 @@ import { getCurrentHousehold } from "@/lib/household";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
 import { eurosToCentsSigned, formatMoney } from "@/lib/finance/money";
 import { notifyOtherMembers } from "@/services/telegram-notify";
+import { decryptField, encryptField } from "@/lib/security/field-encryption";
 
 async function actorName(supabase: Awaited<ReturnType<typeof getCurrentHousehold>>["supabase"], userId: string) {
   const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
-  return data?.display_name ?? "Tu pareja";
+  return data?.display_name ? decryptField(data.display_name) : "Tu pareja";
 }
 
 const accountTypes=["bank","card","cash","savings","investment"] as const;
@@ -39,7 +40,7 @@ export async function createSharedAccount(formData:FormData){
       p_account_id:account.id,
       p_type:txType,
       p_amount_cents:Math.abs(initialCents),
-      p_description:`Nueva cuenta creada: ${name}`,
+      p_description:encryptField(`Nueva cuenta creada: ${name}`),
       p_category_id:category.id,
       p_scope:"shared",
       p_privacy:"visible",
@@ -105,7 +106,7 @@ export async function adjustSharedAccountBalance(formData: FormData) {
     p_account_id: id,
     p_type: type,
     p_amount_cents: Math.abs(delta),
-    p_description: "Ajuste de saldo",
+    p_description: encryptField("Ajuste de saldo"),
     p_category_id: category.id,
     p_scope: "shared",
     p_privacy: "visible",

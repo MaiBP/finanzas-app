@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { eurosToCents } from "@/lib/finance/money";
 import { getCurrentHousehold } from "@/lib/household";
 import { transactionSchema } from "@/lib/validations/transaction";
+import { encryptField } from "@/lib/security/field-encryption";
 
 export type ActionState = { error?: string; success?: string };
 type FinanceMode = "shared" | "personal";
@@ -36,7 +37,7 @@ async function createTransactionForMode(formData: FormData, mode: FinanceMode): 
 
   const { error } = await supabase.rpc("create_financial_transaction", {
     p_household_id: household.id, p_account_id: parsed.data.accountId, p_type: parsed.data.type,
-    p_amount_cents: amountCents, p_description: parsed.data.description, p_category_id: parsed.data.categoryId,
+    p_amount_cents: amountCents, p_description: encryptField(parsed.data.description), p_category_id: parsed.data.categoryId,
     p_scope: parsed.data.scope, p_privacy: parsed.data.privacy, p_transaction_date: parsed.data.transactionDate,
     p_paid_by: user.id, p_source: "web",
   });

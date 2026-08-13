@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatMoney } from "@/lib/finance/money";
+import { decryptField } from "@/lib/security/field-encryption";
 
 export type InsightTransaction = {
   type: "expense" | "income";
@@ -127,5 +128,6 @@ export async function getHouseholdFinancialInsight(db: SupabaseClient, household
   const historyEnd = `${monthAtOffset(month, 1)}-01`;
   const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name)").eq("household_id", householdId).eq("scope", "shared").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
   if (error) throw error;
-  return analyzeFinancialBehavior((data ?? []) as unknown as InsightTransaction[], month, today);
+  const transactions = ((data ?? []) as unknown as InsightTransaction[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+  return analyzeFinancialBehavior(transactions, month, today);
 }

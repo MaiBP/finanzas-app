@@ -1,4 +1,10 @@
 import { getCurrentHousehold } from "@/lib/household";
+import { decryptField } from "@/lib/security/field-encryption";
+import { getHouseholdRoster } from "@/services/household-roster";
+
+function normalize(value: string) {
+  return value.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLocaleLowerCase("es").trim();
+}
 
 type ExportRow = {
   type: "expense" | "income";
@@ -41,33 +47,24 @@ export async function GET(request: Request) {
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false })
       .range(offset, offset + CHUNK_SIZE - 1);
-    if (search) query = query.ilike("description", `%${search.replace(/[%_]/g, "")}%`);
     if (type === "expense" || type === "income") query = query.eq("type", type);
     if (from) query = query.gte("transaction_date", from);
     if (to) query = query.lte("transaction_date", to);
     const { data, error } = await query;
     if (error) return new Response("No se pudo preparar la exportación", { status: 500 });
-    const chunk = (data ?? []) as unknown as ExportRow[];
+    const chunk = ((data ?? []) as unknown as ExportRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
     rows.push(...chunk);
     if (chunk.length < CHUNK_SIZE) break;
   }
+  // Description is encrypted, so the search term is matched in JS after decrypting above.
+  const matchedRows = search ? rows.filter((row) => normalize(row.description).includes(normalize(search))) : rows;
 
-  const { data: membersData, error: membersError } = await supabase
-    .from("household_members")
-    .select("user_id,profiles(display_name)")
-    .eq("household_id", household.id);
-  if (membersError) return new Response("No se pudo preparar la exportación", { status: 500 });
-  const members = (membersData ?? []) as unknown as {
-    user_id: string;
-    profiles: { display_name: string | null } | null;
-  }[];
-  const memberNames = new Map(
-    members.map((member) => [member.user_id, member.profiles?.display_name ?? "Miembro"]),
-  );
+  const roster = await getHouseholdRoster(supabase, household.id);
+  const memberNames = new Map(roster.map((member) => [member.userId, member.displayName]));
 
   const header = ["Fecha", "Tipo", "Descripción", "Categoría", "Cuenta", "Registrado por", "Importe (EUR)"];
   const lines = ["sep=;", header.map(csvCell).join(";")];
-  for (const row of rows) {
+  for (const row of matchedRows) {
     const amount = ((row.type === "income" ? 1 : -1) * row.amount_cents / 100)
       .toFixed(2)
       .replace(".", ",");

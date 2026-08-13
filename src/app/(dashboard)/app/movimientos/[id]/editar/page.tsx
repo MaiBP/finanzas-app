@@ -4,12 +4,13 @@ import { notFound } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
 import { editTransaction } from "./actions";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { decryptField } from "@/lib/security/field-encryption";
 
 type Row={id:string;description:string;amount_cents:number;type:string;scope:"shared"|"personal";privacy:string;transaction_date:string;account_id:string;category_id:string};
 export default async function EditPage({params}:{params:Promise<{id:string}>}){
   const {id}=await params; const {supabase,user,household}=await getCurrentHousehold(); if(!household)return null;
   const {data}=await supabase.from("transactions").select("id,description,amount_cents,type,scope,privacy,transaction_date,account_id,category_id").eq("id",id).eq("created_by",user.id).eq("status","confirmed").maybeSingle();
-  if(!data)notFound(); const row=data as Row;
+  if(!data)notFound(); const row={...(data as Row),description:decryptField((data as Row).description)};
   let accountsQuery=supabase.from("accounts").select("id,name").eq("household_id",household.id).is("archived_at",null);
   accountsQuery=row.scope==="shared"?accountsQuery.eq("is_shared",true):accountsQuery.eq("is_shared",false).eq("owner_user_id",user.id);
   const [{data:accounts},{data:categories}]=await Promise.all([accountsQuery.order("name"),supabase.from("categories").select("id,name,kind").or(`household_id.eq.${household.id},household_id.is.null`).order("name")]);

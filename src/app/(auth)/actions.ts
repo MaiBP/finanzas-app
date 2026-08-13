@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ensureDisplayNameEncrypted } from "@/lib/security/field-encryption";
 
 function safeMessage(value: unknown) { return encodeURIComponent(value instanceof Error ? value.message : "No se pudo completar la acción"); }
 
@@ -18,8 +19,9 @@ export async function signup(formData: FormData) {
   const password = String(formData.get("password"));
   const displayName = String(formData.get("displayName"));
   if (password.length < 8) redirect(`/registro?error=${safeMessage("La contraseña debe tener al menos 8 caracteres")}`);
-  const { error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: displayName } } });
+  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: displayName } } });
   if (error) redirect(`/registro?error=${safeMessage(error)}`);
+  if (data.user) await ensureDisplayNameEncrypted(data.user.id);
   redirect("/login?message=Revisa tu email para confirmar la cuenta");
 }
 

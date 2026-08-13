@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
 import { eurosToCents } from "@/lib/finance/money";
+import { encryptField } from "@/lib/security/field-encryption";
 
 export async function editTransaction(formData:FormData){
   const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("Sin hogar");
@@ -14,6 +15,6 @@ export async function editTransaction(formData:FormData){
   const [{data:account},{data:category}]=await Promise.all([accountQuery.maybeSingle(),supabase.from("categories").select("id,kind").eq("id",categoryId).maybeSingle()]);
   if(!account||!category||category.kind!==transaction.type)throw new Error("Cuenta o categoría no válida");
   const privacy=transaction.scope==="shared"?"visible":"private";
-  const {error}=await supabase.rpc("update_financial_transaction",{p_transaction_id:id,p_account_id:accountId,p_amount_cents:amountCents,p_description:description,p_category_id:categoryId,p_scope:transaction.scope,p_privacy:privacy,p_transaction_date:transactionDate});
+  const {error}=await supabase.rpc("update_financial_transaction",{p_transaction_id:id,p_account_id:accountId,p_amount_cents:amountCents,p_description:encryptField(description),p_category_id:categoryId,p_scope:transaction.scope,p_privacy:privacy,p_transaction_date:transactionDate});
   if(error)throw new Error(error.message); redirect(transaction.scope==="personal"?"/app/personal":"/app/movimientos");
 }

@@ -13,7 +13,8 @@
     "data:reset:test": "node scripts/reset-test-data.mjs",
     "telegram:webhook": "node scripts/telegram-webhook.mjs",
     "telegram:webhook:info": "node scripts/telegram-webhook.mjs --info",
-    "telegram:diagnostics": "node scripts/telegram-link-diagnostics.mjs"
+    "telegram:diagnostics": "node scripts/telegram-link-diagnostics.mjs",
+    "security:backfill-encryption": "node scripts/backfill-field-encryption.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",

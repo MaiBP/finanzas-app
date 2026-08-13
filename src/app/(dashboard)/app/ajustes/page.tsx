@@ -2,13 +2,12 @@ import { Check, Copy, Home, Send, UserRound } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { generateHouseholdInvite, generateTelegramCode, updateHouseholdName, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
-
-type MemberRow = { user_id: string; profiles: { display_name: string | null } | null };
+import { getHouseholdRoster } from "@/services/household-roster";
 
 export default async function SettingsPage() {
   const { supabase, user, household } = await getCurrentHousehold();
   if (!household) return null;
-  const [{ data: invite }, { data: link }, { data: linkCode }, { data: profile }, { data: membersData }] = await Promise.all([
+  const [{ data: invite }, { data: link }, { data: linkCode }, { data: profile }, roster] = await Promise.all([
     household.role === "owner"
       ? supabase
           .from("household_invites")
@@ -31,12 +30,12 @@ export default async function SettingsPage() {
       .limit(1)
       .maybeSingle(),
     supabase.from("profiles").select("personal_space_name").eq("id", user.id).maybeSingle(),
-    supabase.from("household_members").select("user_id,profiles(display_name)").eq("household_id", household.id),
+    getHouseholdRoster(supabase, household.id),
   ]);
   const personalSpaceName = profile?.personal_space_name ?? "Mi espacio";
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "Finzy_AssistantBot";
-  const partner = ((membersData ?? []) as unknown as MemberRow[]).find((member) => member.user_id !== user.id);
-  const partnerName = partner?.profiles?.display_name ?? "tu pareja";
+  const partner = roster.find((member) => member.userId !== user.id);
+  const partnerName = partner?.displayName ?? "tu pareja";
 
   return (
     <>

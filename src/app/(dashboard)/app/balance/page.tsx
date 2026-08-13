@@ -6,11 +6,7 @@ import {
 } from "@/lib/finance/member-summary";
 import { formatMoney } from "@/lib/finance/money";
 import { StatTile } from "@/components/ui/stat-tile";
-
-type MemberRow = {
-  user_id: string;
-  profiles: { display_name: string | null } | null;
-};
+import { getHouseholdRoster } from "@/services/household-roster";
 
 const memberTones = ["bg-(--lilac)", "bg-(--blue)", "bg-(--lime)", "bg-(--expense)", "bg-(--savings)"];
 
@@ -22,11 +18,8 @@ export default async function BalancePage() {
   const start = `${month}-01`;
   const end = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1)).toISOString().slice(0, 10);
   const monthName = new Intl.DateTimeFormat("es-ES", { month: "long" }).format(now);
-  const [{ data: membersData }, { data: movementData }] = await Promise.all([
-    supabase
-      .from("household_members")
-      .select("user_id,profiles(display_name)")
-      .eq("household_id", household.id),
+  const [members, { data: movementData }] = await Promise.all([
+    getHouseholdRoster(supabase, household.id),
     supabase
       .from("transactions")
       .select("created_by,type,amount_cents")
@@ -36,7 +29,6 @@ export default async function BalancePage() {
       .gte("transaction_date", start)
       .lt("transaction_date", end),
   ]);
-  const members = (membersData ?? []) as unknown as MemberRow[];
   const movements = (movementData ?? []) as MemberMovement[];
   const totals = calculateMemberSummary(movements);
   const totalExpenses = movements
@@ -46,8 +38,8 @@ export default async function BalancePage() {
     .filter((item) => item.type === "income")
     .reduce((sum, item) => sum + item.amount_cents, 0);
   const pieData = members.map((member) => ({
-    name: member.profiles?.display_name ?? "Miembro",
-    value: totals.get(member.user_id)?.expenses ?? 0,
+    name: member.displayName,
+    value: totals.get(member.userId)?.expenses ?? 0,
   }));
   return (
     <>
@@ -69,14 +61,14 @@ export default async function BalancePage() {
           <h2 className="text-xl font-black">Detalle por persona</h2>
           <div className="mt-5 space-y-2.5">
             {members.map((member, index) => {
-              const values = totals.get(member.user_id) ?? {
+              const values = totals.get(member.userId) ?? {
                 expenses: 0,
                 income: 0,
               };
-              const name = member.profiles?.display_name ?? "Miembro";
+              const name = member.displayName;
               return (
                 <div
-                  key={member.user_id}
+                  key={member.userId}
                   className={`flex items-center gap-3 rounded-xl p-3 ${memberTones[index % memberTones.length]}`}
                 >
                   <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-sm font-black">

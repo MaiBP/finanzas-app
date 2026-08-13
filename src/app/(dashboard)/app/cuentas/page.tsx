@@ -19,6 +19,7 @@ import { adjustSharedAccountBalance, archiveSharedAccount, createSharedAccount, 
 import { StatTile } from "@/components/ui/stat-tile";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button, LinkButton } from "@/components/ui/button";
+import { getHouseholdRoster } from "@/services/household-roster";
 
 type AccountRow = {
   id: string;
@@ -35,11 +36,6 @@ type ExpenseMovement = {
   paid_by: string;
   amount_cents: number;
 };
-type MemberRow = {
-  user_id: string;
-  profiles: { display_name: string | null } | null;
-};
-
 function AccountIcon({ type }: { type: string }) {
   if (type === "cash") return <Banknote />;
   if (type === "card") return <CreditCard />;
@@ -69,7 +65,7 @@ export default async function AccountsPage() {
     { data: accountsData },
     { data: balanceData },
     { data: expenseData },
-    { data: membersData },
+    members,
   ] = await Promise.all([
     supabase
       .from("accounts")
@@ -93,10 +89,7 @@ export default async function AccountsPage() {
       .eq("status", "confirmed")
       .gte("transaction_date", monthStart)
       .lt("transaction_date", nextMonth),
-    supabase
-      .from("household_members")
-      .select("user_id,profiles(display_name)")
-      .eq("household_id", household.id),
+    getHouseholdRoster(supabase, household.id),
   ]);
   const accounts = (accountsData ?? []) as AccountRow[];
   const fundingAccounts = accounts.filter(
@@ -105,7 +98,6 @@ export default async function AccountsPage() {
   const generalAccount = accounts.find((account) => account.type === "joint");
   const balanceMovements = (balanceData ?? []) as BalanceMovement[];
   const expenseMovements = (expenseData ?? []) as ExpenseMovement[];
-  const members = (membersData ?? []) as unknown as MemberRow[];
   const totalBalance = fundingAccounts.reduce(
     (total, account) =>
       total +
@@ -233,14 +225,14 @@ export default async function AccountsPage() {
                   <div className="mt-3 space-y-2">
                     {members.map((member) => (
                       <div
-                        key={member.user_id}
+                        key={member.userId}
                         className="flex items-center justify-between gap-3"
                       >
                         <span className="truncate text-sm font-bold">
-                          {member.profiles?.display_name ?? "Miembro"}
+                          {member.displayName}
                         </span>
                         <span className="text-sm font-black">
-                          {formatMoney(expenses.get(member.user_id) ?? 0)}
+                          {formatMoney(expenses.get(member.userId) ?? 0)}
                         </span>
                       </div>
                     ))}

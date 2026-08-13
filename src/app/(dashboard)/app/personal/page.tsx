@@ -7,6 +7,7 @@ import type { Account, Category } from "@/types/database";
 import { archiveAccount, createAccount } from "../cuentas/actions";
 import { softDeleteTransaction } from "../actions";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
+import { decryptField } from "@/lib/security/field-encryption";
 import { StatTile } from "@/components/ui/stat-tile";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,7 @@ export default async function PersonalPage({
     supabase.from("profiles").select("personal_space_name").eq("id", user.id).maybeSingle(),
   ]);
   const accounts = (accountsData ?? []) as AccountRow[];
-  const transactions = (transactionsData ?? []) as unknown as TransactionRow[];
+  const transactions = ((transactionsData ?? []) as unknown as TransactionRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
   const summary = (summaryData ?? []) as { type: "expense" | "income"; amount_cents: number }[];
   const balanceMovements = (balanceData ?? []) as BalanceMovement[];
   const income = summary.filter((row) => row.type === "income").reduce((sum, row) => sum + row.amount_cents, 0);
