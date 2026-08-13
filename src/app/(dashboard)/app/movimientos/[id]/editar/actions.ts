@@ -7,7 +7,7 @@ import { encryptField } from "@/lib/security/field-encryption";
 export async function editTransaction(formData:FormData){
   const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("Sin hogar");
   const id=String(formData.get("id")); const description=String(formData.get("description")??"").trim(); const accountId=String(formData.get("accountId")); const categoryId=String(formData.get("categoryId")); const transactionDate=String(formData.get("transactionDate")); const amountCents=eurosToCents(String(formData.get("amount")));
-  if(description.length<2)throw new Error("Datos no válidos");
+  if(description.length<2||description.length>160)throw new Error("La descripción debe tener entre 2 y 160 caracteres.");
   const {data:transaction}=await supabase.from("transactions").select("scope,type").eq("id",id).eq("created_by",user.id).eq("status","confirmed").maybeSingle();
   if(!transaction)throw new Error("Movimiento no encontrado");
   let accountQuery=supabase.from("accounts").select("id").eq("id",accountId).eq("household_id",household.id).is("archived_at",null);
