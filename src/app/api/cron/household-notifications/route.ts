@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendTelegramMessage, withTelegramWebSuggestion } from "@/lib/telegram/api";
+import { sendTelegramMessage, escapeTelegramHtml } from "@/lib/telegram/api";
 import { buildDailySummaryMessage, isReminderDay, WEEKLY_REMINDER_MESSAGE, type DailyMovementRow } from "@/services/household-notifications";
 import { isTimingSafeEqual } from "@/lib/security/timing-safe";
 import { getHouseholdRoster } from "@/services/household-roster";
@@ -73,7 +73,8 @@ export async function GET(request: Request) {
 
       let telegramSent = false;
       try {
-        await sendTelegramMessage(link.telegram_chat_id, withTelegramWebSuggestion(message));
+        // Daily summaries and weekly reminders aren't movement confirmations, so no web-app link.
+        await sendTelegramMessage(link.telegram_chat_id, escapeTelegramHtml(message));
         telegramSent = true;
         const { error } = await db.from("financial_insight_deliveries").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", delivery.id);
         if (error) throw error;

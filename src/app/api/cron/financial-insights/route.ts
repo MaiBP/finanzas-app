@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendTelegramMessage, withTelegramWebSuggestion } from "@/lib/telegram/api";
+import { sendTelegramMessage, escapeTelegramHtml } from "@/lib/telegram/api";
 import { getHouseholdFinancialInsight } from "@/services/financial-insights";
 import { isTimingSafeEqual } from "@/lib/security/timing-safe";
 
@@ -41,7 +41,8 @@ export async function GET(request: Request) {
     if (deliveryError?.code === "23505") { skipped++; continue; }
     if (deliveryError || !delivery) { failed++; continue; }
 
-    const message = withTelegramWebSuggestion(`💡 Miti-Miti · ${insight.label} financiero\n\n${insight.message}\n${insight.detail}`);
+    // A proactive insight/reminder isn't a movement confirmation, so no web-app link here.
+    const message = escapeTelegramHtml(`💡 Miti-Miti · ${insight.label} financiero\n\n${insight.message}\n${insight.detail}`);
     let telegramSent = false;
     try {
       await sendTelegramMessage(link.telegram_chat_id, message);
