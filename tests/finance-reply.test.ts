@@ -98,6 +98,25 @@ describe("computeFinanceQueryFacts", () => {
     });
     expect(facts.kind).toBe("no_data");
   });
+
+  it("only includes the expense amount for an expense-only period summary, never a stray zero income", async () => {
+    const db = createDb(rows, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "period_summary",
+      filters: { ...baseFilters, movement_type: "expense" },
+    });
+    expect(facts).toEqual({
+      kind: "summary",
+      scope: "shared",
+      rangeLabel: "todo el historial",
+      movementType: "expense",
+      amount: 35_000,
+    });
+    expect(facts).not.toHaveProperty("totals");
+    const reply = formatFinanceReply(facts);
+    expect(reply).toContain("de gastos");
+    expect(reply).not.toContain("ingresos");
+  });
 });
 
 describe("formatFinanceReply", () => {
@@ -108,7 +127,7 @@ describe("formatFinanceReply", () => {
       totals: { income: 100_000, expenses: 35_000, result: 65_000 },
     });
     expect(reply).toBe(
-      `El saldo actual de el hogar es ${formatMoney(65_000)}: ${formatMoney(100_000)} de ingresos menos ${formatMoney(35_000)} de gastos registrados.`,
+      `💰 El saldo actual de el hogar es ${formatMoney(65_000)}: ${formatMoney(100_000)} de ingresos menos ${formatMoney(35_000)} de gastos registrados.`,
     );
   });
 });

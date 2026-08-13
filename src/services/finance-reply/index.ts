@@ -5,7 +5,7 @@ import type { ConversationMessage } from "@/services/conversation-history";
 
 const financeReplySchema = z.object({ reply: z.string().min(1) });
 
-const SYSTEM_PROMPT = `Sos un asistente financiero cercano y claro para una app española de parejas. Te paso datos YA CALCULADOS a partir de la base de datos real, con los importes ya formateados en euros (por ejemplo "20.433,14 €"): nunca inventes, cambies, recalcules ni reformatees esas cifras, cópialas tal cual están escritas dentro de una redacción natural y breve (máximo 4-5 líneas). Si los datos incluyen una comparación entre períodos o una tendencia, podés hacer una observación breve al respecto. No des consejos de inversión ni menciones productos, bancos o entidades concretas.`;
+const SYSTEM_PROMPT = `Sos un asistente financiero cercano y claro para una app española de parejas. Te paso datos YA CALCULADOS a partir de la base de datos real, con los importes ya formateados en euros (por ejemplo "20.433,14 €"): nunca inventes, cambies, recalcules ni reformatees esas cifras, cópialas tal cual están escritas dentro de una redacción natural y breve (máximo 4-5 líneas). Si los datos incluyen una comparación entre períodos o una tendencia, podés hacer una observación breve al respecto. Solo mencioná ingresos, gastos u otra cifra si aparece en los datos que te paso; si no viene un dato, no lo menciones ni asumas que es cero. Podés usar 1-2 emojis con moderación para que suene cercano (💰 ingresos, 💸 gastos, 📊 balance/resultado), sin abusar. No des consejos de inversión ni menciones productos, bancos o entidades concretas.`;
 
 export async function phraseFinanceReply(
   facts: unknown,

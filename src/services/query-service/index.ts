@@ -38,7 +38,8 @@ export type FinanceQueryFacts =
   | { kind: "largest_transactions"; movementType: "expense" | "income"; rangeLabel: string; empty?: false; items: { description: string; amount_cents: number; date: string }[] }
   | { kind: "monthly_trend"; scope: FinanceScope; months: { month: string; income: number; expenses: number; result: number }[] }
   | { kind: "compare_months"; targetMonth: string; previousMonth: string; current: Totals; previous: Totals; expenseDifference: number }
-  | { kind: "summary"; scope: FinanceScope; rangeLabel: string; totals: Totals; shared?: Totals; personal?: Totals };
+  | { kind: "summary"; scope: FinanceScope; rangeLabel: string; movementType: "both"; totals: Totals; shared?: Totals; personal?: Totals }
+  | { kind: "summary"; scope: FinanceScope; rangeLabel: string; movementType: "expense" | "income"; amount: number; sharedAmount?: number; personalAmount?: number };
 
 export function accessibleFinanceFilter(userId: string) {
   return `scope.eq.shared,and(scope.eq.personal,created_by.eq.${userId})`;
@@ -189,19 +190,41 @@ async function fetchQueryRows(
   return { rows, names, scope };
 }
 
-function summaryFacts(rows: QueryRow[], scope: FinanceScope, rangeLabel: string): FinanceQueryFacts {
+function summaryFacts(
+  rows: QueryRow[],
+  scope: FinanceScope,
+  rangeLabel: string,
+  movementType: "expense" | "income" | "both",
+): FinanceQueryFacts {
+  if (movementType !== "both") {
+    const amountFor = (scopedRows: QueryRow[]) =>
+      scopedRows.filter((row) => row.type === movementType).reduce((sum, row) => sum + row.amount_cents, 0);
+    if (scope === "combined") {
+      return {
+        kind: "summary",
+        scope,
+        rangeLabel,
+        movementType,
+        amount: amountFor(rows),
+        sharedAmount: amountFor(rows.filter((row) => row.scope === "shared")),
+        personalAmount: amountFor(rows.filter((row) => row.scope === "personal")),
+      };
+    }
+    return { kind: "summary", scope, rangeLabel, movementType, amount: amountFor(rows) };
+  }
   const totals = calculateTransactionTotals(rows);
   if (scope === "combined") {
     return {
       kind: "summary",
       scope,
       rangeLabel,
+      movementType: "both",
       totals,
       shared: calculateTransactionTotals(rows.filter((row) => row.scope === "shared")),
       personal: calculateTransactionTotals(rows.filter((row) => row.scope === "personal")),
     };
   }
-  return { kind: "summary", scope, rangeLabel, totals };
+  return { kind: "summary", scope, rangeLabel, movementType: "both", totals };
 }
 
 export async function computeFinanceQueryFacts(
@@ -313,41 +336,54 @@ export async function computeFinanceQueryFacts(
     const previous = calculateTransactionTotals(rows.filter((row) => row.transaction_date.startsWith(previousMonth)));
     return { kind: "compare_months", targetMonth, previousMonth, current, previous, expenseDifference: current.expenses - previous.expenses };
   }
-  return summaryFacts(rows, scope, range.label);
+  return summaryFacts(rows, scope, range.label, filters.movement_type ?? "both");
 }
+
+const MEDALS = ["🥇", "🥈", "🥉"];
 
 export function formatFinanceReply(facts: FinanceQueryFacts): string {
   switch (facts.kind) {
     case "no_data":
-      return `No hay movimientos confirmados en ${scopeLabel(facts.scope)} para ${facts.rangeLabel}.`;
+      return `🤷 No hay movimientos confirmados en ${scopeLabel(facts.scope)} para ${facts.rangeLabel}.`;
     case "household_balance":
       if (facts.scope === "combined" && facts.shared && facts.personal) {
-        return `El saldo actual del hogar es ${formatMoney(facts.shared.result)} y el de tu espacio personal es ${formatMoney(facts.personal.result)}. El saldo combinado es ${formatMoney(facts.totals.result)}. Todo está calculado con movimientos confirmados.`;
+        return `🏠 El saldo actual del hogar es ${formatMoney(facts.shared.result)} y el de tu espacio personal es ${formatMoney(facts.personal.result)}. 📊 El saldo combinado es ${formatMoney(facts.totals.result)}. Todo está calculado con movimientos confirmados.`;
       }
-      return `El saldo actual de ${scopeLabel(facts.scope)} es ${formatMoney(facts.totals.result)}: ${formatMoney(facts.totals.income)} de ingresos menos ${formatMoney(facts.totals.expenses)} de gastos registrados.`;
+      return `💰 El saldo actual de ${scopeLabel(facts.scope)} es ${formatMoney(facts.totals.result)}: ${formatMoney(facts.totals.income)} de ingresos menos ${formatMoney(facts.totals.expenses)} de gastos registrados.`;
     case "recent_transactions":
       return facts.items.map((item) =>
-        `${item.scope === "shared" ? "Conjunto" : "Personal"} · ${item.account} · ${item.type === "expense" ? "−" : "+"}${formatMoney(item.amount_cents)} · ${item.description} (${item.date})`,
+        `${item.type === "expense" ? "🔴" : "🟢"} ${item.scope === "shared" ? "Conjunto" : "Personal"} · ${item.account} · ${item.type === "expense" ? "−" : "+"}${formatMoney(item.amount_cents)} · ${item.description} (${item.date})`,
       ).join("\n");
     case "category_spending":
-      if (facts.empty) return `No hay gastos confirmados en ${scopeLabel(facts.scope)} para ${facts.rangeLabel}.`;
-      return `Gastos por categoría en ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: ${facts.categories.map((c) => `${c.name}: ${formatMoney(c.amount_cents)}`).join("; ")}.`;
+      if (facts.empty) return `🤷 No hay gastos confirmados en ${scopeLabel(facts.scope)} para ${facts.rangeLabel}.`;
+      return `🏷️ Gastos por categoría en ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: ${facts.categories.map((c) => `${c.name}: ${formatMoney(c.amount_cents)}`).join("; ")}.`;
     case "user_contributions":
-      return `Detalle por persona durante ${facts.rangeLabel}: ${facts.members.map((m) => `${m.name}: ingresos ${formatMoney(m.income)}, gastos ${formatMoney(m.expenses)}`).join("; ")}.`;
+      return `👥 Detalle por persona durante ${facts.rangeLabel}: ${facts.members.map((m) => `${m.name}: ingresos ${formatMoney(m.income)}, gastos ${formatMoney(m.expenses)}`).join("; ")}.`;
     case "account_summary":
-      return `Actividad por cuenta durante ${facts.rangeLabel}: ${facts.accounts.map((a) => `${a.name}: ingresos ${formatMoney(a.income)}, gastos ${formatMoney(a.expenses)}, saldo ${formatMoney(a.result)}`).join("; ")}.`;
+      return `🏦 Actividad por cuenta durante ${facts.rangeLabel}: ${facts.accounts.map((a) => `${a.name}: ingresos ${formatMoney(a.income)}, gastos ${formatMoney(a.expenses)}, saldo ${formatMoney(a.result)}`).join("; ")}.`;
     case "largest_transactions":
-      if (facts.empty) return `No hay ${facts.movementType === "expense" ? "gastos" : "ingresos"} confirmados para ${facts.rangeLabel}.`;
-      return facts.items.map((item, index) => `${index + 1}. ${item.description}: ${formatMoney(item.amount_cents)} (${item.date})`).join("\n");
+      if (facts.empty) return `🤷 No hay ${facts.movementType === "expense" ? "gastos" : "ingresos"} confirmados para ${facts.rangeLabel}.`;
+      return `🏆 ${facts.items.map((item, index) => `${MEDALS[index] ?? `${index + 1}.`} ${item.description}: ${formatMoney(item.amount_cents)} (${item.date})`).join("\n")}`;
     case "monthly_trend":
-      return `Evolución mensual de ${scopeLabel(facts.scope)}:\n${facts.months.map((m) => `${m.month}: ingresos ${formatMoney(m.income)}, gastos ${formatMoney(m.expenses)}, resultado ${formatMoney(m.result)}`).join("\n")}`;
-    case "compare_months":
-      return `${facts.targetMonth}: ingresos ${formatMoney(facts.current.income)}, gastos ${formatMoney(facts.current.expenses)}. ${facts.previousMonth}: ingresos ${formatMoney(facts.previous.income)}, gastos ${formatMoney(facts.previous.expenses)}. La diferencia de gastos es ${facts.expenseDifference >= 0 ? "+" : ""}${formatMoney(facts.expenseDifference)}.`;
-    case "summary":
-      if (facts.scope === "combined" && facts.shared && facts.personal) {
-        return `Durante ${facts.rangeLabel}, en el hogar: ingresos ${formatMoney(facts.shared.income)}, gastos ${formatMoney(facts.shared.expenses)}, resultado ${formatMoney(facts.shared.result)}. En tu espacio personal: ingresos ${formatMoney(facts.personal.income)}, gastos ${formatMoney(facts.personal.expenses)}, resultado ${formatMoney(facts.personal.result)}. Resultado combinado: ${formatMoney(facts.totals.result)}.`;
+      return `📈 Evolución mensual de ${scopeLabel(facts.scope)}:\n${facts.months.map((m) => `${m.month}: ingresos ${formatMoney(m.income)}, gastos ${formatMoney(m.expenses)}, resultado ${formatMoney(m.result)}`).join("\n")}`;
+    case "compare_months": {
+      const trend = facts.expenseDifference >= 0 ? "🔺" : "🔻";
+      return `📊 ${facts.targetMonth}: ingresos ${formatMoney(facts.current.income)}, gastos ${formatMoney(facts.current.expenses)}. ${facts.previousMonth}: ingresos ${formatMoney(facts.previous.income)}, gastos ${formatMoney(facts.previous.expenses)}. ${trend} La diferencia de gastos es ${facts.expenseDifference >= 0 ? "+" : ""}${formatMoney(facts.expenseDifference)}.`;
+    }
+    case "summary": {
+      if (facts.movementType !== "both") {
+        const emoji = facts.movementType === "expense" ? "💸" : "💰";
+        const noun = facts.movementType === "expense" ? "de gastos" : "de ingresos";
+        if (facts.scope === "combined" && facts.sharedAmount !== undefined && facts.personalAmount !== undefined) {
+          return `${emoji} Durante ${facts.rangeLabel}, en el hogar: ${formatMoney(facts.sharedAmount)} ${noun}. En tu espacio personal: ${formatMoney(facts.personalAmount)} ${noun}. Total combinado: ${formatMoney(facts.amount)} ${noun}.`;
+        }
+        return `${emoji} En ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: ${formatMoney(facts.amount)} ${noun}.`;
       }
-      return `En ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: ${formatMoney(facts.totals.income)} de ingresos y ${formatMoney(facts.totals.expenses)} de gastos. El resultado es ${formatMoney(facts.totals.result)}.`;
+      if (facts.scope === "combined" && facts.shared && facts.personal) {
+        return `📊 Durante ${facts.rangeLabel}, en el hogar: ingresos ${formatMoney(facts.shared.income)}, gastos ${formatMoney(facts.shared.expenses)}, resultado ${formatMoney(facts.shared.result)}. En tu espacio personal: ingresos ${formatMoney(facts.personal.income)}, gastos ${formatMoney(facts.personal.expenses)}, resultado ${formatMoney(facts.personal.result)}. Resultado combinado: ${formatMoney(facts.totals.result)}.`;
+      }
+      return `📊 En ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: 💰 ${formatMoney(facts.totals.income)} de ingresos y 💸 ${formatMoney(facts.totals.expenses)} de gastos. El resultado es ${formatMoney(facts.totals.result)}.`;
+    }
   }
 }
 
