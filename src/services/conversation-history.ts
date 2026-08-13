@@ -1,3 +1,5 @@
+import { decryptField, encryptField } from "@/lib/security/field-encryption";
+
 export type ConversationRole = "user" | "assistant";
 
 export interface ConversationMessage {
@@ -20,7 +22,7 @@ export async function fetchRecentMessages(
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(limit);
-  return ((data ?? []) as ConversationMessage[]).reverse();
+  return ((data ?? []) as ConversationMessage[]).reverse().map((message) => ({ ...message, content: decryptField(message.content) }));
 }
 
 export async function recordMessage(
@@ -31,6 +33,6 @@ export async function recordMessage(
     user_id: params.userId,
     household_id: params.householdId,
     role: params.role,
-    content: params.content,
+    content: encryptField(params.content),
   });
 }

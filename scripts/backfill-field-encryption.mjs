@@ -60,5 +60,6 @@ async function backfillColumn(table, column) {
 
 const profiles = await backfillColumn("profiles", "display_name");
 const transactions = await backfillColumn("transactions", "description");
-console.log(JSON.stringify({ mode: dryRun ? "dry-run" : "backfill", profiles, transactions }, null, 2));
+const conversationMessages = await backfillColumn("conversation_messages", "content");
+console.log(JSON.stringify({ mode: dryRun ? "dry-run" : "backfill", profiles, transactions, conversationMessages }, null, 2));
 if (dryRun) console.log("Vuelve a ejecutar con --confirm-backfill para aplicar los cambios.");
