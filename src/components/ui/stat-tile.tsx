@@ -39,7 +39,11 @@ export function StatTile({
           </span>
         )}
       </div>
-      <p className={cn("mt-2 wrap-break-word font-black tracking-tight", compact ? "text-lg leading-snug" : "text-2xl")}>{value}</p>
+      {/* whitespace-nowrap keeps the amount on one line instead of wrapping between the number
+          and the currency sign; a smaller size on narrow screens is what actually makes that
+          fit, since money values shouldn't ever be truncated/ellipsized. Compact (the insight
+          sentence) keeps normal wrapping — only the money tiles get nowrap. */}
+      <p className={cn("mt-2 font-black tracking-tight", compact ? "text-lg leading-snug" : "whitespace-nowrap text-lg sm:text-2xl")}>{value}</p>
       {detail && <p className="mt-1 w-fit bg-(--highlight) px-1 text-xs text-(--ink)">{detail}</p>}
       {breakdown && breakdown.length > 0 && (
         <ul className="mt-2 space-y-0.5 border-t border-(--ink)/15 pt-2 text-xs">
