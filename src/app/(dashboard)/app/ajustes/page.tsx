@@ -1,8 +1,9 @@
-import { Check, Copy, Home, Send, UserRound } from "lucide-react";
+import { AlertTriangle, Check, Copy, Home, Send, UserRound } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
-import { generateHouseholdInvite, generateTelegramCode, updateHouseholdName, updatePersonalSpaceName } from "./actions";
+import { deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, updateHouseholdName, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
 import { getHouseholdRoster } from "@/services/household-roster";
+import { TypeToConfirm } from "@/components/settings/type-to-confirm";
 
 export default async function SettingsPage() {
   const { supabase, user, household } = await getCurrentHousehold();
@@ -196,6 +197,43 @@ export default async function SettingsPage() {
               )}
             </>
           )}
+        </section>
+
+        <section className="card border-[#c23b3b]/40 p-6 lg:col-span-2">
+          <div className="flex items-center gap-3">
+            <span className="grid size-11 place-items-center rounded-xl bg-[#f7d9d9]">
+              <AlertTriangle size={20} className="text-[#c23b3b]" />
+            </span>
+            <div>
+              <p className="text-xs font-bold uppercase text-[#c23b3b]">Zona de peligro</p>
+              <h2 className="font-black">Salir del hogar o borrar tu cuenta</h2>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-6 md:grid-cols-2">
+            <div className="border-t border-black/10 pt-5 md:border-t-0 md:pt-0">
+              <h3 className="font-black">Abandonar la pareja</h3>
+              <p className="mt-1 text-sm text-(--muted)">
+                Sales de {household.name} sin borrar tu cuenta: conservas tu acceso y tu nombre, pero dejas de ver este
+                hogar y quedas libre para crear u unirte a otro. Tus cuentas y movimientos personales de este hogar se
+                eliminan; lo que hayas registrado como compartido queda en el hogar, sin tu nombre.
+              </p>
+              <TypeToConfirm action={leaveHousehold} phrase="ABANDONAR" buttonLabel="Abandonar la pareja" />
+            </div>
+
+            <div className="border-t border-black/10 pt-5">
+              <h3 className="font-black">Eliminar mi cuenta</h3>
+              <p className="mt-1 text-sm text-(--muted)">Esta acción no se puede deshacer. Al confirmar:</p>
+              <ul className="mt-2 space-y-1 text-sm text-(--muted)">
+                <li>• Se borra tu cuenta y ya no podrás iniciar sesión.</li>
+                <li>• Tus cuentas, movimientos y chat con el asistente personales se eliminan.</li>
+                <li>• Lo que hayas registrado como compartido se conserva, mostrando &ldquo;Miembro eliminado&rdquo;.</li>
+                <li>• Tu Telegram vinculado se desvincula.</li>
+                <li>• Si eras la única persona del hogar, el hogar se elimina por completo.</li>
+              </ul>
+              <TypeToConfirm action={deleteAccount} phrase="ELIMINAR MI CUENTA" buttonLabel="Eliminar mi cuenta" />
+            </div>
+          </div>
         </section>
       </div>
     </>
