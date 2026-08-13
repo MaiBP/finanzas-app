@@ -149,11 +149,15 @@ export async function POST(request:Request){
   if(!parsed.data.message)return NextResponse.json({ok:true});
   const message=parsed.data.message;const {chat,from}=message;const text=(message.text??message.caption??"").trim();const db=createAdminClient();
   try{
-    if(text.startsWith("/start")){await sendTelegramMessage(chat.id,"Hola 👋 Soy el asistente de <b>Miti-Miti</b>. Vincula tu cuenta desde Ajustes y envíame <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
     if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"💡 En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”. También puedes adjuntar un PDF, Excel, CSV o imagen de un extracto: te mostraré una vista previa antes de registrar nada. El archivo se procesa con OpenAI y no se guarda en Miti-Miti. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. Comandos: 📊 /resumen · 🧾 /ultimos · ❌ /cancelar.");return NextResponse.json({ok:true});}
-    if(text.startsWith("/vincular")){
+    if(text.startsWith("/start")||text.startsWith("/vincular")){
+      // Telegram's deep link (t.me/<bot>?start=CODE) sends "/start CODE" automatically, so it
+      // shares this same linking branch instead of only showing the greeting.
       const code=text.split(/\s+/)[1]?.trim().toUpperCase();
-      if(!code){await sendTelegramMessage(chat.id,"⚠️ Falta el código. Ejemplo: <code>/vincular ABC12345</code>");return NextResponse.json({ok:true});}
+      if(!code){
+        if(text.startsWith("/vincular")){await sendTelegramMessage(chat.id,"⚠️ Falta el código. Ejemplo: <code>/vincular ABC12345</code>");return NextResponse.json({ok:true});}
+        await sendTelegramMessage(chat.id,"Hola 👋 Soy el asistente de <b>Miti-Miti</b>. Vincula tu cuenta desde Ajustes y envíame <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});
+      }
       const {data:activeCode,error:codeError}=await db.from("telegram_link_codes").select("user_id").eq("code",code).is("used_at",null).gt("expires_at",new Date().toISOString()).maybeSingle();
       if(codeError)throw codeError;
       if(!activeCode){await sendTelegramMessage(chat.id,"⚠️ Ese código no es válido o ha caducado. Genera uno nuevo en Ajustes e inténtalo otra vez.");return NextResponse.json({ok:true});}
