@@ -305,8 +305,8 @@ export default async function AccountsPage() {
       <section className="card mt-7 max-w-3xl p-6">
         <h2 className="text-xl font-black">Crear otra cuenta conjunta</h2>
         <p className="mt-1 text-sm text-(--muted)">
-          La cuenta comenzará en cero y su saldo se calculará exclusivamente
-          con los movimientos que registréis.
+          Si arranca en cero, deja el saldo inicial vacío. Si ya tiene dinero, indícalo y quedará
+          registrado como el movimiento «Nueva cuenta creada».
         </p>
         <form
           action={createSharedAccount}
@@ -331,6 +331,10 @@ export default async function AccountsPage() {
               <option value="savings">Ahorro</option>
               <option value="investment">Inversión</option>
             </select>
+          </label>
+          <label>
+            <span className="label">Saldo inicial (opcional)</span>
+            <input className="field" name="initialBalance" inputMode="decimal" placeholder="0,00" />
           </label>
           <Button type="submit" className="self-start sm:self-end">
             Crear cuenta conjunta

@@ -18,8 +18,31 @@ export async function createAccount(formData:FormData){
 }
 
 export async function createSharedAccount(formData:FormData){
-  const {supabase,household}=await getCurrentHousehold(); if(!household)throw new Error("Sin hogar"); const {name,type}=parseAccount(formData);
-  const {error}=await supabase.from("accounts").insert({household_id:household.id,owner_user_id:null,name,type,currency:"EUR",current_balance_cents:0,is_shared:true}); if(error)throw new Error(error.message); revalidatePath("/app/cuentas"); revalidatePath("/app/movimientos/nuevo");
+  const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("Sin hogar"); const {name,type}=parseAccount(formData);
+  const initialBalanceText=String(formData.get("initialBalance")??"").trim();
+  const initialCents=initialBalanceText?eurosToCentsSigned(initialBalanceText):0;
+  const {data:account,error}=await supabase.from("accounts").insert({household_id:household.id,owner_user_id:null,name,type,currency:"EUR",current_balance_cents:0,is_shared:true}).select("id").single();
+  if(error)throw new Error(error.message);
+  if(initialCents!==0){
+    const txType=initialCents>0?"income":"expense";
+    const {data:category,error:categoryError}=await supabase.from("categories").select("id").eq("name","Ajuste de saldo").eq("kind",txType).or(`household_id.eq.${household.id},household_id.is.null`).limit(1).maybeSingle();
+    if(categoryError)throw new Error(categoryError.message);
+    if(!category)throw new Error("Falta la categoría «Ajuste de saldo». Aplica la migración correspondiente.");
+    const {error:txError}=await supabase.rpc("create_financial_transaction",{
+      p_household_id:household.id,
+      p_account_id:account.id,
+      p_type:txType,
+      p_amount_cents:Math.abs(initialCents),
+      p_description:`Nueva cuenta creada: ${name}`,
+      p_category_id:category.id,
+      p_scope:"shared",
+      p_privacy:"visible",
+      p_transaction_date:new Date().toISOString().slice(0,10),
+      p_paid_by:user.id,
+    });
+    if(txError)throw new Error(txError.message);
+  }
+  revalidatePath("/app"); revalidatePath("/app/cuentas"); revalidatePath("/app/movimientos"); revalidatePath("/app/movimientos/nuevo");
 }
 
 export async function updateSharedAccount(formData: FormData) {
