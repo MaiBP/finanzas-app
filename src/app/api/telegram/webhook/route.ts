@@ -11,6 +11,12 @@ import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, matchAc
 import { executeFinanceQuery, getMonthSummary, getRecentTransactions } from "@/services/query-service";
 import { executeStatementImport, extractStatementTransactions, isPersonalStatementImport, isSupportedStatementFile, statementImportPayloadSchema, statementPreview } from "@/services/statement-import";
 import { fetchRecentMessages, recordMessage } from "@/services/conversation-history";
+import { redactHouseholdNames, redactRecentMessages, HOUSEHOLD_NAME_PRIVACY_NOTE, type HouseholdMember } from "@/services/privacy/redact-household-names";
+import { decryptField } from "@/lib/security/field-encryption";
+
+function normalize(value: string) {
+  return value.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLocaleLowerCase("es").trim();
+}
 
 export const maxDuration=60;
 
@@ -88,10 +94,20 @@ async function confirmPending(db:ReturnType<typeof createAdminClient>,userId:str
     reply=await executeTelegramAction(db,userId,householdId,action);
   }
   else if(action.action==="delete_transaction"){
-    let query=db.from("transactions").select("id,description").eq("household_id",householdId).eq("created_by",userId).eq("status","confirmed").order("created_at",{ascending:false});
-    if(action.data.transaction_id)query=query.eq("id",action.data.transaction_id); else if(action.data.reference)query=query.ilike("description",`%${action.data.reference.replace(/[%_]/g,"")}%`);
-    const {data:transaction}=await query.limit(1).maybeSingle(); if(!transaction)throw new Error("No encuentro un movimiento tuyo que coincida.");
-    const {error}=await db.from("transactions").update({status:"deleted",deleted_at:new Date().toISOString()}).eq("id",transaction.id).eq("created_by",userId); if(error)throw error; reply=`🗑️ He eliminado “${transaction.description}”.`;
+    // description is encrypted at rest (non-deterministic ciphertext), so "delete by reference"
+    // can't ilike-match in SQL anymore: fetch recent candidates, decrypt, match in JS.
+    let transaction:{id:string;description:string}|null=null;
+    if(action.data.transaction_id){
+      const {data}=await db.from("transactions").select("id,description").eq("household_id",householdId).eq("created_by",userId).eq("status","confirmed").eq("id",action.data.transaction_id).maybeSingle();
+      transaction=data;
+    } else if(action.data.reference){
+      const {data:candidates}=await db.from("transactions").select("id,description").eq("household_id",householdId).eq("created_by",userId).eq("status","confirmed").order("created_at",{ascending:false}).limit(50);
+      const referenceNormalized=normalize(action.data.reference);
+      transaction=(candidates??[]).find(row=>normalize(decryptField(row.description)).includes(referenceNormalized))??null;
+    }
+    if(!transaction)throw new Error("No encuentro un movimiento tuyo que coincida.");
+    const description=decryptField(transaction.description);
+    const {error}=await db.from("transactions").update({status:"deleted",deleted_at:new Date().toISOString()}).eq("id",transaction.id).eq("created_by",userId); if(error)throw error; reply=`🗑️ He eliminado “${description}”.`;
   } else reply="🔒 Esta edición necesita hacerse desde la web por seguridad.";
   await db.from("pending_actions").delete().eq("id",data.id); return reply;
 }
@@ -156,13 +172,17 @@ export async function POST(request:Request){
     if(yes.test(text)){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(await confirmPending(db,link.user_id,membership.household_id)));return NextResponse.json({ok:true});}
     if(text==="/resumen"){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(await getMonthSummary(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
     if(text==="/ultimos"){await sendTelegramMessage(chat.id,withTelegramWebSuggestion(await getRecentTransactions(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
-    const [{data:categories},{data:accounts},recent]=await Promise.all([db.from("categories").select("name,kind").or(`household_id.eq.${membership.household_id},household_id.is.null`),db.from("accounts").select("name,is_shared,type").eq("household_id",membership.household_id).neq("type","joint").is("archived_at",null).or(`owner_user_id.eq.${link.user_id},is_shared.eq.true`),fetchRecentMessages(db,link.user_id)]);
+    const [{data:categories},{data:accounts},recent,{data:membersData}]=await Promise.all([db.from("categories").select("name,kind").or(`household_id.eq.${membership.household_id},household_id.is.null`),db.from("accounts").select("name,is_shared,type").eq("household_id",membership.household_id).neq("type","joint").is("archived_at",null).or(`owner_user_id.eq.${link.user_id},is_shared.eq.true`),fetchRecentMessages(db,link.user_id),db.from("household_members").select("user_id,profiles(display_name)").eq("household_id",membership.household_id)]);
     await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});
-    let action=await parseFinancialMessage({text,userId:link.user_id,householdId:membership.household_id,now:new Date().toISOString(),categories:categories??[],accounts:accounts??[],recentMessages:recent});
+    const roster=((membersData??[]) as unknown as {user_id:string;profiles:{display_name:string|null}|null}[]).map((member):HouseholdMember=>({userId:member.user_id,displayName:member.profiles?.display_name?decryptField(member.profiles.display_name):null}));
+    const {text:safeText,mentioned:textMentioned}=redactHouseholdNames(text,roster,link.user_id);
+    const {messages:safeRecent,mentioned:historyMentioned}=redactRecentMessages(recent,roster,link.user_id);
+    const mentioned=textMentioned||historyMentioned;
+    let action=await parseFinancialMessage({text:safeText,userId:link.user_id,householdId:membership.household_id,now:new Date().toISOString(),categories:categories??[],accounts:accounts??[],recentMessages:safeRecent});
     let reply:string; let keyboard:InlineKeyboardMarkup|undefined;
     if(action.action==="request_clarification")reply=action.data.question;
     else if(action.action==="general_question")reply=action.data.answer;
-    else if(action.action==="query_finances")reply=await executeFinanceQuery(db,membership.household_id,link.user_id,action.data,new Date(),{question:text,recentMessages:recent});
+    else if(action.action==="query_finances")reply=await executeFinanceQuery(db,membership.household_id,link.user_id,action.data,new Date(),{question:safeText,recentMessages:safeRecent});
     else if(action.action==="cancel_action")reply="👍 De acuerdo, no hago nada.";
     else if(action.action==="create_transaction"){
       const eligibleAccounts=accountsForAction(action,(accounts??[]) as AccountOption[]); action=assignOnlyAccount(action,eligibleAccounts);
@@ -171,6 +191,7 @@ export async function POST(request:Request){
       else {await queueAction(db,link.user_id,membership.household_id,action);reply="📋 Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";keyboard=confirmCancelKeyboard("create_transaction");}
     }
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"🗑️ He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"📋 Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";keyboard=confirmCancelKeyboard(action.action);}
+    if(mentioned)reply=`${reply}\n\n${HOUSEHOLD_NAME_PRIVACY_NOTE}`;
     await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:reply});await sendTelegramMessage(chat.id,withTelegramWebSuggestion(reply),keyboard);
   }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("IMPORT_USER:")?`⚠️ ${error.message.slice("IMPORT_USER:".length)}`:error instanceof Error&&error.message.startsWith("Indica qué cuenta")?`⚠️ ${error.message}`:"⚠️ No he podido completar eso. Inténtalo de nuevo.";await sendTelegramMessage(chat.id,withTelegramWebSuggestion(safeMessage)).catch(()=>undefined);}
   return NextResponse.json({ok:true});

@@ -119,6 +119,39 @@ describe("computeFinanceQueryFacts", () => {
   });
 });
 
+describe("user_contributions uses role labels, never real names", () => {
+  it("labels the asker as 'Tú' and the other member as 'Tu pareja'", async () => {
+    const db = createDb(rows, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "user_contributions",
+      filters: baseFilters,
+    });
+    expect(facts.kind).toBe("user_contributions");
+    if (facts.kind !== "user_contributions") throw new Error("expected user_contributions facts");
+    expect(facts.members.map((member) => member.name).sort()).toEqual(["Tu pareja", "Tú"]);
+  });
+});
+
+describe("user_name filter resolves by role, not by real name", () => {
+  it("filters to the asker's own rows for 'tú'", async () => {
+    const db = createDb(rows, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "household_balance",
+      filters: { ...baseFilters, user_name: "tú" },
+    });
+    expect(facts).toEqual({ kind: "household_balance", scope: "shared", totals: { income: 100_000, expenses: 30_000, result: 70_000 } });
+  });
+
+  it("filters to the partner's rows for 'tu pareja'", async () => {
+    const db = createDb(rows, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "household_balance",
+      filters: { ...baseFilters, user_name: "tu pareja" },
+    });
+    expect(facts).toEqual({ kind: "household_balance", scope: "shared", totals: { income: 0, expenses: 5_000, result: -5_000 } });
+  });
+});
+
 describe("formatFinanceReply", () => {
   it("formats household balance facts deterministically", () => {
     const reply = formatFinanceReply({

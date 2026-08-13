@@ -2,6 +2,7 @@ import { formatMoney } from "@/lib/finance/money";
 import type { FinancialAction } from "@/services/financial-message-parser/schema";
 import type { ConversationMessage } from "@/services/conversation-history";
 import { phraseFinanceReply } from "@/services/finance-reply";
+import { decryptField } from "@/lib/security/field-encryption";
 
 interface DbClient {
   from: (table: string) => ReturnType<import("@supabase/supabase-js").SupabaseClient["from"]>;
@@ -173,8 +174,12 @@ async function fetchQueryRows(
     user_id: string;
     profiles: { display_name: string | null } | null;
   }[];
-  const names = new Map(members.map((member) => [member.user_id, member.profiles?.display_name ?? "Miembro"]));
-  let rows = (data ?? []) as unknown as QueryRow[];
+  // Real display names are only used as a fallback match below — never sent to the AI. The
+  // "names" map exposed to callers uses role labels ("Tú"/"Tu pareja") so real names never
+  // reach the facts handed to the phrasing model.
+  const realNames = new Map(members.map((member) => [member.user_id, member.profiles?.display_name ? decryptField(member.profiles.display_name) : null]));
+  const names = new Map(members.map((member) => [member.user_id, member.user_id === userId ? "Tú" : "Tu pareja"]));
+  let rows = ((data ?? []) as unknown as QueryRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
   if (filters.category) {
     const category = normalize(filters.category);
     rows = rows.filter((row) => normalize(row.categories?.name ?? "").includes(category));
@@ -185,7 +190,13 @@ async function fetchQueryRows(
   }
   if (filters.user_name) {
     const userName = normalize(filters.user_name);
-    rows = rows.filter((row) => normalize(names.get(row.created_by) ?? "").includes(userName));
+    if (["tu", "yo", "mi"].includes(userName)) {
+      rows = rows.filter((row) => row.created_by === userId);
+    } else if (userName.includes("pareja") || userName.includes("otro") || userName.includes("otra")) {
+      rows = rows.filter((row) => row.created_by !== userId);
+    } else {
+      rows = rows.filter((row) => normalize(realNames.get(row.created_by) ?? "").includes(userName));
+    }
   }
   return { rows, names, scope };
 }
