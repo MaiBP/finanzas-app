@@ -6,7 +6,9 @@ import {
   ArrowRight,
   Bot,
   Check,
+  Facebook,
   HeartHandshake,
+  Instagram,
   MessageCircle,
   ScanLine,
   ShieldCheck,
@@ -15,6 +17,8 @@ import {
 } from "lucide-react";
 import { LinkButton } from "@/components/ui/button";
 import { landingFaq } from "@/content/landing-faq";
+import { ScrollBackground } from "@/components/landing/scroll-background";
+import { ArrowDoodle, StarDoodle } from "@/components/landing/doodles";
 
 const steps = [
   {
@@ -86,7 +90,8 @@ const fadeInView = {
 
 export function LandingPage() {
   return (
-    <main className="relative overflow-hidden bg-(--canvas) text-(--ink)">
+    <main className="relative overflow-hidden text-(--ink)">
+      <ScrollBackground />
       <motion.div
         aria-hidden
         className="absolute -right-20 top-28 size-72 rounded-full bg-(--highlight) md:size-96"
@@ -123,7 +128,8 @@ export function LandingPage() {
             Registra gastos e ingresos hablando con tu asistente financiero y entiende fácilmente en qué gastan,
             cuánto ahorran y cómo evoluciona su economía. Todo desde un chat de Telegram, sin hojas de cálculo.
           </motion.p>
-          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap gap-3">
+          <motion.div variants={fadeUp} className="relative mt-8 flex flex-wrap gap-3">
+            <ArrowDoodle className="pointer-events-none absolute -left-14 -top-14 hidden size-16 -rotate-12 text-(--ink) md:block" />
             <LinkButton href="/registro" variant="primary">
               Crear tu hogar <ArrowRight size={18} />
             </LinkButton>
@@ -177,12 +183,12 @@ export function LandingPage() {
         </motion.div>
       </section>
 
-      <section className="relative z-1 border-t border-(--ink)/15 bg-(--ink) px-5 py-16 text-(--highlight) md:py-20">
+      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
         <motion.div className="mx-auto max-w-4xl text-center" {...fadeInView} transition={{ duration: 0.5 }}>
           <h2 className="text-3xl font-black tracking-tight md:text-4xl">
             Una forma más fácil de gestionar las finanzas en pareja
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-(--highlight)/85">
+          <p className="mx-auto mt-4 max-w-2xl text-(--ink)/75">
             Son dos personas con ingresos, gastos y costumbres distintas: una cuenta en común, gastos personales
             aparte, y alguien que paga el súper mientras el otro paga el alquiler. Anotar todo a mano en una hoja de
             cálculo es tedioso, y es fácil perder de vista en qué se fue el dinero del mes. Miti-Miti lo ordena todo,
@@ -191,7 +197,7 @@ export function LandingPage() {
         </motion.div>
       </section>
 
-      <section className="relative z-1 border-t border-(--ink)/15 bg-(--paper) px-5 py-16 md:py-20">
+      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
         <div className="mx-auto max-w-6xl">
           <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
             <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
@@ -258,8 +264,9 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="relative z-1 border-t border-(--ink)/15 bg-(--paper) px-5 py-16 md:py-20">
-        <div className="mx-auto max-w-6xl">
+      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
+        <div className="relative mx-auto max-w-6xl">
+          <StarDoodle className="pointer-events-none absolute -right-2 -top-6 hidden size-14 text-(--lilac) md:block" />
           <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
             <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
               Pregunta cuando quieras
@@ -324,7 +331,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="relative z-1 border-t border-(--ink)/15 bg-(--paper) px-5 py-16 md:py-20">
+      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
         <div className="mx-auto max-w-3xl">
           <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
             <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
@@ -356,36 +363,46 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="relative z-1 border-t border-(--ink)/15 bg-(--ink) px-5 py-16 text-(--highlight) md:py-20">
+      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
         <motion.div
           className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center"
           {...fadeInView}
           transition={{ duration: 0.5 }}
         >
           <h2 className="text-4xl font-black tracking-tight md:text-5xl">¿Organizamos las cuentas de una vez?</h2>
-          <p className="max-w-lg text-(--highlight)/80">
+          <p className="max-w-lg text-(--ink)/75">
             Crear el hogar toma menos de un minuto. Después, todo pasa por el chat.
           </p>
-          <LinkButton href="/registro" variant="primary">
-            Crear tu hogar <ArrowRight size={18} />
-          </LinkButton>
+          <div className="relative">
+            <ArrowDoodle className="pointer-events-none absolute -right-16 -top-10 hidden size-14 rotate-90 text-(--ink) md:block" />
+            <LinkButton href="/registro" variant="primary">
+              Crear tu hogar <ArrowRight size={18} />
+            </LinkButton>
+          </div>
         </motion.div>
       </section>
 
-      <footer className="relative z-1 border-t border-(--ink)/15 bg-(--canvas) px-5 py-10">
+      <footer className="relative z-1 border-t border-(--ink)/15 px-5 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm font-semibold uppercase sm:flex-row">
           <div className="flex items-center gap-2 text-base font-black">
             <span className="grid size-8 place-items-center rounded-full bg-(--highlight)">½</span>
             Miti-Miti
           </div>
           <p className="text-(--ink)/70">Finanzas en pareja, sin complicaciones.</p>
-          <div className="flex gap-5">
+          <div className="flex items-center gap-5">
             <Link href="/login" className="hover:underline">
               Entrar
             </Link>
             <Link href="/registro" className="hover:underline">
               Crear hogar
             </Link>
+            <span className="flex items-center gap-3 border-l border-(--ink)/20 pl-5 normal-case">
+              <span className="flex items-center gap-2 text-(--ink)/50" title="Muy pronto en redes sociales">
+                <Instagram size={18} />
+                <Facebook size={18} />
+              </span>
+              <span className="text-[11px] font-bold normal-case text-(--ink)/50">Muy pronto en redes</span>
+            </span>
           </div>
         </div>
       </footer>
