@@ -9,6 +9,7 @@ import { CategoryChart } from "@/components/charts/category-chart";
 import { getHouseholdFinancialInsight } from "@/services/financial-insights";
 import { groupCategoryChartData } from "@/lib/finance/category-chart";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
+import { decryptField } from "@/lib/security/field-encryption";
 
 type DashboardRow = {
   id: string;
@@ -47,7 +48,7 @@ export default async function DashboardPage({
     supabase.from("accounts").select("id,name,type").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).order("created_at"),
     getHouseholdFinancialInsight(supabase, household.id, currentMonth),
   ]);
-  const rows = (data ?? []) as unknown as DashboardRow[];
+  const rows = ((data ?? []) as unknown as DashboardRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
   const accounts = (accountsData ?? []) as DashboardAccount[];
   const currentRows = rows.filter((row) => row.transaction_date.startsWith(currentMonth));
   const currentYearRows = rows.filter(
