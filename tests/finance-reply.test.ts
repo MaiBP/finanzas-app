@@ -13,7 +13,7 @@ type Row = {
   amount_cents: number;
   description: string;
   transaction_date: string;
-  created_by: string;
+  created_by: string | null;
   scope: "shared" | "personal";
   categories: { name: string } | null;
   accounts: { name: string } | null;
@@ -119,6 +119,24 @@ describe("computeFinanceQueryFacts", () => {
     const reply = formatFinanceReply(facts);
     expect(reply).toContain("de gastos");
     expect(reply).not.toContain("ingresos");
+  });
+});
+
+describe("user_contributions labels a departed member's anonymized rows", () => {
+  it("shows 'Miembro eliminado' for a null created_by", async () => {
+    const rowsWithDeparted: Row[] = [
+      ...rows,
+      { type: "expense", amount_cents: 1_200, description: "Gasto viejo", transaction_date: "2026-08-04", created_by: null, scope: "shared", categories: { name: "Ocio" }, accounts: { name: "Efectivo" } },
+    ];
+    const db = createDb(rowsWithDeparted, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "user_contributions",
+      filters: baseFilters,
+    });
+    expect(facts.kind).toBe("user_contributions");
+    if (facts.kind !== "user_contributions") throw new Error("expected user_contributions facts");
+    const departed = facts.members.find((member) => member.name === "Miembro eliminado");
+    expect(departed).toEqual({ name: "Miembro eliminado", income: 0, expenses: 1_200 });
   });
 });
 

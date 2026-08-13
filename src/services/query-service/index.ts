@@ -16,7 +16,7 @@ type QueryRow = {
   amount_cents: number;
   description: string;
   transaction_date: string;
-  created_by: string;
+  created_by: string | null;
   scope: "shared" | "personal";
   categories: { name: string } | null;
   accounts: { name: string } | null;
@@ -210,9 +210,11 @@ async function fetchQueryRows(
     if (["tu", "yo", "mi"].includes(userName)) {
       rows = rows.filter((row) => row.created_by === userId);
     } else if (userName.includes("pareja") || userName.includes("otro") || userName.includes("otra")) {
-      rows = rows.filter((row) => row.created_by !== userId);
+      // A null created_by means the author left/was deleted — we can no longer attribute it to
+      // "the partner" specifically, so it's excluded rather than guessed.
+      rows = rows.filter((row) => row.created_by !== null && row.created_by !== userId);
     } else {
-      rows = rows.filter((row) => normalize(realNames.get(row.created_by) ?? "").includes(userName));
+      rows = rows.filter((row) => row.created_by !== null && normalize(realNames.get(row.created_by) ?? "").includes(userName));
     }
   }
   return { rows, names, scope };
@@ -321,11 +323,12 @@ export async function computeFinanceQueryFacts(
     return { kind: "category_spending", scope, rangeLabel: range.label, categories };
   }
   if (data.query_type === "user_contributions") {
-    const totals = new Map<string, QueryRow[]>();
+    const totals = new Map<string | null, QueryRow[]>();
     for (const row of rows) totals.set(row.created_by, [...(totals.get(row.created_by) ?? []), row]);
     const members = [...totals].map(([id, memberRows]) => {
       const values = calculateTransactionTotals(memberRows);
-      return { name: names.get(id) ?? "Miembro", income: values.income, expenses: values.expenses };
+      const name = id === null ? "Miembro eliminado" : (names.get(id) ?? "Miembro eliminado");
+      return { name, income: values.income, expenses: values.expenses };
     });
     return { kind: "user_contributions", rangeLabel: range.label, members };
   }

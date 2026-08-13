@@ -1,11 +1,11 @@
 export type MemberMovement = {
-  created_by: string;
+  created_by: string | null;
   type: "expense" | "income";
   amount_cents: number;
 };
 
 export function calculateMemberSummary(movements: MemberMovement[]) {
-  const totals = new Map<string, { expenses: number; income: number }>();
+  const totals = new Map<string | null, { expenses: number; income: number }>();
   for (const movement of movements) {
     const current = totals.get(movement.created_by) ?? {
       expenses: 0,

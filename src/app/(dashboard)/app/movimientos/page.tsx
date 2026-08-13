@@ -20,7 +20,7 @@ import { getHouseholdRoster } from "@/services/household-roster";
 
 type Row = {
   id: string;
-  created_by: string;
+  created_by: string | null;
   created_at: string;
   type: "expense" | "income";
   amount_cents: number;
@@ -200,7 +200,7 @@ export default async function TransactionsPage({
           <span className="text-right">Importe</span><span />
         </div>
         {rows.map((row) => {
-          const creator = memberNames.get(row.created_by) ?? "Miembro";
+          const creator = row.created_by === null ? "Miembro eliminado" : (memberNames.get(row.created_by) ?? "Miembro eliminado");
           return (
             <article
               key={row.id}

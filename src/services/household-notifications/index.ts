@@ -3,13 +3,13 @@ import { formatMoney } from "@/lib/finance/money";
 export type DailyMovementRow = {
   type: "expense" | "income";
   amount_cents: number;
-  created_by: string;
+  created_by: string | null;
 };
 
 export function buildDailySummaryMessage(rows: DailyMovementRow[], names: Map<string, string>): string | null {
   if (!rows.length) return null;
 
-  const totals = new Map<string, { income: number; expenses: number }>();
+  const totals = new Map<string | null, { income: number; expenses: number }>();
   for (const row of rows) {
     const entry = totals.get(row.created_by) ?? { income: 0, expenses: 0 };
     if (row.type === "income") entry.income += row.amount_cents;
@@ -25,7 +25,7 @@ export function buildDailySummaryMessage(rows: DailyMovementRow[], names: Map<st
   const header = `📅 Hoy ${headerParts.join(" y ")} en total.`;
 
   const lines = [...totals.entries()].map(([userId, values]) => {
-    const name = names.get(userId) ?? "Alguien";
+    const name = userId === null ? "Miembro eliminado" : (names.get(userId) ?? "Alguien");
     const parts: string[] = [];
     if (values.expenses > 0) parts.push(`gastó ${formatMoney(values.expenses)}`);
     if (values.income > 0) parts.push(`le ingresaron ${formatMoney(values.income)}`);

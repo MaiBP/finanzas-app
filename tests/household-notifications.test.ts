@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDailySummaryMessage, reminderDaysForWeek, isReminderDay, type DailyMovementRow } from "@/services/household-notifications";
 import { formatMoney } from "@/lib/finance/money";
 
-const movement = (type: "expense" | "income", amountCents: number, createdBy: string): DailyMovementRow => ({
+const movement = (type: "expense" | "income", amountCents: number, createdBy: string | null): DailyMovementRow => ({
   type, amount_cents: amountCents, created_by: createdBy,
 });
 
@@ -34,6 +34,11 @@ describe("buildDailySummaryMessage", () => {
   it("falls back to 'Alguien' for unknown authors", () => {
     const message = buildDailySummaryMessage([movement("expense", 100, "unknown")], new Map());
     expect(message).toContain(`• Alguien: gastó ${formatMoney(100)}`);
+  });
+
+  it("labels a null author (departed member) as 'Miembro eliminado'", () => {
+    const message = buildDailySummaryMessage([movement("expense", 100, null)], new Map());
+    expect(message).toContain(`• Miembro eliminado: gastó ${formatMoney(100)}`);
   });
 });
 

@@ -33,7 +33,7 @@ type BalanceMovement = {
 };
 type ExpenseMovement = {
   account_id: string;
-  paid_by: string;
+  paid_by: string | null;
   amount_cents: number;
 };
 function AccountIcon({ type }: { type: string }) {

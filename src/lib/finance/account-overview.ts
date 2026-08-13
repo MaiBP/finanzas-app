@@ -1,5 +1,5 @@
 type BalanceMovement = { account_id: string; type: "expense" | "income"; amount_cents: number };
-type ExpenseMovement = { account_id: string; paid_by: string; amount_cents: number };
+type ExpenseMovement = { account_id: string; paid_by: string | null; amount_cents: number };
 
 export function calculateAccountBalance(accountId: string, movements: BalanceMovement[]) {
   return movements.reduce((balance, movement) => {
@@ -9,7 +9,7 @@ export function calculateAccountBalance(accountId: string, movements: BalanceMov
 }
 
 export function calculateParticipantExpenses(accountId: string, movements: ExpenseMovement[]) {
-  const totals = new Map<string, number>();
+  const totals = new Map<string | null, number>();
   for (const movement of movements) {
     if (movement.account_id !== accountId) continue;
     totals.set(movement.paid_by, (totals.get(movement.paid_by) ?? 0) + movement.amount_cents);

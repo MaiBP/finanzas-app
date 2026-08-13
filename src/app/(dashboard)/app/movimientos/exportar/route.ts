@@ -11,7 +11,7 @@ type ExportRow = {
   amount_cents: number;
   description: string;
   transaction_date: string;
-  created_by: string;
+  created_by: string | null;
   categories: { name: string } | null;
   accounts: { name: string } | null;
 };
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
         safeText(row.description),
         safeText(row.categories?.name ?? "Sin categoría"),
         safeText(row.accounts?.name ?? "Sin cuenta"),
-        safeText(memberNames.get(row.created_by) ?? "Miembro"),
+        safeText(row.created_by === null ? "Miembro eliminado" : (memberNames.get(row.created_by) ?? "Miembro eliminado")),
         amount,
       ]
         .map(csvCell)

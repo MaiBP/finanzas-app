@@ -26,8 +26,8 @@ export interface Account {
 
 export interface TransactionView {
   id: string;
-  created_by: string;
-  paid_by: string;
+  created_by: string | null;
+  paid_by: string | null;
   type: TransactionType;
   amount_cents: number;
   currency: string;
