@@ -161,11 +161,7 @@ export default async function SettingsPage() {
             <div className="mt-5 space-y-3 rounded-xl bg-(--blue)/25 p-4 text-sm">
               <p>
                 El bot puede consultar tus espacios, registrar movimientos y leer extractos PDF, Excel, CSV o
-                imágenes de hasta 12 MB.
-              </p>
-              <p className="text-xs text-[#51635e]">
-                Los adjuntos no se guardan en Miti-Miti. Se procesan con OpenAI usando <code>store: false</code>; la
-                API puede conservar registros de seguridad hasta 30 días según la configuración de tu proyecto.
+                imágenes de hasta 12 MB. Los adjuntos no se guardan en Miti-Miti, solo se procesan.
               </p>
             </div>
           ) : (
