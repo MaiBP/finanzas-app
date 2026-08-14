@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidWebhookSecret } from "@/lib/telegram/security";
+import { checkTelegramMessageRateLimit, checkTelegramVoiceRateLimit, MAX_VOICE_DURATION_SECONDS } from "@/lib/telegram/rate-limit";
 import { answerCallbackQuery, downloadTelegramFile, editMessageReplyMarkup, escapeTelegramHtml, MAX_TELEGRAM_IMPORT_BYTES, sendTelegramMessage, withTelegramWebSuggestion, type InlineKeyboardMarkup } from "@/lib/telegram/api";
 import { accountSelectionKeyboard, confirmCancelKeyboard } from "@/lib/telegram/keyboards";
 import { parseFinancialMessage } from "@/services/financial-message-parser";
@@ -151,6 +152,7 @@ export async function POST(request:Request){
   if(!parsed.data.message)return NextResponse.json({ok:true});
   const message=parsed.data.message;const {chat,from}=message;let text=(message.text??message.caption??"").trim();const db=createAdminClient();
   try{
+    if(!(await checkTelegramMessageRateLimit(db,from.id))){await sendTelegramMessage(chat.id,"⏳ Has enviado demasiados mensajes seguidos. Espera un momento y vuelve a intentarlo.");return NextResponse.json({ok:true});}
     if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"💡 En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”, por texto o por nota de voz. También puedes adjuntar un PDF, Excel, CSV o imagen de un extracto: te mostraré una vista previa antes de registrar nada. Los archivos y notas de voz se procesan con OpenAI y no se guardan en Miti-Miti. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. Comandos: 📊 /resumen · 🧾 /ultimos · ❌ /cancelar.");return NextResponse.json({ok:true});}
     if(text.startsWith("/start")||text.startsWith("/vincular")){
       // Telegram's deep link (t.me/<bot>?start=CODE) sends "/start CODE" automatically, so it
@@ -172,6 +174,8 @@ export async function POST(request:Request){
     const {data:link}=await db.from("telegram_links").select("user_id").eq("telegram_user_id",from.id).maybeSingle();if(!link){await sendTelegramMessage(chat.id,"🤔 No reconozco esta cuenta. Genera un código en Ajustes y usa <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
     const {data:membership}=await db.from("household_members").select("household_id").eq("user_id",link.user_id).maybeSingle();if(!membership)throw new Error("Tu cuenta aún no pertenece a un hogar.");
     if(message.voice&&!text){
+      if(message.voice.duration>MAX_VOICE_DURATION_SECONDS)throw new Error("VOICE_USER:Los audios pueden durar como máximo 2 minutos.");
+      if(!(await checkTelegramVoiceRateLimit(db,from.id)))throw new Error("VOICE_USER:Has enviado demasiadas notas de voz. Espera un momento y vuelve a intentarlo.");
       await sendTelegramMessage(chat.id,"🎙️ Estoy escuchando el audio…");
       const bytes=await downloadTelegramFile(message.voice.file_id).catch(()=>{throw new Error("VOICE_USER:No pude descargar el audio. Inténtalo de nuevo.");});
       text=(await transcribeVoiceMessage(bytes,message.voice.mime_type??"audio/ogg").catch(()=>{throw new Error("VOICE_USER:No entendí el audio, prueba a grabarlo de nuevo o escribe el mensaje.");})).trim();

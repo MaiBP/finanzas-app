@@ -20,6 +20,9 @@ export async function GET(request: Request) {
   if (!secret || !isTimingSafeEqual(request.headers.get("authorization"), `Bearer ${secret}`)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = createAdminClient();
+  // Fixed-window rate-limit counters accumulate one row per user per window; prune anything
+  // older than the widest window (a day) so the table doesn't grow forever.
+  await db.from("telegram_rate_limit_counters").delete().lt("window_start", new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString());
   const { data: linksData, error: linksError } = await db.from("telegram_links").select("user_id,telegram_chat_id");
   if (linksError) throw linksError;
   const links = (linksData ?? []) as TelegramLink[];
