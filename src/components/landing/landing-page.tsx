@@ -186,16 +186,18 @@ export function LandingPage() {
         </motion.div>
       </section>
 
-      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
+      <section className="relative z-1 border-t border-(--ink)/15 bg-(--ink) px-5 py-16 text-(--highlight) md:py-20">
         <motion.div className="mx-auto max-w-4xl text-center" {...fadeInView} transition={{ duration: 0.5 }}>
-          <h2 className={`text-3xl font-extrabold tracking-tight md:text-4xl ${displayFont}`}>
-            Una forma más fácil de gestionar las finanzas en pareja
+          <h2 className={`text-2xl font-extrabold tracking-tight text-white md:whitespace-nowrap md:text-3xl ${displayFont}`}>
+            🤝 Una forma <span className="bg-(--highlight) px-1 text-(--ink)">más fácil de gestionar</span> las finanzas en pareja
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-(--ink)/75">
+          <p className="mx-auto mt-4 max-w-3xl text-(--highlight)/85">
             Son dos personas con ingresos, gastos y costumbres distintas: una cuenta en común, gastos personales
             aparte, y alguien que paga el súper mientras el otro paga el alquiler. Anotar todo a mano en una hoja de
-            cálculo es tedioso, y es fácil perder de vista en qué se fue el dinero del mes. Miti-Miti lo ordena todo,
-            sin que ninguno de los dos tenga que llevar las cuentas solo.
+            cálculo es tedioso, y es fácil perder de vista en qué se fue el dinero del mes.
+          </p>
+          <p className="mx-auto mt-4 max-w-2xl font-bold text-(--highlight)">
+            ✨ Miti-Miti lo ordena todo, sin que ninguno de los dos tenga que llevar las cuentas solo.
           </p>
         </motion.div>
       </section>
@@ -206,7 +208,9 @@ export function LandingPage() {
             <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
               Registra hablando
             </p>
-            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>De un mensaje a un resumen claro</h2>
+            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
+              De un mensaje a un <span className="bg-(--highlight) px-1">resumen claro</span>
+            </h2>
           </motion.div>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {steps.map((step, index) => (
@@ -240,7 +244,9 @@ export function LandingPage() {
             <p className="w-fit rounded-full bg-(--paper) px-4 py-1.5 text-sm font-bold uppercase">
               Compartido y personal
             </p>
-            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>Lo tuyo. Lo suyo. Lo de los dos.</h2>
+            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
+              Lo tuyo. Lo suyo. Lo de <span className="bg-(--highlight) px-1">los dos</span>.
+            </h2>
             <p className="mt-4 max-w-lg text-(--ink)/75">
               Cada movimiento decide si es personal o compartido: los gastos propios quedan aparte, sin mezclarse con
               los del hogar, y ambas personas ven el resumen conjunto cuando lo necesitan.
@@ -274,7 +280,7 @@ export function LandingPage() {
               Pregunta cuando quieras
             </p>
             <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Pregúntale a Miti-Miti sobre tu dinero
+              Pregúntale a <span className="bg-(--highlight) px-1">Miti-Miti</span> sobre tu dinero
             </h2>
             <p className="mt-4 max-w-lg text-(--ink)/75">
               Nada de exportar planillas: pregunta en lenguaje natural y recibe la respuesta al instante.
@@ -302,14 +308,14 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
+      <section className="relative z-1 border-t border-(--ink)/15 bg-(--paper) px-5 py-16 md:py-20">
         <div className="mx-auto max-w-6xl">
           <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
-            <p className="w-fit rounded-full bg-(--paper) px-4 py-1.5 text-sm font-bold uppercase">
+            <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
               Todo lo que necesitan
             </p>
             <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Todo lo que necesitan para organizar su dinero
+              Todo lo que necesitan para <span className="bg-(--highlight) px-1">organizar su dinero</span>
             </h2>
           </motion.div>
           <div className="mt-10 grid gap-5 sm:grid-cols-2">
