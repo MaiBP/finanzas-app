@@ -41,7 +41,8 @@ export default function TerminosPage() {
             El asistente financiero funciona con un modelo de IA de terceros para redactar respuestas e interpretar
             tus mensajes. Nunca le enviamos tu nombre real ni el de tu pareja — solo importes, categorías y fechas.
             Si mencionás un nombre propio en un mensaje, lo reemplazamos por &ldquo;tú&rdquo; o &ldquo;tu pareja&rdquo; antes de que
-            llegue al modelo.
+            llegue al modelo. Si le enviás una nota de voz, el audio se envía a ese mismo proveedor solo para
+            transcribirlo a texto; no se guarda en Miti-Miti una vez procesado.
           </p>
         </section>
         <section>

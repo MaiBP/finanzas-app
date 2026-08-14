@@ -10,6 +10,7 @@ import { executeTelegramAction } from "@/services/transaction-service/telegram";
 import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, matchAccountSelection, type AccountOption, type CreateTransactionAction } from "@/services/transaction-service/account-selection";
 import { executeFinanceQuery, getMonthSummary, getRecentTransactions } from "@/services/query-service";
 import { executeStatementImport, extractStatementTransactions, isPersonalStatementImport, isSupportedStatementFile, statementImportPayloadSchema, statementPreview } from "@/services/statement-import";
+import { transcribeVoiceMessage } from "@/services/voice-transcription";
 import { fetchRecentMessages, recordMessage } from "@/services/conversation-history";
 import { redactHouseholdNames, redactRecentMessages, HOUSEHOLD_NAME_PRIVACY_NOTE, type HouseholdMember } from "@/services/privacy/redact-household-names";
 import { decryptField } from "@/lib/security/field-encryption";
@@ -22,8 +23,9 @@ export const maxDuration=60;
 
 const telegramFileSchema=z.object({file_id:z.string(),file_unique_id:z.string(),file_name:z.string().max(180).optional(),mime_type:z.string().max(100).optional(),file_size:z.number().nonnegative().optional()});
 const telegramPhotoSchema=z.object({file_id:z.string(),file_unique_id:z.string(),file_size:z.number().nonnegative().optional(),width:z.number().optional(),height:z.number().optional()});
+const telegramVoiceSchema=z.object({file_id:z.string(),file_unique_id:z.string(),duration:z.number().nonnegative(),mime_type:z.string().max(100).optional(),file_size:z.number().nonnegative().optional()});
 const callbackQuerySchema=z.object({id:z.string(),data:z.string().max(64).optional(),from:z.object({id:z.number()}),message:z.object({chat:z.object({id:z.number()}),message_id:z.number()}).optional()});
-const updateSchema=z.object({message:z.object({chat:z.object({id:z.number()}),from:z.object({id:z.number()}),text:z.string().max(2000).optional(),caption:z.string().max(2000).optional(),document:telegramFileSchema.optional(),photo:z.array(telegramPhotoSchema).optional()}).optional(),callback_query:callbackQuerySchema.optional()});
+const updateSchema=z.object({message:z.object({chat:z.object({id:z.number()}),from:z.object({id:z.number()}),text:z.string().max(2000).optional(),caption:z.string().max(2000).optional(),document:telegramFileSchema.optional(),photo:z.array(telegramPhotoSchema).optional(),voice:telegramVoiceSchema.optional()}).optional(),callback_query:callbackQuerySchema.optional()});
 const yes=/^(sí|si|confirmo|correcto|vale|ok)$/i; const no=/^(no|cancelar|cancela)$/i;
 
 async function queueAction(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,action:FinancialAction){
@@ -147,9 +149,9 @@ export async function POST(request:Request){
   const parsed=updateSchema.safeParse(await request.json().catch(()=>null)); if(!parsed.success)return NextResponse.json({ok:true});
   if(parsed.data.callback_query){await handleCallbackQuery(parsed.data.callback_query).catch(error=>console.error("Telegram callback error",error));return NextResponse.json({ok:true});}
   if(!parsed.data.message)return NextResponse.json({ok:true});
-  const message=parsed.data.message;const {chat,from}=message;const text=(message.text??message.caption??"").trim();const db=createAdminClient();
+  const message=parsed.data.message;const {chat,from}=message;let text=(message.text??message.caption??"").trim();const db=createAdminClient();
   try{
-    if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"💡 En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”. También puedes adjuntar un PDF, Excel, CSV o imagen de un extracto: te mostraré una vista previa antes de registrar nada. El archivo se procesa con OpenAI y no se guarda en Miti-Miti. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. Comandos: 📊 /resumen · 🧾 /ultimos · ❌ /cancelar.");return NextResponse.json({ok:true});}
+    if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"💡 En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”, por texto o por nota de voz. También puedes adjuntar un PDF, Excel, CSV o imagen de un extracto: te mostraré una vista previa antes de registrar nada. Los archivos y notas de voz se procesan con OpenAI y no se guardan en Miti-Miti. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. Comandos: 📊 /resumen · 🧾 /ultimos · ❌ /cancelar.");return NextResponse.json({ok:true});}
     if(text.startsWith("/start")||text.startsWith("/vincular")){
       // Telegram's deep link (t.me/<bot>?start=CODE) sends "/start CODE" automatically, so it
       // shares this same linking branch instead of only showing the greeting.
@@ -169,6 +171,11 @@ export async function POST(request:Request){
     }
     const {data:link}=await db.from("telegram_links").select("user_id").eq("telegram_user_id",from.id).maybeSingle();if(!link){await sendTelegramMessage(chat.id,"🤔 No reconozco esta cuenta. Genera un código en Ajustes y usa <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
     const {data:membership}=await db.from("household_members").select("household_id").eq("user_id",link.user_id).maybeSingle();if(!membership)throw new Error("Tu cuenta aún no pertenece a un hogar.");
+    if(message.voice&&!text){
+      await sendTelegramMessage(chat.id,"🎙️ Estoy escuchando el audio…");
+      const bytes=await downloadTelegramFile(message.voice.file_id).catch(()=>{throw new Error("VOICE_USER:No pude descargar el audio. Inténtalo de nuevo.");});
+      text=(await transcribeVoiceMessage(bytes,message.voice.mime_type??"audio/ogg").catch(()=>{throw new Error("VOICE_USER:No entendí el audio, prueba a grabarlo de nuevo o escribe el mensaje.");})).trim();
+    }
     const importReply=await handleStatementAttachment(db,message,link.user_id,membership.household_id);if(importReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importReply));return NextResponse.json({ok:true});}
     if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"❌ Acción cancelada.");return NextResponse.json({ok:true});}
     const importAccountReply=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,text);if(importAccountReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importAccountReply));return NextResponse.json({ok:true});}
@@ -197,6 +204,6 @@ export async function POST(request:Request){
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"🗑️ He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"📋 Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";keyboard=confirmCancelKeyboard(action.action);}
     if(mentioned)reply=`${reply}\n\n${HOUSEHOLD_NAME_PRIVACY_NOTE}`;
     await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:reply});await sendTelegramMessage(chat.id,confirmed?withTelegramWebSuggestion(reply):escapeTelegramHtml(reply),keyboard);
-  }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("IMPORT_USER:")?`⚠️ ${error.message.slice("IMPORT_USER:".length)}`:error instanceof Error&&error.message.startsWith("Indica qué cuenta")?`⚠️ ${error.message}`:"⚠️ No he podido completar eso. Inténtalo de nuevo.";await sendTelegramMessage(chat.id,escapeTelegramHtml(safeMessage)).catch(()=>undefined);}
+  }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("IMPORT_USER:")?`⚠️ ${error.message.slice("IMPORT_USER:".length)}`:error instanceof Error&&error.message.startsWith("VOICE_USER:")?`⚠️ ${error.message.slice("VOICE_USER:".length)}`:error instanceof Error&&error.message.startsWith("Indica qué cuenta")?`⚠️ ${error.message}`:"⚠️ No he podido completar eso. Inténtalo de nuevo.";await sendTelegramMessage(chat.id,escapeTelegramHtml(safeMessage)).catch(()=>undefined);}
   return NextResponse.json({ok:true});
 }
