@@ -18,7 +18,9 @@ import {
 import { LinkButton } from "@/components/ui/button";
 import { landingFaq } from "@/content/landing-faq";
 import { ScrollBackground } from "@/components/landing/scroll-background";
-import { ArrowDoodle, StarDoodle } from "@/components/landing/doodles";
+import { landingBody, landingDisplay } from "@/components/landing/fonts";
+
+const displayFont = "font-(family-name:--font-landing-display)";
 
 const steps = [
   {
@@ -90,7 +92,9 @@ const fadeInView = {
 
 export function LandingPage() {
   return (
-    <main className="relative overflow-hidden text-(--ink)">
+    <main
+      className={`relative overflow-hidden text-(--ink) font-(family-name:--font-landing-body) ${landingBody.variable} ${landingDisplay.variable}`}
+    >
       <ScrollBackground />
       <motion.div
         aria-hidden
@@ -121,15 +125,14 @@ export function LandingPage() {
           >
             <HeartHandshake size={16} /> Finanzas en pareja, sin complicaciones
           </motion.p>
-          <motion.h1 variants={fadeUp} className="max-w-xl text-6xl md:text-8xl">
-            Finanzas en pareja, tan fáciles como enviar un mensaje
+          <motion.h1 variants={fadeUp} className={`max-w-xl text-5xl font-extrabold md:text-7xl ${displayFont}`}>
+            <span className="bg-(--highlight) px-1">Finanzas</span> en pareja, tan <span className="bg-(--highlight) px-1">fácil</span> como enviar un mensaje
           </motion.h1>
           <motion.p variants={fadeUp} className="mt-6 max-w-lg text-lg leading-8">
             Registra gastos e ingresos hablando con tu asistente financiero y entiende fácilmente en qué gastan,
             cuánto ahorran y cómo evoluciona su economía. Todo desde un chat de Telegram, sin hojas de cálculo.
           </motion.p>
-          <motion.div variants={fadeUp} className="relative mt-8 flex flex-wrap gap-3">
-            <ArrowDoodle className="pointer-events-none absolute -left-14 -top-14 hidden size-16 -rotate-12 text-(--ink) md:block" />
+          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap gap-3">
             <LinkButton href="/registro" variant="primary">
               Crear tu hogar <ArrowRight size={18} />
             </LinkButton>
@@ -185,7 +188,7 @@ export function LandingPage() {
 
       <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
         <motion.div className="mx-auto max-w-4xl text-center" {...fadeInView} transition={{ duration: 0.5 }}>
-          <h2 className="text-3xl font-black tracking-tight md:text-4xl">
+          <h2 className={`text-3xl font-extrabold tracking-tight md:text-4xl ${displayFont}`}>
             Una forma más fácil de gestionar las finanzas en pareja
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-(--ink)/75">
@@ -203,7 +206,7 @@ export function LandingPage() {
             <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
               Registra hablando
             </p>
-            <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">De un mensaje a un resumen claro</h2>
+            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>De un mensaje a un resumen claro</h2>
           </motion.div>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {steps.map((step, index) => (
@@ -237,7 +240,7 @@ export function LandingPage() {
             <p className="w-fit rounded-full bg-(--paper) px-4 py-1.5 text-sm font-bold uppercase">
               Compartido y personal
             </p>
-            <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">Lo tuyo. Lo suyo. Lo de los dos.</h2>
+            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>Lo tuyo. Lo suyo. Lo de los dos.</h2>
             <p className="mt-4 max-w-lg text-(--ink)/75">
               Cada movimiento decide si es personal o compartido: los gastos propios quedan aparte, sin mezclarse con
               los del hogar, y ambas personas ven el resumen conjunto cuando lo necesitan.
@@ -265,13 +268,12 @@ export function LandingPage() {
       </section>
 
       <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
-        <div className="relative mx-auto max-w-6xl">
-          <StarDoodle className="pointer-events-none absolute -right-2 -top-6 hidden size-14 text-(--lilac) md:block" />
+        <div className="mx-auto max-w-6xl">
           <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
             <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
               Pregunta cuando quieras
             </p>
-            <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
+            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
               Pregúntale a Miti-Miti sobre tu dinero
             </h2>
             <p className="mt-4 max-w-lg text-(--ink)/75">
@@ -306,7 +308,7 @@ export function LandingPage() {
             <p className="w-fit rounded-full bg-(--paper) px-4 py-1.5 text-sm font-bold uppercase">
               Todo lo que necesitan
             </p>
-            <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
+            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
               Todo lo que necesitan para organizar su dinero
             </h2>
           </motion.div>
@@ -337,7 +339,7 @@ export function LandingPage() {
             <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
               Preguntas frecuentes
             </p>
-            <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
+            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
               Dudas comunes sobre finanzas en pareja
             </h2>
           </motion.div>
@@ -369,16 +371,13 @@ export function LandingPage() {
           {...fadeInView}
           transition={{ duration: 0.5 }}
         >
-          <h2 className="text-4xl font-black tracking-tight md:text-5xl">¿Organizamos las cuentas de una vez?</h2>
+          <h2 className={`text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>¿Organizamos las cuentas de una vez?</h2>
           <p className="max-w-lg text-(--ink)/75">
             Crear el hogar toma menos de un minuto. Después, todo pasa por el chat.
           </p>
-          <div className="relative">
-            <ArrowDoodle className="pointer-events-none absolute -right-16 -top-10 hidden size-14 rotate-90 text-(--ink) md:block" />
-            <LinkButton href="/registro" variant="primary">
-              Crear tu hogar <ArrowRight size={18} />
-            </LinkButton>
-          </div>
+          <LinkButton href="/registro" variant="primary">
+            Crear tu hogar <ArrowRight size={18} />
+          </LinkButton>
         </motion.div>
       </section>
 
