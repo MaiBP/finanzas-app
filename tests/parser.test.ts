@@ -22,6 +22,7 @@ it("accepts an annual accumulated finance query", () => {
       query_type: "period_summary",
       filters: {
         category: null,
+        subcategory: null,
         user_name: null,
         account_name: null,
         search_text: null,
@@ -48,6 +49,7 @@ it("accepts a merchant search query", () => {
       query_type: "period_summary",
       filters: {
         category: null,
+        subcategory: null,
         user_name: null,
         account_name: null,
         search_text: "Amazon",
@@ -68,6 +70,7 @@ it("accepts a merchant search query", () => {
 it("accepts an average_daily_spend and a spending_ratio query", () => {
   const baseData = {
     category: null,
+    subcategory: null,
     user_name: null,
     account_name: null,
     search_text: null,

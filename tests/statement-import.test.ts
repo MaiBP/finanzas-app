@@ -9,6 +9,16 @@ const payload=statementImportPayloadSchema.parse({
   ],
 });
 
+const itemizedPayload=statementImportPayloadSchema.parse({
+  kind:"statement_import",file_name:"ticket.jpg",account_name:"Banco",scope:"shared",omitted_rows:0,note:"",
+  transactions:[
+    {type:"expense",amount_cents:8400,description:"Mercadona",category:"Supermercado",transaction_date:"2026-08-02",items:[
+      {description:"Patatas fritas",amount_cents:200,subcategory:"Snacks y dulces"},
+      {description:"Agua mineral",amount_cents:150,subcategory:"Bebidas"},
+    ]},
+  ],
+});
+
 describe("statement import",()=>{
   it("accepts statements and supported images",()=>{
     expect(isSupportedStatementFile("resumen.PDF","application/pdf")).toBe(true);
@@ -28,5 +38,11 @@ describe("statement import",()=>{
     expect(preview).toContain("12,50 €");
     expect(preview).toContain("Cuenta: Banco");
     expect(preview).toContain("Responde “sí”");
+  });
+
+  it("accepts itemized transactions and notes the product count in the preview",()=>{
+    expect(itemizedPayload.transactions[0].items).toHaveLength(2);
+    const preview=statementPreview(itemizedPayload,[{name:"Banco"}]);
+    expect(preview).toContain("(2 productos)");
   });
 });

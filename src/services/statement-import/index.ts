@@ -6,8 +6,19 @@ import { z } from "zod";
 import { decryptField, encryptField } from "@/lib/security/field-encryption";
 
 const MAX_IMPORTED_TRANSACTIONS = 60;
+const MAX_ITEMS_PER_TRANSACTION = 60;
 const imageMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const fileExtensions = new Set(["pdf", "csv", "xls", "xlsx", "jpg", "jpeg", "png", "webp"]);
+
+// Fixed set so item-level spending can be grouped consistently across receipts instead of
+// fragmenting into near-duplicate free-text labels ("snacks" vs "aperitivos").
+export const ITEM_SUBCATEGORIES = ["Frutas y verduras", "Carnes y pescado", "Lácteos y huevos", "Panadería", "Bebidas", "Snacks y dulces", "Congelados", "Limpieza", "Higiene personal", "Alcohol", "Despensa", "Otros"];
+
+const importedItemSchema = z.object({
+  description: z.string().min(1).max(160),
+  amount_cents: z.int().positive(),
+  subcategory: z.string().min(1).max(60),
+});
 
 export const importedTransactionSchema = z.object({
   type: z.enum(["expense", "income"]),
@@ -15,6 +26,7 @@ export const importedTransactionSchema = z.object({
   description: z.string().min(2).max(160),
   category: z.string().min(1).max(60),
   transaction_date: z.iso.date(),
+  items: z.array(importedItemSchema).max(MAX_ITEMS_PER_TRANSACTION).optional(),
 });
 
 const extractionSchema = z.object({
@@ -79,6 +91,9 @@ Reglas obligatorias:
 - Usa únicamente uno de estos nombres exactos de categoría, respetando el tipo: ${JSON.stringify(availableCategories)}.
 - Si ninguna categoría específica corresponde, usa "Otros" para expense u "Otros ingresos" para income.
 - Descripciones breves, reconocibles y sin números completos de tarjeta o cuenta.
+- Si el documento es un ticket o recibo que lista productos individuales (por ejemplo la foto de un ticket de supermercado), agrega en esa transacción un array "items" con cada producto: description (nombre breve del producto) y amount_cents (céntimos, entero positivo). Usa únicamente una de estas subcategorías exactas para cada item: ${JSON.stringify(ITEM_SUBCATEGORIES)}.
+- Si el documento es un extracto bancario, resumen de tarjeta o listado de movimientos sin líneas de producto individuales, no incluyas "items" en absoluto.
+- La suma de los items no tiene por qué coincidir exactamente con el total de la transacción si hay descuentos o redondeos.
 Contexto opcional escrito por el usuario: ${JSON.stringify(file.caption ?? "")}.
 Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
 
@@ -97,11 +112,16 @@ Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
   if (!parsed.success) throw new Error("No pude interpretar el documento con seguridad");
 
   const allowed = new Set(availableCategories.map(category => `${category.kind}:${normalize(category.name)}`));
+  const allowedSubcategories = new Map(ITEM_SUBCATEGORIES.map(subcategory => [normalize(subcategory), subcategory]));
+  const normalizeSubcategory = (value: string) => allowedSubcategories.get(normalize(value)) ?? "Otros";
   const seen = new Set<string>();
   const transactions = parsed.data.transactions.flatMap(transaction => {
     const fallback = transaction.type === "expense" ? "Otros" : "Otros ingresos";
     const category = allowed.has(`${transaction.type}:${normalize(transaction.category)}`) ? transaction.category : fallback;
-    const normalizedTransaction = { ...transaction, category };
+    const items = transaction.items?.length
+      ? transaction.items.slice(0, MAX_ITEMS_PER_TRANSACTION).map(item => ({ ...item, subcategory: normalizeSubcategory(item.subcategory) }))
+      : undefined;
+    const normalizedTransaction = { ...transaction, category, items };
     const key = `${transaction.type}|${transaction.transaction_date}|${transaction.amount_cents}|${normalize(transaction.description)}`;
     if (seen.has(key)) return [];
     seen.add(key);
@@ -113,7 +133,7 @@ Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
 export function statementPreview(payload: StatementImportPayload, accounts: { name: string }[]) {
   const expenses = payload.transactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount_cents, 0);
   const income = payload.transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount_cents, 0);
-  const examples = payload.transactions.slice(0, 6).map(item => `• ${item.transaction_date} · ${item.description} · ${(item.amount_cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}`).join("\n");
+  const examples = payload.transactions.slice(0, 6).map(item => `• ${item.transaction_date} · ${item.description} · ${(item.amount_cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}${item.items?.length ? ` (${item.items.length} productos)` : ""}`).join("\n");
   const totals = `Encontré ${payload.transactions.length} movimientos: ${(expenses / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })} en gastos y ${(income / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })} en ingresos.`;
   const omitted = payload.omitted_rows ? `\nOmití ${payload.omitted_rows} filas que no eran movimientos o no se leían con seguridad.` : "";
   const accountQuestion = payload.account_name
@@ -143,8 +163,17 @@ export async function executeStatementImport(db: SupabaseClient, userId: string,
     const results = await Promise.all(pending.slice(index, index + 5).map(async item => {
       const categoryId = categoryIds.get(`${item.type}:${normalize(item.category)}`) ?? categoryIds.get(`${item.type}:${normalize(item.type === "expense" ? "Otros" : "Otros ingresos")}`);
       if (!categoryId) return false;
-      const { error } = await db.rpc("create_financial_transaction_as_user", { p_actor_user_id: userId, p_household_id: householdId, p_account_id: account.id, p_type: item.type, p_amount_cents: item.amount_cents, p_description: encryptField(item.description), p_category_id: categoryId, p_scope: payload.scope, p_privacy: payload.scope === "shared" ? "visible" : "private", p_transaction_date: item.transaction_date, p_paid_by: userId, p_source: "telegram" });
-      return !error;
+      const { data: transactionId, error } = await db.rpc("create_financial_transaction_as_user", { p_actor_user_id: userId, p_household_id: householdId, p_account_id: account.id, p_type: item.type, p_amount_cents: item.amount_cents, p_description: encryptField(item.description), p_category_id: categoryId, p_scope: payload.scope, p_privacy: payload.scope === "shared" ? "visible" : "private", p_transaction_date: item.transaction_date, p_paid_by: userId, p_source: "telegram" });
+      if (error || !transactionId) return false;
+      if (item.items?.length) {
+        const { error: itemsError } = await db.from("transaction_items").insert(
+          item.items.map(product => ({ transaction_id: transactionId, description: encryptField(product.description), amount_cents: product.amount_cents, subcategory: product.subcategory })),
+        );
+        // The transaction itself is already created correctly; losing the item breakdown isn't
+        // worth failing the whole import over, so this is logged rather than counted as failed.
+        if (itemsError) console.error("Failed to insert transaction items", itemsError);
+      }
+      return true;
     }));
     created += results.filter(Boolean).length; failed += results.filter(result => !result).length;
   }

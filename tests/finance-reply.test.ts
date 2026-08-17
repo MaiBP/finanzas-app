@@ -51,6 +51,7 @@ const members = [
 
 const baseFilters: FinanceQuery["filters"] = {
   category: null,
+  subcategory: null,
   user_name: null,
   account_name: null,
   search_text: null,
@@ -77,6 +78,76 @@ describe("computeFinanceQueryFacts", () => {
       scope: "shared",
       totals: { income: 100_000, expenses: 35_000, result: 65_000 },
     });
+  });
+
+  it("groups item amounts by subcategory, sorted descending", async () => {
+    const itemizedRows: Row[] = [
+      { type: "expense", amount_cents: 8400, description: "Mercadona", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" } },
+    ];
+    const items = [
+      { transaction_id: "t1", amount_cents: 2000, subcategory: "Snacks y dulces" },
+      { transaction_id: "t1", amount_cents: 1500, subcategory: "Bebidas" },
+      { transaction_id: "t1", amount_cents: 800, subcategory: "Limpieza" },
+    ];
+    const rowsWithId = itemizedRows.map((row) => ({ ...row, id: "t1" }));
+    const db = {
+      from(table: string) {
+        if (table === "transactions") return chainable({ data: rowsWithId, error: null });
+        if (table === "household_members") return chainable({ data: members, error: null });
+        if (table === "transaction_items") return chainable({ data: items, error: null });
+        throw new Error(`unexpected table ${table}`);
+      },
+    } as Parameters<typeof computeFinanceQueryFacts>[0];
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "item_spending",
+      filters: baseFilters,
+    });
+    expect(facts.kind).toBe("item_spending");
+    if (facts.kind !== "item_spending" || facts.empty) throw new Error("expected populated item_spending facts");
+    expect(facts.items).toEqual([
+      { subcategory: "Snacks y dulces", amount_cents: 2000 },
+      { subcategory: "Bebidas", amount_cents: 1500 },
+      { subcategory: "Limpieza", amount_cents: 800 },
+    ]);
+  });
+
+  it("filters item_spending by subcategory", async () => {
+    const rowsWithId = [{ type: "expense", amount_cents: 8400, description: "Mercadona", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t1" }];
+    const items = [
+      { transaction_id: "t1", amount_cents: 2000, subcategory: "Snacks y dulces" },
+      { transaction_id: "t1", amount_cents: 1500, subcategory: "Bebidas" },
+    ];
+    const db = {
+      from(table: string) {
+        if (table === "transactions") return chainable({ data: rowsWithId, error: null });
+        if (table === "household_members") return chainable({ data: members, error: null });
+        if (table === "transaction_items") return chainable({ data: items, error: null });
+        throw new Error(`unexpected table ${table}`);
+      },
+    } as Parameters<typeof computeFinanceQueryFacts>[0];
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "item_spending",
+      filters: { ...baseFilters, subcategory: "snacks" },
+    });
+    if (facts.kind !== "item_spending" || facts.empty) throw new Error("expected populated item_spending facts");
+    expect(facts.items).toEqual([{ subcategory: "Snacks y dulces", amount_cents: 2000 }]);
+  });
+
+  it("returns empty item_spending facts when there are no items", async () => {
+    const rowsWithId = [{ type: "expense", amount_cents: 8400, description: "Mercadona", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t1" }];
+    const db = {
+      from(table: string) {
+        if (table === "transactions") return chainable({ data: rowsWithId, error: null });
+        if (table === "household_members") return chainable({ data: members, error: null });
+        if (table === "transaction_items") return chainable({ data: [], error: null });
+        throw new Error(`unexpected table ${table}`);
+      },
+    } as Parameters<typeof computeFinanceQueryFacts>[0];
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "item_spending",
+      filters: baseFilters,
+    });
+    expect(facts).toEqual({ kind: "item_spending", scope: "shared", rangeLabel: "todo el historial", empty: true });
   });
 
   it("groups expenses by category, sorted descending", async () => {

@@ -13,6 +13,7 @@ describe("bot finance access", () => {
   it("resolves the current year through today for annual accumulated queries", () => {
     expect(resolveFinancePeriod({
       category: null,
+      subcategory: null,
       user_name: null,
       account_name: null,
       search_text: null,
