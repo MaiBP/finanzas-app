@@ -4,15 +4,12 @@ import type { ResponseInputContent } from "openai/resources/responses/responses"
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { decryptField, encryptField } from "@/lib/security/field-encryption";
+import { ITEM_SUBCATEGORIES, normalizeItemSubcategory } from "@/lib/finance/item-subcategories";
 
 const MAX_IMPORTED_TRANSACTIONS = 60;
 const MAX_ITEMS_PER_TRANSACTION = 60;
 const imageMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const fileExtensions = new Set(["pdf", "csv", "xls", "xlsx", "jpg", "jpeg", "png", "webp"]);
-
-// Fixed set so item-level spending can be grouped consistently across receipts instead of
-// fragmenting into near-duplicate free-text labels ("snacks" vs "aperitivos").
-export const ITEM_SUBCATEGORIES = ["Frutas y verduras", "Carnes y pescado", "Lácteos y huevos", "Panadería", "Bebidas", "Snacks y dulces", "Congelados", "Limpieza", "Higiene personal", "Alcohol", "Despensa", "Otros"];
 
 const importedItemSchema = z.object({
   description: z.string().min(1).max(160),
@@ -116,14 +113,12 @@ Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
   if (!parsed.success) throw new Error("No pude interpretar el documento con seguridad");
 
   const allowed = new Set(availableCategories.map(category => `${category.kind}:${normalize(category.name)}`));
-  const allowedSubcategories = new Map(ITEM_SUBCATEGORIES.map(subcategory => [normalize(subcategory), subcategory]));
-  const normalizeSubcategory = (value: string) => allowedSubcategories.get(normalize(value)) ?? "Otros";
   const seen = new Set<string>();
   const transactions = parsed.data.transactions.flatMap(transaction => {
     const fallback = transaction.type === "expense" ? "Otros" : "Otros ingresos";
     const category = allowed.has(`${transaction.type}:${normalize(transaction.category)}`) ? transaction.category : fallback;
     const items = transaction.items?.length
-      ? transaction.items.slice(0, MAX_ITEMS_PER_TRANSACTION).map(item => ({ ...item, subcategory: normalizeSubcategory(item.subcategory) }))
+      ? transaction.items.slice(0, MAX_ITEMS_PER_TRANSACTION).map(item => ({ ...item, subcategory: normalizeItemSubcategory(item.subcategory) }))
       : undefined;
     const normalizedTransaction = { ...transaction, category, items };
     const key = `${transaction.type}|${transaction.transaction_date}|${transaction.amount_cents}|${normalize(transaction.description)}`;

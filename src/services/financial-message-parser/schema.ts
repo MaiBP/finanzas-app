@@ -1,10 +1,19 @@
 import { z } from "zod";
 
+const transactionItemData = z.object({
+  description: z.string().min(1).max(160),
+  amount_cents: z.int().positive(),
+  subcategory: z.string().min(1).max(60),
+});
+
 const transactionData = z.object({
   type: z.enum(["expense", "income"]), amount_cents: z.int().positive(), currency: z.literal("EUR"),
   description: z.string().min(2).max(160), category: z.string().min(1), scope: z.enum(["personal", "shared"]),
   privacy: z.enum(["visible", "private"]), transaction_date: z.iso.date(), paid_by: z.string(),
   account_name: z.string().nullable(), split_type: z.enum(["equal", "single", "percentage"]),
+  // OpenAI structured-output strict mode requires every key present (nullable is fine, bare
+  // .optional() is not) — see the same fix applied in statement-import's importedTransactionSchema.
+  items: z.array(transactionItemData).max(40).nullable().optional(),
 });
 
 export const financialActionSchema = z.discriminatedUnion("action", [

@@ -4,6 +4,22 @@ import { zodTextFormat } from "openai/helpers/zod";
 
 describe("financial action schema",()=>{it("accepts a safe structured action",()=>{const result=financialActionSchema.safeParse({action:"create_transaction",confidence:.96,requires_confirmation:false,data:{type:"expense",amount_cents:4250,currency:"EUR",description:"Compra en Mercadona",category:"Supermercado",scope:"shared",privacy:"visible",transaction_date:"2026-08-01",paid_by:"current_user",account_name:null,split_type:"equal"}});expect(result.success).toBe(true)});it("rejects non-positive amounts and unknown actions",()=>{expect(financialActionSchema.safeParse({action:"run_sql",confidence:1,requires_confirmation:false,data:{sql:"delete"}}).success).toBe(false)});it("can be converted to an OpenAI Structured Outputs format",()=>{expect(()=>zodTextFormat(financialActionResponseSchema,"financial_action")).not.toThrow()})});
 
+it("accepts a create_transaction with an itemized breakdown", () => {
+  const result = financialActionSchema.safeParse({
+    action: "create_transaction", confidence: 0.95, requires_confirmation: false,
+    data: {
+      type: "expense", amount_cents: 5000, currency: "EUR", description: "Súper", category: "Supermercado",
+      scope: "shared", privacy: "visible", transaction_date: "2026-08-02", paid_by: "current_user",
+      account_name: null, split_type: "equal",
+      items: [
+        { description: "Pollo", amount_cents: 2500, subcategory: "Carnes y pescado" },
+        { description: "Bistec de ternera", amount_cents: 2500, subcategory: "Carnes y pescado" },
+      ],
+    },
+  });
+  expect(result.success).toBe(true);
+});
+
 it("accepts a general financial-education question", () => {
   expect(financialActionSchema.safeParse({
     action: "general_question",
