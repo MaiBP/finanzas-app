@@ -26,7 +26,11 @@ export const importedTransactionSchema = z.object({
   description: z.string().min(2).max(160),
   category: z.string().min(1).max(60),
   transaction_date: z.iso.date(),
-  items: z.array(importedItemSchema).max(MAX_ITEMS_PER_TRANSACTION).optional(),
+  // OpenAI's structured-output strict mode forbids .optional() without .nullable() (every key
+  // must be present in the model's JSON, just possibly null) — see zod-to-json-schema's
+  // parseObjectDef, which throws otherwise. .optional() stays too so plain local objects (tests,
+  // internal code) can still omit the key entirely.
+  items: z.array(importedItemSchema).max(MAX_ITEMS_PER_TRANSACTION).nullable().optional(),
 });
 
 const extractionSchema = z.object({
@@ -92,7 +96,7 @@ Reglas obligatorias:
 - Si ninguna categoría específica corresponde, usa "Otros" para expense u "Otros ingresos" para income.
 - Descripciones breves, reconocibles y sin números completos de tarjeta o cuenta.
 - Si el documento es un ticket o recibo que lista productos individuales (por ejemplo la foto de un ticket de supermercado), agrega en esa transacción un array "items" con cada producto: description (nombre breve del producto) y amount_cents (céntimos, entero positivo). Usa únicamente una de estas subcategorías exactas para cada item: ${JSON.stringify(ITEM_SUBCATEGORIES)}.
-- Si el documento es un extracto bancario, resumen de tarjeta o listado de movimientos sin líneas de producto individuales, no incluyas "items" en absoluto.
+- Si el documento es un extracto bancario, resumen de tarjeta o listado de movimientos sin líneas de producto individuales, deja "items" como null.
 - La suma de los items no tiene por qué coincidir exactamente con el total de la transacción si hay descuentos o redondeos.
 Contexto opcional escrito por el usuario: ${JSON.stringify(file.caption ?? "")}.
 Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
