@@ -45,15 +45,22 @@ export function matchAccountSelection(text: string, accounts: AccountOption[]) {
 }
 
 // Shown before asking which account, so the user can spot a misheard amount/merchant from a
-// voice note (or a misread text message) before it ever reaches confirmation.
+// voice note (or a misread text message) before it ever reaches confirmation. When the user also
+// asked to create a brand-new account (not possible from Telegram), this leads with that instead
+// — reused by every caller (single eligible account or several) so the note is never missed.
 export function describeCreateTransaction(action: CreateTransactionAction) {
   const emoji = action.data.type === "expense" ? "💸" : "💰";
   const noun = action.data.type === "expense" ? "gasto" : "ingreso";
-  return `${emoji} Identifiqué un ${noun} de ${formatMoney(action.data.amount_cents)} en “${action.data.description}” (${action.data.category}).`;
+  const detail = `${emoji} Identifiqué un ${noun} de ${formatMoney(action.data.amount_cents)} en “${action.data.description}” (${action.data.category}).`;
+  if (!action.data.wants_new_account) return detail;
+  const scopeWord = action.data.scope === "shared" ? "conjunta" : "personal";
+  return `Para crear una cuenta ${scopeWord} deberás ingresar a la web con tu usuario.\n\n${detail}`;
 }
 
 export function accountSelectionQuestion(action: CreateTransactionAction, accounts: AccountOption[]) {
-  const question = action.data.type === "expense" ? "🤔 ¿De qué cuenta sale el dinero?" : "🤔 ¿En qué cuenta entra el dinero?";
   const accountList = accounts.map((account, index) => `${index + 1}. ${accountEmoji(account.type)} ${account.name}`).join("\n");
+  const question = action.data.wants_new_account
+    ? "¿Deseas registrarlo de todos modos en una cuenta existente?"
+    : action.data.type === "expense" ? "🤔 ¿De qué cuenta sale el dinero?" : "🤔 ¿En qué cuenta entra el dinero?";
   return `${describeCreateTransaction(action)}\n\n${question}\n${accountList}`;
 }

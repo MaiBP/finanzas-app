@@ -14,6 +14,10 @@ const transactionData = z.object({
   // OpenAI structured-output strict mode requires every key present (nullable is fine, bare
   // .optional() is not) — see the same fix applied in statement-import's importedTransactionSchema.
   items: z.array(transactionItemData).max(40).nullable().optional(),
+  // True when the user asked to create/open a new account alongside this movement — Telegram
+  // can't create accounts, so the app explains that and offers an existing one instead. A
+  // .default() also satisfies strict mode (has a defaultValue) without needing .nullable().
+  wants_new_account: z.boolean().default(false),
 });
 
 export const financialActionSchema = z.discriminatedUnion("action", [

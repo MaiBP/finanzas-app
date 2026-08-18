@@ -18,6 +18,7 @@ const baseAction: FinancialAction = {
     paid_by: "current_user",
     account_name: null,
     split_type: "single",
+    wants_new_account: false,
   },
 };
 

@@ -10,7 +10,7 @@ const action: CreateTransactionAction = {
   data: {
     type: "expense", amount_cents: 2500, currency: "EUR", description: "Compra semanal",
     category: "Supermercado", scope: "shared", privacy: "visible", transaction_date: "2026-08-04",
-    paid_by: "current_user", account_name: null, split_type: "equal",
+    paid_by: "current_user", account_name: null, split_type: "equal", wants_new_account: false,
   },
 };
 
@@ -51,6 +51,16 @@ describe("account selection", () => {
     expect(matchAccountSelection("2", eligible)?.name).toBe("Banco común");
     expect(matchAccountSelection("banco comun", eligible)?.name).toBe("Banco común");
     expect(matchAccountSelection("Usa Efectivo de casa", eligible)?.name).toBe("Efectivo de casa");
+  });
+
+  it("explains that Telegram can't create accounts, and offers an existing one instead", () => {
+    const wantsNewAccount = { ...action, data: { ...action.data, wants_new_account: true } };
+    const eligible = accountsForAction(wantsNewAccount, accounts);
+    const description = describeCreateTransaction(wantsNewAccount);
+    expect(description).toContain("Para crear una cuenta conjunta deberás ingresar a la web con tu usuario.");
+    expect(description).toContain("Identifiqué un gasto");
+    const question = accountSelectionQuestion(wantsNewAccount, eligible);
+    expect(question).toContain("¿Deseas registrarlo de todos modos en una cuenta existente?");
   });
 });
 
