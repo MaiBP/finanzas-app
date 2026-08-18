@@ -100,13 +100,18 @@ async function confirmPending(db:ReturnType<typeof createAdminClient>,userId:str
   if(!data)return {text:"🤷 No hay ninguna acción pendiente o ya ha caducado.",confirmed:false};
   if(data.action_type==="import_statement"){
     const result=await executeStatementImport(db,userId,householdId,data.payload);await db.from("pending_actions").delete().eq("id",data.id);
-    const movementWord=result.created===1?"movimiento":"movimientos";
-    const duplicatesNote=result.duplicates?` (omití ${result.duplicates} ${result.duplicates===1?"duplicado":"duplicados"})`:"";
     const failuresNote=result.failed?`\n⚠️ ${result.failed} ${result.failed===1?"no se pudo registrar":"no se pudieron registrar"}${result.failureReasons.length?`: ${result.failureReasons.join("; ")}`:""}.`:"";
-    const text=result.created
-      ? `✅ ¡Listo! Registré ${result.created} ${movementWord} en ${result.accountName}${duplicatesNote}.${failuresNote}`
-      : `⚠️ No pude registrar nada en ${result.accountName}.${failuresNote}`;
-    return {text,confirmed:result.created>0};
+    let text:string; let confirmed:boolean;
+    if(result.created>0){
+      const movementWord=result.created===1?"movimiento":"movimientos";
+      const duplicatesNote=result.duplicates?`\n🔁 ${result.duplicates} ya ${result.duplicates===1?"estaba registrado":"estaban registrados"} en tus movimientos, no ${result.duplicates===1?"lo":"los"} volví a cargar.`:"";
+      text=`✅ ¡Listo! Registré ${result.created} ${movementWord} en ${result.accountName}.${duplicatesNote}${failuresNote}`;confirmed=true;
+    } else if(result.duplicates>0&&!result.failed){
+      text=`🔁 ${result.duplicates===1?"Ese gasto ya está registrado":"Esos gastos ya están registrados"} en tus movimientos, no hice cambios.`;confirmed=true;
+    } else {
+      text=`⚠️ No pude registrar nada en ${result.accountName}.${failuresNote}`;confirmed=false;
+    }
+    return {text,confirmed};
   }
   let action=financialActionSchema.parse(data.payload); let reply:string; let confirmed=false;
   if(action.action==="create_transaction"){

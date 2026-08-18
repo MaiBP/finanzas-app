@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { executeTelegramAction } from "@/services/transaction-service/telegram";
-import { decryptField } from "@/lib/security/field-encryption";
+import { decryptField, encryptField } from "@/lib/security/field-encryption";
 import type { FinancialAction } from "@/services/financial-message-parser/schema";
 
 // encryptField/decryptField read FIELD_ENCRYPTION_KEY lazily at call time, so setting it here
@@ -19,11 +19,15 @@ function chainable(result: { data: unknown; error: null }) {
   return proxy;
 }
 
-function createDb(rpc: (name: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: null }>) {
+function createDb(
+  rpc: (name: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: null }>,
+  existingTransactions: { description: string }[] = [],
+) {
   return {
     from(table: string) {
       if (table === "categories") return chainable({ data: { id: "cat-1", name: "Supermercado", kind: "expense" }, error: null });
       if (table === "accounts") return chainable({ data: [{ id: "acc-1", name: "Banco" }], error: null });
+      if (table === "transactions") return chainable({ data: existingTransactions, error: null });
       throw new Error(`unexpected table ${table}`);
     },
     rpc,
@@ -72,5 +76,37 @@ describe("executeTelegramAction with an itemized create_transaction", () => {
     await executeTelegramAction(db, "user-1", "household-1", action);
 
     expect(rpcParams!.p_items).toBeNull();
+  });
+});
+
+describe("executeTelegramAction duplicate detection", () => {
+  it("declines to create a second row matching an existing confirmed transaction", async () => {
+    let rpcCalled = false;
+    const existing = { description: encryptField("Mercadona") };
+    const db = createDb(async () => { rpcCalled = true; return { data: "tx-2", error: null }; }, [existing]);
+    const action: FinancialAction = {
+      action: "create_transaction", confidence: 0.95, requires_confirmation: false,
+      data: { ...baseData, items: null },
+    };
+
+    const reply = await executeTelegramAction(db, "user-1", "household-1", action);
+
+    expect(reply).toContain("ya está registrado");
+    expect(rpcCalled).toBe(false);
+  });
+
+  it("still creates a transaction when the description doesn't match any existing row", async () => {
+    let rpcCalled = false;
+    const existing = { description: encryptField("Netflix") };
+    const db = createDb(async () => { rpcCalled = true; return { data: "tx-3", error: null }; }, [existing]);
+    const action: FinancialAction = {
+      action: "create_transaction", confidence: 0.95, requires_confirmation: false,
+      data: { ...baseData, items: null },
+    };
+
+    const reply = await executeTelegramAction(db, "user-1", "household-1", action);
+
+    expect(reply).toContain("He registrado");
+    expect(rpcCalled).toBe(true);
   });
 });
