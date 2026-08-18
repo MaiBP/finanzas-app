@@ -35,13 +35,20 @@ export function accountSelectionKeyboard(accounts: AccountOption[]): InlineKeybo
   };
 }
 
-export function importAccountSelectionKeyboard(accounts: AccountOption[]): InlineKeyboardMarkup {
+// Account buttons and the confirm/edit/cancel row together in one keyboard: tapping an account
+// re-renders this same markup with that account checked off, without losing the other actions.
+// selectedAccountName is null until an account has been picked (by button or by typing).
+export function importDecisionKeyboard(accounts: AccountOption[], selectedAccountName: string | null): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       ...accounts.map((account, index) => [
-        { text: `${accountEmoji(account.type)} ${account.name}`, callback_data: `import-account:${index + 1}` },
+        { text: `${account.name === selectedAccountName ? "✅" : accountEmoji(account.type)} ${account.name}`, callback_data: `import-account:${index + 1}` },
       ]),
-      [{ text: "❌ Cancelar", callback_data: "confirm:no:import_statement" }],
+      [
+        { text: "✅ Sí, registrar", callback_data: "confirm:yes:import_statement" },
+        { text: "✏️ Editar", callback_data: "edit:import_statement" },
+        { text: "❌ Cancelar", callback_data: "confirm:no:import_statement" },
+      ],
     ],
   };
 }

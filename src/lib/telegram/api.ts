@@ -33,6 +33,10 @@ export async function editMessageReplyMarkup(chatId: number, messageId: number, 
   await callTelegramApi("editMessageReplyMarkup", { chat_id: chatId, message_id: messageId, reply_markup: replyMarkup });
 }
 
+export async function editMessageText(chatId: number, messageId: number, text: string, replyMarkup?: InlineKeyboardMarkup) {
+  await callTelegramApi("editMessageText", { chat_id: chatId, message_id: messageId, text, parse_mode: "HTML", reply_markup: replyMarkup });
+}
+
 export const MAX_TELEGRAM_IMPORT_BYTES = 12 * 1024 * 1024;
 
 export async function downloadTelegramFile(fileId: string) {

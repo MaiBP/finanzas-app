@@ -91,7 +91,7 @@ Reglas obligatorias:
 - Si el contexto del usuario indica un mes o período, incluye únicamente movimientos de ese período; si no indica ninguno, usa todo el período del extracto.
 - Usa únicamente uno de estos nombres exactos de categoría, respetando el tipo: ${JSON.stringify(availableCategories)}.
 - Si ninguna categoría específica corresponde, usa "Otros" para expense u "Otros ingresos" para income.
-- Descripciones breves, reconocibles y sin números completos de tarjeta o cuenta.
+- Descripciones breves, reconocibles y sin números completos de tarjeta o cuenta. Si el documento es un ticket de un comercio identificable, usa el nombre exacto del comercio como aparece impreso (por ejemplo "Mercadona"), nunca una frase genérica como "Compra supermercado".
 - Si el documento es un ticket o recibo que lista productos individuales (por ejemplo la foto de un ticket de supermercado), agrega en esa transacción un array "items" con cada producto: description (nombre breve del producto) y amount_cents (céntimos, entero positivo). Usa únicamente una de estas subcategorías exactas para cada item: ${JSON.stringify(ITEM_SUBCATEGORIES)}.
 - Si el documento es un extracto bancario, resumen de tarjeta o listado de movimientos sin líneas de producto individuales, deja "items" como null.
 - La suma de los items no tiene por qué coincidir exactamente con el total de la transacción si hay descuentos o redondeos.
