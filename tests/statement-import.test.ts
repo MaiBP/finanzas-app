@@ -32,12 +32,11 @@ describe("statement import",()=>{
     expect(isPersonalStatementImport("Cargar en mi cuenta personal")).toBe(true);
   });
 
-  it("previews totals and requires confirmation",()=>{
+  it("previews totals and states the account to be used",()=>{
     const preview=statementPreview(payload,[{name:"Banco"}]);
     expect(preview).toContain("2 movimientos");
     expect(preview).toContain("12,50 €");
-    expect(preview).toContain("Cuenta: Banco");
-    expect(preview).toContain("Responde “sí”");
+    expect(preview).toContain("Se registra en cuenta: Banco");
   });
 
   it("accepts itemized transactions and lists each product in the preview, without the subcategory",()=>{

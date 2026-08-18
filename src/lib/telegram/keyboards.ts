@@ -34,3 +34,14 @@ export function accountSelectionKeyboard(accounts: AccountOption[]): InlineKeybo
     ],
   };
 }
+
+export function importAccountSelectionKeyboard(accounts: AccountOption[]): InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      ...accounts.map((account, index) => [
+        { text: `${accountEmoji(account.type)} ${account.name}`, callback_data: `import-account:${index + 1}` },
+      ]),
+      [{ text: "❌ Cancelar", callback_data: "confirm:no:import_statement" }],
+    ],
+  };
+}

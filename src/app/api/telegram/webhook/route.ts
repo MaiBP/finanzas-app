@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidWebhookSecret } from "@/lib/telegram/security";
 import { checkTelegramMessageRateLimit, checkTelegramVoiceRateLimit, MAX_VOICE_DURATION_SECONDS } from "@/lib/telegram/rate-limit";
 import { answerCallbackQuery, downloadTelegramFile, editMessageReplyMarkup, escapeTelegramHtml, MAX_TELEGRAM_IMPORT_BYTES, sendTelegramMessage, withTelegramWebSuggestion, type InlineKeyboardMarkup } from "@/lib/telegram/api";
-import { accountSelectionKeyboard, confirmCancelKeyboard, importReviewKeyboard } from "@/lib/telegram/keyboards";
+import { accountSelectionKeyboard, confirmCancelKeyboard, importAccountSelectionKeyboard, importReviewKeyboard } from "@/lib/telegram/keyboards";
 import { parseFinancialMessage } from "@/services/financial-message-parser";
 import { financialActionSchema, type FinancialAction } from "@/services/financial-message-parser/schema";
 import { executeTelegramAction } from "@/services/transaction-service/telegram";
@@ -52,9 +52,9 @@ async function handlePendingImportAccountSelection(db:ReturnType<typeof createAd
   const {data}=await db.from("pending_actions").select("id,payload").eq("user_id",userId).eq("household_id",householdId).eq("action_type","import_statement").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
   const parsed=statementImportPayloadSchema.safeParse(data?.payload);if(!data||!parsed.success||parsed.data.account_name)return null;
   const accounts=await getImportAccounts(db,userId,householdId,parsed.data.scope);const selected=matchAccountSelection(text,accounts);
-  if(!selected)return {text:`🤔 Antes de importar, elige una cuenta:\n${accounts.map((account,index)=>`${index+1}. ${account.name}`).join("\n")}\nResponde con el número o el nombre.`};
+  if(!selected)return {text:`🤔 Antes de importar, elige una cuenta:\n${accounts.map((account,index)=>`${index+1}. ${account.name}`).join("\n")}`,keyboard:importAccountSelectionKeyboard(accounts)};
   const payload={...parsed.data,account_name:selected.name};const {error}=await db.from("pending_actions").update({payload}).eq("id",data.id);if(error)throw error;
-  return {text:`📋 Usaré ${selected.name} para los ${payload.transactions.length} movimientos. Responde “sí” para registrar todo, cuéntame qué corregir, o “no” para cancelar.`,keyboard:importReviewKeyboard()};
+  return {text:statementPreview(payload,accounts),keyboard:importReviewKeyboard()};
 }
 
 async function handlePendingImportEdit(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,text:string){
@@ -82,7 +82,7 @@ async function handleStatementAttachment(db:ReturnType<typeof createAdminClient>
   if(!extraction.transactions.length)throw new Error("IMPORT_USER:No encontré movimientos legibles. Prueba con el PDF original o una imagen más nítida.");
   const payload=statementImportPayloadSchema.parse({kind:"statement_import",file_name:fileName,account_name:accounts.length===1?accounts[0].name:null,scope,transactions:extraction.transactions,omitted_rows:extraction.omitted_rows,note:extraction.note});
   await db.from("pending_actions").delete().eq("user_id",userId);const {error}=await db.from("pending_actions").insert({user_id:userId,household_id:householdId,action_type:"import_statement",payload,expires_at:new Date(Date.now()+30*60*1000).toISOString()});if(error)throw error;
-  return {text:statementPreview(payload,accounts),keyboard:payload.account_name?importReviewKeyboard():undefined};
+  return {text:statementPreview(payload,accounts),keyboard:payload.account_name?importReviewKeyboard():importAccountSelectionKeyboard(accounts)};
 }
 
 async function handlePendingAccountSelection(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,text:string){
@@ -148,6 +148,11 @@ async function handleCallbackQuery(callbackQuery:z.infer<typeof callbackQuerySch
       const index=data.slice("account:".length);
       const selection=await handlePendingAccountSelection(db,link.user_id,membership.household_id,index);
       reply=selection?.text??"⚠️ Esa opción ya no está disponible."; keyboard=selection?.keyboard; confirmed=selection?.confirmed??false;
+    }
+    else if(data.startsWith("import-account:")){
+      const index=data.slice("import-account:".length);
+      const selection=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,index);
+      reply=selection?.text??"⚠️ Esa opción ya no está disponible."; keyboard=selection?.keyboard;
     }
     else if(data.startsWith("edit:")){
       reply="✍️ Contame qué querés corregir (por ejemplo: “el segundo producto son 30€, no 25€” o “la fecha es el 3 de agosto”).";

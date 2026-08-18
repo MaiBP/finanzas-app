@@ -191,9 +191,12 @@ export function statementPreview(payload: StatementImportPayload, accounts: { na
     return `${row}\n${productLines}`;
   }).join("\n\n");
   const omitted = payload.omitted_rows ? `\nOmití ${payload.omitted_rows} filas que no eran movimientos o no se leían con seguridad.` : "";
+  // Once an account is set, the confirm/cancel/edit inline buttons carry the call to action, so
+  // the text stays a plain statement rather than repeating "Responde sí/no". Same for the account
+  // picker below — its options come as buttons too.
   const accountQuestion = payload.account_name
-    ? `\nCuenta: ${payload.account_name}. Responde “sí” para registrar todo, cuéntame qué corregir, o “no” para cancelar.`
-    : `\n¿En qué cuenta los registro?\n${accounts.map((account, index) => `${index + 1}. ${account.name}`).join("\n")}\nResponde con el número o el nombre.`;
+    ? `\nSe registra en cuenta: ${payload.account_name}.`
+    : `\n¿En qué cuenta los registro?\n${accounts.map((account, index) => `${index + 1}. ${account.name}`).join("\n")}`;
   return `${header}${aggregateLine}${omitted}\n\n${examples}${payload.transactions.length > 6 ? "\n…" : ""}${accountQuestion}`;
 }
 
