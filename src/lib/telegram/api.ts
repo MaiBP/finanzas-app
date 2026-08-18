@@ -8,7 +8,7 @@ export function escapeTelegramHtml(value: string) {
 export function withTelegramWebSuggestion(message: string) {
   const configuredUrl=process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/,"");
   const appUrl=configuredUrl?.startsWith("https://")?configuredUrl:"https://finanzas-app-six-kappa.vercel.app";
-  return `${escapeTelegramHtml(message)}\n\nSi quieres revisar el detalle, ingresa a la web.\nEnlace: <a href="${escapeTelegramHtml(appUrl)}">${escapeTelegramHtml(appUrl)}</a>`;
+  return `${escapeTelegramHtml(message)}\n\n🌐 Si necesitas revisar el detalle, ingresa con tu usuario a la web: <a href="${escapeTelegramHtml(appUrl)}">${escapeTelegramHtml(appUrl)}</a>`;
 }
 
 async function callTelegramApi(method: string, body: Record<string, unknown>) {
@@ -31,6 +31,10 @@ export async function answerCallbackQuery(callbackQueryId: string, text?: string
 
 export async function editMessageReplyMarkup(chatId: number, messageId: number, replyMarkup: InlineKeyboardMarkup) {
   await callTelegramApi("editMessageReplyMarkup", { chat_id: chatId, message_id: messageId, reply_markup: replyMarkup });
+}
+
+export async function editMessageText(chatId: number, messageId: number, text: string, replyMarkup?: InlineKeyboardMarkup) {
+  await callTelegramApi("editMessageText", { chat_id: chatId, message_id: messageId, text, parse_mode: "HTML", reply_markup: replyMarkup });
 }
 
 export const MAX_TELEGRAM_IMPORT_BYTES = 12 * 1024 * 1024;

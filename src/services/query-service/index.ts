@@ -12,6 +12,7 @@ export type FinanceScope = "shared" | "personal" | "combined";
 export type FinanceQuery = Extract<FinancialAction, { action: "query_finances" }> ["data"];
 type QueryFilters = FinanceQuery["filters"];
 type QueryRow = {
+  id: string;
   type: "expense" | "income";
   amount_cents: number;
   description: string;
@@ -21,6 +22,7 @@ type QueryRow = {
   categories: { name: string } | null;
   accounts: { name: string } | null;
 };
+type ItemRow = { transaction_id: string; amount_cents: number; subcategory: string };
 type PeriodRange = { from: string | null; to: string | null; label: string };
 type Totals = { income: number; expenses: number; result: number };
 
@@ -33,6 +35,8 @@ export type FinanceQueryFacts =
     }
   | { kind: "category_spending"; scope: FinanceScope; rangeLabel: string; empty: true }
   | { kind: "category_spending"; scope: FinanceScope; rangeLabel: string; empty?: false; categories: { name: string; amount_cents: number }[] }
+  | { kind: "item_spending"; scope: FinanceScope; rangeLabel: string; empty: true }
+  | { kind: "item_spending"; scope: FinanceScope; rangeLabel: string; empty?: false; items: { subcategory: string; amount_cents: number }[] }
   | { kind: "user_contributions"; rangeLabel: string; members: { name: string; income: number; expenses: number }[] }
   | { kind: "account_summary"; rangeLabel: string; accounts: { name: string; income: number; expenses: number; result: number }[] }
   | { kind: "largest_transactions"; movementType: "expense" | "income"; rangeLabel: string; empty: true }
@@ -160,7 +164,7 @@ async function fetchQueryRows(
   const scope = filters.scope ?? "combined";
   let query = db
     .from("transactions")
-    .select("type,amount_cents,description,transaction_date,created_by,scope,categories(name),accounts(name)")
+    .select("id,type,amount_cents,description,transaction_date,created_by,scope,categories(name),accounts(name)")
     .eq("household_id", householdId)
     .eq("status", "confirmed")
     .order("transaction_date", { ascending: false })
@@ -218,6 +222,13 @@ async function fetchQueryRows(
     }
   }
   return { rows, names, scope };
+}
+
+async function fetchItemRows(db: DbClient, transactionIds: string[]): Promise<ItemRow[]> {
+  if (!transactionIds.length) return [];
+  const { data, error } = await db.from("transaction_items").select("transaction_id,amount_cents,subcategory").in("transaction_id", transactionIds);
+  if (error) throw error;
+  return (data ?? []) as unknown as ItemRow[];
 }
 
 function summaryFacts(
@@ -322,6 +333,19 @@ export async function computeFinanceQueryFacts(
     const categories = [...totals].sort((a, b) => b[1] - a[1]).map(([name, amount_cents]) => ({ name, amount_cents }));
     return { kind: "category_spending", scope, rangeLabel: range.label, categories };
   }
+  if (data.query_type === "item_spending") {
+    const expenseIds = rows.filter((row) => row.type === "expense").map((row) => row.id);
+    let items = await fetchItemRows(db, expenseIds);
+    if (filters.subcategory) {
+      const subcategory = normalize(filters.subcategory);
+      items = items.filter((item) => normalize(item.subcategory).includes(subcategory));
+    }
+    if (!items.length) return { kind: "item_spending", scope, rangeLabel: range.label, empty: true };
+    const totals = new Map<string, number>();
+    for (const item of items) totals.set(item.subcategory, (totals.get(item.subcategory) ?? 0) + item.amount_cents);
+    const breakdown = [...totals].sort((a, b) => b[1] - a[1]).map(([subcategory, amount_cents]) => ({ subcategory, amount_cents }));
+    return { kind: "item_spending", scope, rangeLabel: range.label, items: breakdown };
+  }
   if (data.query_type === "user_contributions") {
     const totals = new Map<string | null, QueryRow[]>();
     for (const row of rows) totals.set(row.created_by, [...(totals.get(row.created_by) ?? []), row]);
@@ -410,6 +434,9 @@ export function formatFinanceReply(facts: FinanceQueryFacts): string {
     case "category_spending":
       if (facts.empty) return `🤷 No hay gastos confirmados en ${scopeLabel(facts.scope)} para ${facts.rangeLabel}.`;
       return `🏷️ Gastos por categoría en ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: ${facts.categories.map((c) => `${c.name}: ${formatMoney(c.amount_cents)}`).join("; ")}.`;
+    case "item_spending":
+      if (facts.empty) return `🤷 No tengo productos detallados en ${scopeLabel(facts.scope)} para ${facts.rangeLabel}.`;
+      return `🧾 Detalle de productos en ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: ${facts.items.map((i) => `${i.subcategory}: ${formatMoney(i.amount_cents)}`).join("; ")}.`;
     case "user_contributions":
       return `👥 Detalle por persona durante ${facts.rangeLabel}: ${facts.members.map((m) => `${m.name}: ingresos ${formatMoney(m.income)}, gastos ${formatMoney(m.expenses)}`).join("; ")}.`;
     case "account_summary":
@@ -478,20 +505,20 @@ export async function executeFinanceQuery(
 export async function getRecordedBalance(db: DbClient, householdId: string, userId: string, scope: FinanceScope = "combined") {
   return executeFinanceQuery(db, householdId, userId, {
     query_type: "household_balance",
-    filters: { category: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit: null, scope },
+    filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit: null, scope },
   });
 }
 
 export async function getMonthSummary(db: DbClient, householdId: string, userId: string, now = new Date(), scope: FinanceScope = "combined") {
   return executeFinanceQuery(db, householdId, userId, {
     query_type: "month_summary",
-    filters: { category: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope },
+    filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope },
   }, now);
 }
 
 export async function getRecentTransactions(db: DbClient, householdId: string, userId: string, limit = 5, scope: FinanceScope = "combined") {
   return executeFinanceQuery(db, householdId, userId, {
     query_type: "recent_transactions",
-    filters: { category: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit, scope },
+    filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit, scope },
   });
 }

@@ -18,6 +18,7 @@ const baseAction: FinancialAction = {
     paid_by: "current_user",
     account_name: null,
     split_type: "single",
+    wants_new_account: false,
   },
 };
 
@@ -48,7 +49,7 @@ describe("financial conversational defaults", () => {
       requires_confirmation: false,
       data: {
         query_type: "month_summary",
-        filters: { category: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope: "personal" },
+        filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope: "personal" },
       },
     };
     expect(applyFinancialDefaults(query, "¿Cuánto gastamos?")).toBe(query);

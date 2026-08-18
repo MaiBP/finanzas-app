@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
 import { eurosToCents } from "@/lib/finance/money";
 import { encryptField } from "@/lib/security/field-encryption";
+import { normalizeItemSubcategory } from "@/lib/finance/item-subcategories";
+
+type SubmittedItem = { description: string; amount: string; subcategory: string };
 
 export async function editTransaction(formData:FormData){
   const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("Sin hogar");
@@ -16,5 +19,25 @@ export async function editTransaction(formData:FormData){
   if(!account||!category||category.kind!==transaction.type)throw new Error("Cuenta o categoría no válida");
   const privacy=transaction.scope==="shared"?"visible":"private";
   const {error}=await supabase.rpc("update_financial_transaction",{p_transaction_id:id,p_account_id:accountId,p_amount_cents:amountCents,p_description:encryptField(description),p_category_id:categoryId,p_scope:transaction.scope,p_privacy:privacy,p_transaction_date:transactionDate});
-  if(error)throw new Error(error.message); redirect(transaction.scope==="personal"?"/app/personal":"/app/movimientos");
+  if(error)throw new Error(error.message);
+
+  // Simplest correct approach for a repeatable sub-list: replace the whole set rather than diff
+  // it, same as update_financial_transaction already does for transaction_splits.
+  let submittedItems:SubmittedItem[];
+  try{submittedItems=JSON.parse(String(formData.get("items")??"[]"));}catch{submittedItems=[];}
+  const validItems=submittedItems.flatMap(item=>{
+    const trimmedDescription=item.description.trim();
+    if(!trimmedDescription)return [];
+    let itemAmountCents:number;
+    try{itemAmountCents=eurosToCents(item.amount);}catch{return [];}
+    return [{description:trimmedDescription,amount_cents:itemAmountCents,subcategory:normalizeItemSubcategory(item.subcategory)}];
+  });
+  const {error:deleteItemsError}=await supabase.from("transaction_items").delete().eq("transaction_id",id);
+  if(deleteItemsError)throw new Error(deleteItemsError.message);
+  if(validItems.length){
+    const {error:insertItemsError}=await supabase.from("transaction_items").insert(validItems.map(item=>({transaction_id:id,description:encryptField(item.description),amount_cents:item.amount_cents,subcategory:item.subcategory})));
+    if(insertItemsError)throw new Error(insertItemsError.message);
+  }
+
+  redirect(transaction.scope==="personal"?"/app/personal":"/app/movimientos");
 }

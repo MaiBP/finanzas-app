@@ -4,10 +4,18 @@ import type { ResponseInputContent } from "openai/resources/responses/responses"
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { decryptField, encryptField } from "@/lib/security/field-encryption";
+import { ITEM_SUBCATEGORIES, normalizeItemSubcategory } from "@/lib/finance/item-subcategories";
 
 const MAX_IMPORTED_TRANSACTIONS = 60;
+const MAX_ITEMS_PER_TRANSACTION = 60;
 const imageMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const fileExtensions = new Set(["pdf", "csv", "xls", "xlsx", "jpg", "jpeg", "png", "webp"]);
+
+const importedItemSchema = z.object({
+  description: z.string().min(1).max(160),
+  amount_cents: z.int().positive(),
+  subcategory: z.string().min(1).max(60),
+});
 
 export const importedTransactionSchema = z.object({
   type: z.enum(["expense", "income"]),
@@ -15,6 +23,11 @@ export const importedTransactionSchema = z.object({
   description: z.string().min(2).max(160),
   category: z.string().min(1).max(60),
   transaction_date: z.iso.date(),
+  // OpenAI's structured-output strict mode forbids .optional() without .nullable() (every key
+  // must be present in the model's JSON, just possibly null) — see zod-to-json-schema's
+  // parseObjectDef, which throws otherwise. .optional() stays too so plain local objects (tests,
+  // internal code) can still omit the key entirely.
+  items: z.array(importedItemSchema).max(MAX_ITEMS_PER_TRANSACTION).nullable().optional(),
 });
 
 const extractionSchema = z.object({
@@ -78,13 +91,18 @@ Reglas obligatorias:
 - Si el contexto del usuario indica un mes o período, incluye únicamente movimientos de ese período; si no indica ninguno, usa todo el período del extracto.
 - Usa únicamente uno de estos nombres exactos de categoría, respetando el tipo: ${JSON.stringify(availableCategories)}.
 - Si ninguna categoría específica corresponde, usa "Otros" para expense u "Otros ingresos" para income.
-- Descripciones breves, reconocibles y sin números completos de tarjeta o cuenta.
+- Descripciones breves, reconocibles y sin números completos de tarjeta o cuenta. Si el documento es un ticket de un comercio identificable, usa el nombre exacto del comercio como aparece impreso (por ejemplo "Mercadona"), nunca una frase genérica como "Compra supermercado".
+- Si el documento es un ticket o recibo que lista productos individuales (por ejemplo la foto de un ticket de supermercado), agrega en esa transacción un array "items" con cada producto: description (nombre breve del producto) y amount_cents (céntimos, entero positivo). Usa únicamente una de estas subcategorías exactas para cada item: ${JSON.stringify(ITEM_SUBCATEGORIES)}.
+- Si el documento es un extracto bancario, resumen de tarjeta o listado de movimientos sin líneas de producto individuales, deja "items" como null.
+- La suma de los items no tiene por qué coincidir exactamente con el total de la transacción si hay descuentos o redondeos.
 Contexto opcional escrito por el usuario: ${JSON.stringify(file.caption ?? "")}.
 Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
 
+  // "high" detail costs more tokens than "low" but "low" forces OpenAI to downsample the image
+  // to ~512px internally regardless of what we send — receipts with small print need the detail.
   const attachment: ResponseInputContent = imageMimeTypes.has(resolvedMimeType(file.fileName,file.mimeType))
-    ? { type: "input_image", image_url: dataUrl(file), detail: "low" }
-    : { type: "input_file", filename: file.fileName, file_data: dataUrl(file), ...(extensionOf(file.fileName) === "pdf" ? { detail: "low" as const } : {}) };
+    ? { type: "input_image", image_url: dataUrl(file), detail: "high" }
+    : { type: "input_file", filename: file.fileName, file_data: dataUrl(file), ...(extensionOf(file.fileName) === "pdf" ? { detail: "high" as const } : {}) };
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const response = await client.responses.parse({
     model: process.env.OPENAI_MODEL ?? "gpt-5.6-luna",
@@ -95,31 +113,91 @@ Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
   });
   const parsed = extractionSchema.safeParse(response.output_parsed);
   if (!parsed.success) throw new Error("No pude interpretar el documento con seguridad");
+  return { ...parsed.data, transactions: normalizeImportedTransactions(parsed.data.transactions, availableCategories) };
+}
 
+function normalizeImportedTransactions(
+  rawTransactions: z.infer<typeof importedTransactionSchema>[],
+  availableCategories: { name: string; kind: string }[],
+) {
   const allowed = new Set(availableCategories.map(category => `${category.kind}:${normalize(category.name)}`));
   const seen = new Set<string>();
-  const transactions = parsed.data.transactions.flatMap(transaction => {
+  return rawTransactions.flatMap(transaction => {
     const fallback = transaction.type === "expense" ? "Otros" : "Otros ingresos";
     const category = allowed.has(`${transaction.type}:${normalize(transaction.category)}`) ? transaction.category : fallback;
-    const normalizedTransaction = { ...transaction, category };
+    const items = transaction.items?.length
+      ? transaction.items.slice(0, MAX_ITEMS_PER_TRANSACTION).map(item => ({ ...item, subcategory: normalizeItemSubcategory(item.subcategory) }))
+      : undefined;
+    const normalizedTransaction = { ...transaction, category, items };
     const key = `${transaction.type}|${transaction.transaction_date}|${transaction.amount_cents}|${normalize(transaction.description)}`;
     if (seen.has(key)) return [];
     seen.add(key);
     return [normalizedTransaction];
   });
-  return { ...parsed.data, transactions };
+}
+
+const revisionSchema = z.object({ transactions: z.array(importedTransactionSchema).max(MAX_IMPORTED_TRANSACTIONS) });
+
+// Applies a free-text correction ("el segundo producto son 30€, no 25€") to an already-extracted
+// preview, without re-reading the original file — cheaper and fast enough for a chat back-and-forth.
+export async function reviseStatementImport(
+  transactions: z.infer<typeof importedTransactionSchema>[],
+  instruction: string,
+  categories: { name: string; kind: string }[],
+) {
+  if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY no está configurada");
+  const availableCategories = categories.filter(category => category.kind === "expense" || category.kind === "income");
+  const prompt = `Este es el resultado de una extracción de movimientos de un ticket o extracto:
+${JSON.stringify(transactions)}
+
+El usuario pidió esta corrección: ${JSON.stringify(instruction)}
+
+Devuelve el mismo array de movimientos (mismo formato: type, amount_cents, description, category, transaction_date, items opcional con description/amount_cents/subcategory), aplicando ÚNICAMENTE la corrección pedida. No inventes ni cambies nada que el usuario no haya mencionado. Si la corrección es ambigua o no corresponde a ningún movimiento de la lista, deja los movimientos sin cambios.
+Categorías disponibles: ${JSON.stringify(availableCategories)}. Subcategorías de producto disponibles: ${JSON.stringify(ITEM_SUBCATEGORIES)}.`;
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const response = await client.responses.parse({
+    model: process.env.OPENAI_MODEL ?? "gpt-5.6-luna",
+    reasoning: { effort: "none" },
+    store: false,
+    input: [{ role: "user", content: prompt }],
+    text: { format: zodTextFormat(revisionSchema, "statement_revision") },
+  });
+  const parsed = revisionSchema.safeParse(response.output_parsed);
+  if (!parsed.success) throw new Error("No pude interpretar esa corrección");
+  return normalizeImportedTransactions(parsed.data.transactions, availableCategories);
+}
+
+function euros(cents: number) {
+  return (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
 }
 
 export function statementPreview(payload: StatementImportPayload, accounts: { name: string }[]) {
+  const totalItems = payload.transactions.reduce((sum, item) => sum + (item.items?.length ?? 0), 0);
+  const movementWord = payload.transactions.length === 1 ? "movimiento" : "movimientos";
+  const itemsSuffix = totalItems ? ` con ${totalItems} ${totalItems === 1 ? "producto" : "productos"}` : "";
+  const header = `🔍 Encontré ${payload.transactions.length} ${movementWord}${itemsSuffix}:`;
+  // Only shown when there's more than one movement — with a single receipt the per-movement row
+  // below already carries the total, so a "0,00 € en ingresos"-style aggregate would be noise.
   const expenses = payload.transactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount_cents, 0);
   const income = payload.transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount_cents, 0);
-  const examples = payload.transactions.slice(0, 6).map(item => `• ${item.transaction_date} · ${item.description} · ${(item.amount_cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}`).join("\n");
-  const totals = `Encontré ${payload.transactions.length} movimientos: ${(expenses / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })} en gastos y ${(income / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })} en ingresos.`;
+  const totalsParts = [expenses ? `${euros(expenses)} en gastos` : null, income ? `${euros(income)} en ingresos` : null].filter(Boolean);
+  const aggregateLine = payload.transactions.length > 1 && totalsParts.length ? `\n${totalsParts.join(" y ")}.` : "";
+  const examples = payload.transactions.slice(0, 6).map(item => {
+    const row = `${item.transaction_date} | ${item.description} | ${euros(item.amount_cents)}`;
+    if (!item.items?.length) return row;
+    // Subcategory is intentionally left out of the chat preview — it's stored either way and
+    // shown on web, but the Telegram text stays focused on what the user needs to spot-check.
+    const productLines = item.items.map((product, index) => `${index + 1}. ${product.description} | ${euros(product.amount_cents)}`).join("\n");
+    return `${row}\n${productLines}`;
+  }).join("\n\n");
   const omitted = payload.omitted_rows ? `\nOmití ${payload.omitted_rows} filas que no eran movimientos o no se leían con seguridad.` : "";
+  // Once an account is set, the confirm/cancel/edit inline buttons carry the call to action, so
+  // the text stays a plain statement rather than repeating "Responde sí/no". Same for the account
+  // picker below — its options come as buttons too.
   const accountQuestion = payload.account_name
-    ? `\nCuenta: ${payload.account_name}. Responde “sí” para registrar todo o “no” para cancelar.`
-    : `\n¿En qué cuenta los registro?\n${accounts.map((account, index) => `${index + 1}. ${account.name}`).join("\n")}\nResponde con el número o el nombre.`;
-  return `${totals}${omitted}\n\nVista previa:\n${examples}${payload.transactions.length > 6 ? "\n…" : ""}${accountQuestion}`;
+    ? `\nSe registra en cuenta: ${payload.account_name}.`
+    : `\n¿En qué cuenta los registro?\n${accounts.map((account, index) => `${index + 1}. ${account.name}`).join("\n")}`;
+  return `${header}${aggregateLine}${omitted}\n\n${examples}${payload.transactions.length > 6 ? "\n…" : ""}${accountQuestion}`;
 }
 
 export async function executeStatementImport(db: SupabaseClient, userId: string, householdId: string, rawPayload: unknown) {
@@ -139,14 +217,28 @@ export async function executeStatementImport(db: SupabaseClient, userId: string,
   const existingKeys = new Set((existing ?? []).map(item => `${item.type}|${item.transaction_date}|${item.amount_cents}|${normalize(decryptField(item.description))}`));
   const pending = payload.transactions.filter(item => !existingKeys.has(`${item.type}|${item.transaction_date}|${item.amount_cents}|${normalize(item.description)}`));
   let created = 0; let failed = 0;
+  // Surfaced back to the user in the confirmation message — silently counting "failed" without
+  // saying why made a real failure (e.g. an invalid category or a stale account) undiagnosable
+  // from the chat alone.
+  const failureReasons = new Set<string>();
   for (let index = 0; index < pending.length; index += 5) {
     const results = await Promise.all(pending.slice(index, index + 5).map(async item => {
       const categoryId = categoryIds.get(`${item.type}:${normalize(item.category)}`) ?? categoryIds.get(`${item.type}:${normalize(item.type === "expense" ? "Otros" : "Otros ingresos")}`);
-      if (!categoryId) return false;
-      const { error } = await db.rpc("create_financial_transaction_as_user", { p_actor_user_id: userId, p_household_id: householdId, p_account_id: account.id, p_type: item.type, p_amount_cents: item.amount_cents, p_description: encryptField(item.description), p_category_id: categoryId, p_scope: payload.scope, p_privacy: payload.scope === "shared" ? "visible" : "private", p_transaction_date: item.transaction_date, p_paid_by: userId, p_source: "telegram" });
-      return !error;
+      if (!categoryId) { failureReasons.add(`no encontré la categoría “${item.category}”`); return false; }
+      const { data: transactionId, error } = await db.rpc("create_financial_transaction_as_user", { p_actor_user_id: userId, p_household_id: householdId, p_account_id: account.id, p_type: item.type, p_amount_cents: item.amount_cents, p_description: encryptField(item.description), p_category_id: categoryId, p_scope: payload.scope, p_privacy: payload.scope === "shared" ? "visible" : "private", p_transaction_date: item.transaction_date, p_paid_by: userId, p_source: "telegram" });
+      if (error) { console.error("Failed to create imported transaction", error); failureReasons.add(error.message); return false; }
+      if (!transactionId) { failureReasons.add("el servidor no confirmó el movimiento creado"); return false; }
+      if (item.items?.length) {
+        const { error: itemsError } = await db.from("transaction_items").insert(
+          item.items.map(product => ({ transaction_id: transactionId, description: encryptField(product.description), amount_cents: product.amount_cents, subcategory: product.subcategory })),
+        );
+        // The transaction itself is already created correctly; losing the item breakdown isn't
+        // worth failing the whole import over, so this is logged rather than counted as failed.
+        if (itemsError) console.error("Failed to insert transaction items", itemsError);
+      }
+      return true;
     }));
     created += results.filter(Boolean).length; failed += results.filter(result => !result).length;
   }
-  return { created, duplicates: payload.transactions.length - pending.length, failed, accountName: account.name };
+  return { created, duplicates: payload.transactions.length - pending.length, failed, accountName: account.name, failureReasons: [...failureReasons] };
 }

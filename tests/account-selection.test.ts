@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CreateTransactionAction } from "@/services/transaction-service/account-selection";
-import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, matchAccountSelection } from "@/services/transaction-service/account-selection";
-import { accountSelectionKeyboard, confirmCancelKeyboard } from "@/lib/telegram/keyboards";
+import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, describeCreateTransaction, matchAccountSelection } from "@/services/transaction-service/account-selection";
+import { confirmCancelKeyboard, createTransactionDecisionKeyboard } from "@/lib/telegram/keyboards";
 
 const action: CreateTransactionAction = {
   action: "create_transaction",
@@ -10,7 +10,7 @@ const action: CreateTransactionAction = {
   data: {
     type: "expense", amount_cents: 2500, currency: "EUR", description: "Compra semanal",
     category: "Supermercado", scope: "shared", privacy: "visible", transaction_date: "2026-08-04",
-    paid_by: "current_user", account_name: null, split_type: "equal",
+    paid_by: "current_user", account_name: null, split_type: "equal", wants_new_account: false,
   },
 };
 
@@ -32,6 +32,13 @@ describe("account selection", () => {
     expect(accountSelectionQuestion(action, eligible)).toContain("¿De qué cuenta sale el dinero?");
   });
 
+  it("describes the identified expense/income before asking anything", () => {
+    expect(describeCreateTransaction(action)).toBe("💸 Identifiqué un gasto de 25,00 € en “Compra semanal” (Supermercado).");
+    const income = { ...action, data: { ...action.data, type: "income" as const } };
+    expect(describeCreateTransaction(income)).toContain("💰 Identifiqué un ingreso de");
+    expect(accountSelectionQuestion(action, accountsForAction(action, accounts))).toContain("Identifiqué un gasto");
+  });
+
   it("asks where an income enters and only offers personal accounts for personal movements", () => {
     const personalIncome = { ...action, data: { ...action.data, type: "income" as const, scope: "personal" as const } };
     const eligible = accountsForAction(personalIncome, accounts);
@@ -45,18 +52,38 @@ describe("account selection", () => {
     expect(matchAccountSelection("banco comun", eligible)?.name).toBe("Banco común");
     expect(matchAccountSelection("Usa Efectivo de casa", eligible)?.name).toBe("Efectivo de casa");
   });
+
+  it("explains that Telegram can't create accounts, and offers an existing one instead", () => {
+    const wantsNewAccount = { ...action, data: { ...action.data, wants_new_account: true } };
+    const eligible = accountsForAction(wantsNewAccount, accounts);
+    const description = describeCreateTransaction(wantsNewAccount);
+    expect(description).toContain("Para crear una cuenta conjunta deberás ingresar a la web con tu usuario.");
+    expect(description).toContain("Identifiqué un gasto");
+    const question = accountSelectionQuestion(wantsNewAccount, eligible);
+    expect(question).toContain("¿Deseas registrarlo de todos modos en una cuenta existente?");
+  });
 });
 
 describe("telegram inline keyboards", () => {
-  it("builds one button per account with a 1-based callback index", () => {
+  it("builds one button per account (1-based callback index) plus a confirm/cancel row", () => {
     const eligible = accountsForAction(action, accounts);
-    expect(accountSelectionKeyboard(eligible)).toEqual({
+    expect(createTransactionDecisionKeyboard(eligible, null)).toEqual({
       inline_keyboard: [
         [{ text: "🏦 Efectivo de casa", callback_data: "account:1" }],
         [{ text: "🏦 Banco común", callback_data: "account:2" }],
-        [{ text: "❌ Cancelar", callback_data: "confirm:no:create_transaction" }],
+        [
+          { text: "✅ Sí, confirmar", callback_data: "confirm:yes:create_transaction" },
+          { text: "❌ Cancelar", callback_data: "confirm:no:create_transaction" },
+        ],
       ],
     });
+  });
+
+  it("checks off the selected account instead of its emoji", () => {
+    const eligible = accountsForAction(action, accounts);
+    const keyboard = createTransactionDecisionKeyboard(eligible, "Banco común");
+    expect(keyboard.inline_keyboard[0][0].text).toBe("🏦 Efectivo de casa");
+    expect(keyboard.inline_keyboard[1][0].text).toBe("✅ Banco común");
   });
 
   it("builds a confirm/cancel row carrying the action type", () => {

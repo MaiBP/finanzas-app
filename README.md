@@ -30,7 +30,7 @@ Miti-Miti es una app de finanzas para parejas: cada persona mantiene su propio e
 | Staging | `dev` | proyecto Supabase de staging | bot de staging | automático en Vercel (proyecto `mitimiti-staging`) |
 | Producción | `main` | proyecto Supabase de producción | bot real | automático en Vercel (proyecto de producción original) |
 
-Flujo de trabajo: las features se desarrollan en `feature/*` a partir de `dev`, se integran a `dev` por Pull Request (dispara el deploy de staging) y, una vez validadas ahí, `dev` se mergea a `main` por Pull Request (dispara el deploy de producción). Cada entorno de Vercel es un proyecto separado con sus propias variables de entorno — no comparten base de datos ni bot de Telegram entre sí. Un GitHub Action (`.github/workflows/ci.yml`) corre `typecheck`, `lint`, `test` y `build` en cada Pull Request y en cada push a `dev`/`main`.
+Flujo de trabajo: el desarrollo ocurre directamente sobre `dev` (push directo, sin ramas `feature/*`) — cada push dispara el deploy de staging automáticamente. Una vez validado ahí a mano, `dev` se mergea a `main` manualmente para desplegar a producción. Cada entorno de Vercel es un proyecto separado con sus propias variables de entorno — no comparten base de datos ni bot de Telegram entre sí. Un GitHub Action (`.github/workflows/ci.yml`) corre `typecheck`, `lint`, `test` y `build` en cada push a `dev`/`main` como red de seguridad.
 
 **Importante**: mergear código nunca sincroniza esquemas de base de datos entre Supabase-staging y Supabase-producción. Cada migración nueva en `supabase/migrations/` se corre primero contra staging para probarla, y debe correrse manualmente contra producción antes o al mismo tiempo que el merge a `main`.
 

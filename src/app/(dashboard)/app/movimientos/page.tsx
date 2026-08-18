@@ -30,6 +30,7 @@ type Row = {
   categories: { name: string } | null;
   accounts: { name: string } | null;
 };
+type ItemRow = { transaction_id: string; description: string; amount_cents: number; subcategory: string };
 
 const PAGE_SIZE = 25;
 // Description is encrypted at rest (non-deterministic ciphertext), so a text search can't run
@@ -110,6 +111,14 @@ export default async function TransactionsPage({
   }
   const roster = await getHouseholdRoster(supabase, household.id);
   const memberNames = new Map(roster.map((member) => [member.userId, member.displayName]));
+  const { data: itemRows } = rows.length
+    ? await supabase.from("transaction_items").select("transaction_id,description,amount_cents,subcategory").in("transaction_id", rows.map((row) => row.id))
+    : { data: [] as ItemRow[] };
+  const itemsByTransaction = new Map<string, { description: string; amount_cents: number; subcategory: string }[]>();
+  for (const item of (itemRows ?? []) as unknown as ItemRow[]) {
+    const decrypted = { description: decryptField(item.description), amount_cents: item.amount_cents, subcategory: item.subcategory };
+    itemsByTransaction.set(item.transaction_id, [...(itemsByTransaction.get(item.transaction_id) ?? []), decrypted]);
+  }
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilters = Boolean(search || type || from || to);
   const exportParams = new URLSearchParams();
@@ -201,6 +210,7 @@ export default async function TransactionsPage({
         </div>
         {rows.map((row) => {
           const creator = row.created_by === null ? "Miembro eliminado" : (memberNames.get(row.created_by) ?? "Miembro eliminado");
+          const items = itemsByTransaction.get(row.id);
           return (
             <article
               key={row.id}
@@ -212,6 +222,20 @@ export default async function TransactionsPage({
                   {row.accounts?.name ?? "Sin cuenta"} · {row.categories?.name ?? "Sin categoría"} · {row.transaction_date}
                 </p>
                 <p className="mt-1 text-xs font-bold xl:hidden">Registrado por {creator}</p>
+                {items && items.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs font-bold text-(--muted)">
+                      {items.length} {items.length === 1 ? "producto" : "productos"}
+                    </summary>
+                    <ul className="mt-1 space-y-0.5 text-xs text-(--muted)">
+                      {items.map((item, index) => (
+                        <li key={index} className="truncate">
+                          {item.description} · {item.subcategory} · {formatMoney(item.amount_cents)}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </div>
               <span className="hidden truncate text-sm font-bold xl:block">{creator}</span>
               <span className="hidden truncate text-sm font-bold xl:block">{row.accounts?.name ?? "Sin cuenta"}</span>
