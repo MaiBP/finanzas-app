@@ -100,7 +100,8 @@ async function confirmPending(db:ReturnType<typeof createAdminClient>,userId:str
   if(!data)return {text:"🤷 No hay ninguna acción pendiente o ya ha caducado.",confirmed:false};
   if(data.action_type==="import_statement"){
     const result=await executeStatementImport(db,userId,householdId,data.payload);await db.from("pending_actions").delete().eq("id",data.id);
-    return {text:`✅ Importación terminada en ${result.accountName}: ${result.created} movimientos registrados${result.duplicates?`, ${result.duplicates} duplicados omitidos`:""}${result.failed?`, ${result.failed} no pudieron registrarse`:""}.`,confirmed:result.created>0};
+    const reasonsNote=result.failureReasons.length?` (${result.failureReasons.join("; ")})`:"";
+    return {text:`✅ Importación terminada en ${result.accountName}: ${result.created} movimientos registrados${result.duplicates?`, ${result.duplicates} duplicados omitidos`:""}${result.failed?`, ${result.failed} no pudieron registrarse${reasonsNote}`:""}.`,confirmed:result.created>0};
   }
   let action=financialActionSchema.parse(data.payload); let reply:string; let confirmed=false;
   if(action.action==="create_transaction"){
