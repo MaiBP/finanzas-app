@@ -13,6 +13,12 @@ export async function generateTelegramCode(){
   if(error) throw new Error(error.message); revalidatePath("/app/ajustes");
 }
 
+export async function unlinkTelegram(){
+  const {supabase,user}=await getCurrentHousehold();
+  const {error}=await supabase.from("telegram_links").delete().eq("user_id",user.id);
+  if(error) throw new Error(error.message); revalidatePath("/app/ajustes");
+}
+
 export async function generateHouseholdInvite(){
   const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("No tienes un hogar activo.");
   if(household.role!=="owner")throw new Error("Solo la persona propietaria puede generar la invitación.");
