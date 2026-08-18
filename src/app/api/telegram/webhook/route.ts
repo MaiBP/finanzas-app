@@ -4,13 +4,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidWebhookSecret } from "@/lib/telegram/security";
 import { checkTelegramMessageRateLimit, checkTelegramVoiceRateLimit, MAX_VOICE_DURATION_SECONDS } from "@/lib/telegram/rate-limit";
 import { answerCallbackQuery, downloadTelegramFile, editMessageReplyMarkup, escapeTelegramHtml, MAX_TELEGRAM_IMPORT_BYTES, sendTelegramMessage, withTelegramWebSuggestion, type InlineKeyboardMarkup } from "@/lib/telegram/api";
-import { accountSelectionKeyboard, confirmCancelKeyboard } from "@/lib/telegram/keyboards";
+import { accountSelectionKeyboard, confirmCancelKeyboard, importReviewKeyboard } from "@/lib/telegram/keyboards";
 import { parseFinancialMessage } from "@/services/financial-message-parser";
 import { financialActionSchema, type FinancialAction } from "@/services/financial-message-parser/schema";
 import { executeTelegramAction } from "@/services/transaction-service/telegram";
 import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, matchAccountSelection, type AccountOption, type CreateTransactionAction } from "@/services/transaction-service/account-selection";
 import { executeFinanceQuery, getMonthSummary, getRecentTransactions } from "@/services/query-service";
-import { executeStatementImport, extractStatementTransactions, isPersonalStatementImport, isSupportedStatementFile, statementImportPayloadSchema, statementPreview } from "@/services/statement-import";
+import { executeStatementImport, extractStatementTransactions, isPersonalStatementImport, isSupportedStatementFile, reviseStatementImport, statementImportPayloadSchema, statementPreview } from "@/services/statement-import";
 import { transcribeVoiceMessage } from "@/services/voice-transcription";
 import { fetchRecentMessages, recordMessage } from "@/services/conversation-history";
 import { redactHouseholdNames, redactRecentMessages, HOUSEHOLD_NAME_PRIVACY_NOTE, type HouseholdMember } from "@/services/privacy/redact-household-names";
@@ -52,9 +52,21 @@ async function handlePendingImportAccountSelection(db:ReturnType<typeof createAd
   const {data}=await db.from("pending_actions").select("id,payload").eq("user_id",userId).eq("household_id",householdId).eq("action_type","import_statement").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
   const parsed=statementImportPayloadSchema.safeParse(data?.payload);if(!data||!parsed.success||parsed.data.account_name)return null;
   const accounts=await getImportAccounts(db,userId,householdId,parsed.data.scope);const selected=matchAccountSelection(text,accounts);
-  if(!selected)return `🤔 Antes de importar, elige una cuenta:\n${accounts.map((account,index)=>`${index+1}. ${account.name}`).join("\n")}\nResponde con el número o el nombre.`;
+  if(!selected)return {text:`🤔 Antes de importar, elige una cuenta:\n${accounts.map((account,index)=>`${index+1}. ${account.name}`).join("\n")}\nResponde con el número o el nombre.`};
   const payload={...parsed.data,account_name:selected.name};const {error}=await db.from("pending_actions").update({payload}).eq("id",data.id);if(error)throw error;
-  return `📋 Usaré ${selected.name} para los ${payload.transactions.length} movimientos. Responde “sí” para registrar todo o “no” para cancelar.`;
+  return {text:`📋 Usaré ${selected.name} para los ${payload.transactions.length} movimientos. Responde “sí” para registrar todo, cuéntame qué corregir, o “no” para cancelar.`,keyboard:importReviewKeyboard()};
+}
+
+async function handlePendingImportEdit(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,text:string){
+  const {data}=await db.from("pending_actions").select("id,payload").eq("user_id",userId).eq("household_id",householdId).eq("action_type","import_statement").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  const parsed=statementImportPayloadSchema.safeParse(data?.payload);if(!data||!parsed.success||!parsed.data.account_name)return null;
+  const {data:categories,error:categoryError}=await db.from("categories").select("name,kind").or(`household_id.eq.${householdId},household_id.is.null`);if(categoryError)throw categoryError;
+  const transactions=await reviseStatementImport(parsed.data.transactions,text,categories??[]);
+  if(!transactions.length)throw new Error("IMPORT_USER:No encontré movimientos después de esa corrección. Probá de nuevo o cancelá con “no”.");
+  const payload=statementImportPayloadSchema.parse({...parsed.data,transactions});
+  const {error}=await db.from("pending_actions").update({payload}).eq("id",data.id);if(error)throw error;
+  const accounts=await getImportAccounts(db,userId,householdId,payload.scope);
+  return {text:statementPreview(payload,accounts),keyboard:importReviewKeyboard()};
 }
 
 async function handleStatementAttachment(db:ReturnType<typeof createAdminClient>,message:NonNullable<z.infer<typeof updateSchema>["message"]>,userId:string,householdId:string){
@@ -70,7 +82,7 @@ async function handleStatementAttachment(db:ReturnType<typeof createAdminClient>
   if(!extraction.transactions.length)throw new Error("IMPORT_USER:No encontré movimientos legibles. Prueba con el PDF original o una imagen más nítida.");
   const payload=statementImportPayloadSchema.parse({kind:"statement_import",file_name:fileName,account_name:accounts.length===1?accounts[0].name:null,scope,transactions:extraction.transactions,omitted_rows:extraction.omitted_rows,note:extraction.note});
   await db.from("pending_actions").delete().eq("user_id",userId);const {error}=await db.from("pending_actions").insert({user_id:userId,household_id:householdId,action_type:"import_statement",payload,expires_at:new Date(Date.now()+30*60*1000).toISOString()});if(error)throw error;
-  return statementPreview(payload,accounts);
+  return {text:statementPreview(payload,accounts),keyboard:payload.account_name?importReviewKeyboard():undefined};
 }
 
 async function handlePendingAccountSelection(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,text:string){
@@ -137,6 +149,9 @@ async function handleCallbackQuery(callbackQuery:z.infer<typeof callbackQuerySch
       const selection=await handlePendingAccountSelection(db,link.user_id,membership.household_id,index);
       reply=selection?.text??"⚠️ Esa opción ya no está disponible."; keyboard=selection?.keyboard; confirmed=selection?.confirmed??false;
     }
+    else if(data.startsWith("edit:")){
+      reply="✍️ Contame qué querés corregir (por ejemplo: “el segundo producto son 30€, no 25€” o “la fecha es el 3 de agosto”).";
+    }
     else return;
   }catch(error){reply=error instanceof Error?error.message:"⚠️ No he podido completar eso. Inténtalo de nuevo.";}
 
@@ -153,7 +168,7 @@ export async function POST(request:Request){
   const message=parsed.data.message;const {chat,from}=message;let text=(message.text??message.caption??"").trim();const db=createAdminClient();
   try{
     if(!(await checkTelegramMessageRateLimit(db,from.id))){await sendTelegramMessage(chat.id,"⏳ Has enviado demasiados mensajes seguidos. Espera un momento y vuelve a intentarlo.");return NextResponse.json({ok:true});}
-    if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"💡 En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”, por texto o por nota de voz. También puedes adjuntar un PDF, Excel, CSV o imagen de un extracto: te mostraré una vista previa antes de registrar nada. Los archivos y notas de voz se procesan con OpenAI y no se guardan en Miti-Miti. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. Comandos: 📊 /resumen · 🧾 /ultimos · ❌ /cancelar.");return NextResponse.json({ok:true});}
+    if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"💡 En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”, por texto o por nota de voz. También puedes adjuntar un PDF, Excel, CSV o imagen de un extracto: te mostraré una vista previa antes de registrar nada, y si algo está mal podés contarme qué corregir antes de confirmar. Los archivos y notas de voz se procesan con OpenAI y no se guardan en Miti-Miti. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. Comandos: 📊 /resumen · 🧾 /ultimos · ❌ /cancelar.");return NextResponse.json({ok:true});}
     if(text.startsWith("/start")||text.startsWith("/vincular")){
       // Telegram's deep link (t.me/<bot>?start=CODE) sends "/start CODE" automatically, so it
       // shares this same linking branch instead of only showing the greeting.
@@ -180,9 +195,10 @@ export async function POST(request:Request){
       const bytes=await downloadTelegramFile(message.voice.file_id).catch(()=>{throw new Error("VOICE_USER:No pude descargar el audio. Inténtalo de nuevo.");});
       text=(await transcribeVoiceMessage(bytes,message.voice.mime_type??"audio/ogg").catch(()=>{throw new Error("VOICE_USER:No entendí el audio, prueba a grabarlo de nuevo o escribe el mensaje.");})).trim();
     }
-    const importReply=await handleStatementAttachment(db,message,link.user_id,membership.household_id);if(importReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importReply));return NextResponse.json({ok:true});}
+    const importReply=await handleStatementAttachment(db,message,link.user_id,membership.household_id);if(importReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importReply.text),importReply.keyboard);return NextResponse.json({ok:true});}
     if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"❌ Acción cancelada.");return NextResponse.json({ok:true});}
-    const importAccountReply=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,text);if(importAccountReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importAccountReply));return NextResponse.json({ok:true});}
+    const importAccountReply=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,text);if(importAccountReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importAccountReply.text),importAccountReply.keyboard);return NextResponse.json({ok:true});}
+    const importEditReply=await handlePendingImportEdit(db,link.user_id,membership.household_id,text);if(importEditReply){await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:importEditReply.text});await sendTelegramMessage(chat.id,escapeTelegramHtml(importEditReply.text),importEditReply.keyboard);return NextResponse.json({ok:true});}
     const accountSelectionReply=await handlePendingAccountSelection(db,link.user_id,membership.household_id,text);if(accountSelectionReply){await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:accountSelectionReply.text});await sendTelegramMessage(chat.id,accountSelectionReply.confirmed?withTelegramWebSuggestion(accountSelectionReply.text):escapeTelegramHtml(accountSelectionReply.text),accountSelectionReply.keyboard);return NextResponse.json({ok:true});}
     if(yes.test(text)){const result=await confirmPending(db,link.user_id,membership.household_id);await sendTelegramMessage(chat.id,result.confirmed?withTelegramWebSuggestion(result.text):escapeTelegramHtml(result.text));return NextResponse.json({ok:true});}
     if(text==="/resumen"){await sendTelegramMessage(chat.id,escapeTelegramHtml(await getMonthSummary(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}

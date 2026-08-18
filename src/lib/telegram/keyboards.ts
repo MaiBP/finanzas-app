@@ -12,6 +12,18 @@ export function confirmCancelKeyboard(actionType: string): InlineKeyboardMarkup 
   };
 }
 
+export function importReviewKeyboard(): InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [
+        { text: "✅ Sí, registrar", callback_data: "confirm:yes:import_statement" },
+        { text: "❌ Cancelar", callback_data: "confirm:no:import_statement" },
+      ],
+      [{ text: "✏️ Editar", callback_data: "edit:import_statement" }],
+    ],
+  };
+}
+
 export function accountSelectionKeyboard(accounts: AccountOption[]): InlineKeyboardMarkup {
   return {
     inline_keyboard: [

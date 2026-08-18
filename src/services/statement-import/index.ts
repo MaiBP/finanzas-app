@@ -98,9 +98,11 @@ Reglas obligatorias:
 Contexto opcional escrito por el usuario: ${JSON.stringify(file.caption ?? "")}.
 Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
 
+  // "high" detail costs more tokens than "low" but "low" forces OpenAI to downsample the image
+  // to ~512px internally regardless of what we send — receipts with small print need the detail.
   const attachment: ResponseInputContent = imageMimeTypes.has(resolvedMimeType(file.fileName,file.mimeType))
-    ? { type: "input_image", image_url: dataUrl(file), detail: "low" }
-    : { type: "input_file", filename: file.fileName, file_data: dataUrl(file), ...(extensionOf(file.fileName) === "pdf" ? { detail: "low" as const } : {}) };
+    ? { type: "input_image", image_url: dataUrl(file), detail: "high" }
+    : { type: "input_file", filename: file.fileName, file_data: dataUrl(file), ...(extensionOf(file.fileName) === "pdf" ? { detail: "high" as const } : {}) };
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const response = await client.responses.parse({
     model: process.env.OPENAI_MODEL ?? "gpt-5.6-luna",
@@ -111,10 +113,16 @@ Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
   });
   const parsed = extractionSchema.safeParse(response.output_parsed);
   if (!parsed.success) throw new Error("No pude interpretar el documento con seguridad");
+  return { ...parsed.data, transactions: normalizeImportedTransactions(parsed.data.transactions, availableCategories) };
+}
 
+function normalizeImportedTransactions(
+  rawTransactions: z.infer<typeof importedTransactionSchema>[],
+  availableCategories: { name: string; kind: string }[],
+) {
   const allowed = new Set(availableCategories.map(category => `${category.kind}:${normalize(category.name)}`));
   const seen = new Set<string>();
-  const transactions = parsed.data.transactions.flatMap(transaction => {
+  return rawTransactions.flatMap(transaction => {
     const fallback = transaction.type === "expense" ? "Otros" : "Otros ingresos";
     const category = allowed.has(`${transaction.type}:${normalize(transaction.category)}`) ? transaction.category : fallback;
     const items = transaction.items?.length
@@ -126,7 +134,37 @@ Nombre del archivo: ${JSON.stringify(file.fileName)}.`;
     seen.add(key);
     return [normalizedTransaction];
   });
-  return { ...parsed.data, transactions };
+}
+
+const revisionSchema = z.object({ transactions: z.array(importedTransactionSchema).max(MAX_IMPORTED_TRANSACTIONS) });
+
+// Applies a free-text correction ("el segundo producto son 30€, no 25€") to an already-extracted
+// preview, without re-reading the original file — cheaper and fast enough for a chat back-and-forth.
+export async function reviseStatementImport(
+  transactions: z.infer<typeof importedTransactionSchema>[],
+  instruction: string,
+  categories: { name: string; kind: string }[],
+) {
+  if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY no está configurada");
+  const availableCategories = categories.filter(category => category.kind === "expense" || category.kind === "income");
+  const prompt = `Este es el resultado de una extracción de movimientos de un ticket o extracto:
+${JSON.stringify(transactions)}
+
+El usuario pidió esta corrección: ${JSON.stringify(instruction)}
+
+Devuelve el mismo array de movimientos (mismo formato: type, amount_cents, description, category, transaction_date, items opcional con description/amount_cents/subcategory), aplicando ÚNICAMENTE la corrección pedida. No inventes ni cambies nada que el usuario no haya mencionado. Si la corrección es ambigua o no corresponde a ningún movimiento de la lista, deja los movimientos sin cambios.
+Categorías disponibles: ${JSON.stringify(availableCategories)}. Subcategorías de producto disponibles: ${JSON.stringify(ITEM_SUBCATEGORIES)}.`;
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const response = await client.responses.parse({
+    model: process.env.OPENAI_MODEL ?? "gpt-5.6-luna",
+    reasoning: { effort: "none" },
+    store: false,
+    input: [{ role: "user", content: prompt }],
+    text: { format: zodTextFormat(revisionSchema, "statement_revision") },
+  });
+  const parsed = revisionSchema.safeParse(response.output_parsed);
+  if (!parsed.success) throw new Error("No pude interpretar esa corrección");
+  return normalizeImportedTransactions(parsed.data.transactions, availableCategories);
 }
 
 export function statementPreview(payload: StatementImportPayload, accounts: { name: string }[]) {
@@ -136,7 +174,7 @@ export function statementPreview(payload: StatementImportPayload, accounts: { na
   const totals = `Encontré ${payload.transactions.length} movimientos: ${(expenses / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })} en gastos y ${(income / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })} en ingresos.`;
   const omitted = payload.omitted_rows ? `\nOmití ${payload.omitted_rows} filas que no eran movimientos o no se leían con seguridad.` : "";
   const accountQuestion = payload.account_name
-    ? `\nCuenta: ${payload.account_name}. Responde “sí” para registrar todo o “no” para cancelar.`
+    ? `\nCuenta: ${payload.account_name}. Responde “sí” para registrar todo, cuéntame qué corregir, o “no” para cancelar.`
     : `\n¿En qué cuenta los registro?\n${accounts.map((account, index) => `${index + 1}. ${account.name}`).join("\n")}\nResponde con el número o el nombre.`;
   return `${totals}${omitted}\n\nVista previa:\n${examples}${payload.transactions.length > 6 ? "\n…" : ""}${accountQuestion}`;
 }
