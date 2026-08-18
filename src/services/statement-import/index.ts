@@ -167,11 +167,23 @@ Categorías disponibles: ${JSON.stringify(availableCategories)}. Subcategorías 
   return normalizeImportedTransactions(parsed.data.transactions, availableCategories);
 }
 
+function euros(cents: number) {
+  return (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+}
+
 export function statementPreview(payload: StatementImportPayload, accounts: { name: string }[]) {
   const expenses = payload.transactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount_cents, 0);
   const income = payload.transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount_cents, 0);
-  const examples = payload.transactions.slice(0, 6).map(item => `• ${item.transaction_date} · ${item.description} · ${(item.amount_cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}${item.items?.length ? ` (${item.items.length} productos)` : ""}`).join("\n");
-  const totals = `Encontré ${payload.transactions.length} movimientos: ${(expenses / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })} en gastos y ${(income / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" })} en ingresos.`;
+  // Only mention the sides that actually have movements — a pure-expense receipt shouldn't say
+  // "0,00 € en ingresos".
+  const totalsParts = [expenses ? `${euros(expenses)} en gastos` : null, income ? `${euros(income)} en ingresos` : null].filter(Boolean);
+  const totals = `Encontré ${payload.transactions.length} ${payload.transactions.length === 1 ? "movimiento" : "movimientos"}${totalsParts.length ? `: ${totalsParts.join(" y ")}.` : "."}`;
+  const examples = payload.transactions.slice(0, 6).map(item => {
+    const header = `• ${item.transaction_date} · ${item.description} · ${euros(item.amount_cents)}`;
+    if (!item.items?.length) return header;
+    const lines = item.items.map(product => `   - ${product.description} · ${euros(product.amount_cents)} · ${product.subcategory}`).join("\n");
+    return `${header}\n${lines}`;
+  }).join("\n");
   const omitted = payload.omitted_rows ? `\nOmití ${payload.omitted_rows} filas que no eran movimientos o no se leían con seguridad.` : "";
   const accountQuestion = payload.account_name
     ? `\nCuenta: ${payload.account_name}. Responde “sí” para registrar todo, cuéntame qué corregir, o “no” para cancelar.`

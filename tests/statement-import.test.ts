@@ -40,9 +40,13 @@ describe("statement import",()=>{
     expect(preview).toContain("Responde “sí”");
   });
 
-  it("accepts itemized transactions and notes the product count in the preview",()=>{
+  it("accepts itemized transactions and lists each product in the preview",()=>{
     expect(itemizedPayload.transactions[0].items).toHaveLength(2);
     const preview=statementPreview(itemizedPayload,[{name:"Banco"}]);
-    expect(preview).toContain("(2 productos)");
+    expect(preview).toContain("Patatas fritas");
+    expect(preview).toContain("Agua mineral");
+    expect(preview).toContain("Snacks y dulces");
+    expect(preview).toContain("1 movimiento");
+    expect(preview).not.toContain("0,00");
   });
 });
