@@ -225,17 +225,13 @@ export async function executeStatementImport(db: SupabaseClient, userId: string,
     const results = await Promise.all(pending.slice(index, index + 5).map(async item => {
       const categoryId = categoryIds.get(`${item.type}:${normalize(item.category)}`) ?? categoryIds.get(`${item.type}:${normalize(item.type === "expense" ? "Otros" : "Otros ingresos")}`);
       if (!categoryId) { failureReasons.add(`no encontré la categoría “${item.category}”`); return false; }
-      const { data: transactionId, error } = await db.rpc("create_financial_transaction_as_user", { p_actor_user_id: userId, p_household_id: householdId, p_account_id: account.id, p_type: item.type, p_amount_cents: item.amount_cents, p_description: encryptField(item.description), p_category_id: categoryId, p_scope: payload.scope, p_privacy: payload.scope === "shared" ? "visible" : "private", p_transaction_date: item.transaction_date, p_paid_by: userId, p_source: "telegram" });
+      // p_items inserts the breakdown inside the same RPC call (same DB transaction) as the
+      // parent row, instead of a separate follow-up insert — that used to silently swallow its
+      // own error and still report the whole row as a success even when the items never saved.
+      const products = item.items?.length ? item.items.map(product => ({ description: encryptField(product.description), amount_cents: product.amount_cents, subcategory: product.subcategory })) : null;
+      const { data: transactionId, error } = await db.rpc("create_financial_transaction_as_user", { p_actor_user_id: userId, p_household_id: householdId, p_account_id: account.id, p_type: item.type, p_amount_cents: item.amount_cents, p_description: encryptField(item.description), p_category_id: categoryId, p_scope: payload.scope, p_privacy: payload.scope === "shared" ? "visible" : "private", p_transaction_date: item.transaction_date, p_paid_by: userId, p_source: "telegram", p_items: products });
       if (error) { console.error("Failed to create imported transaction", error); failureReasons.add(error.message); return false; }
       if (!transactionId) { failureReasons.add("el servidor no confirmó el movimiento creado"); return false; }
-      if (item.items?.length) {
-        const { error: itemsError } = await db.from("transaction_items").insert(
-          item.items.map(product => ({ transaction_id: transactionId, description: encryptField(product.description), amount_cents: product.amount_cents, subcategory: product.subcategory })),
-        );
-        // The transaction itself is already created correctly; losing the item breakdown isn't
-        // worth failing the whole import over, so this is logged rather than counted as failed.
-        if (itemsError) console.error("Failed to insert transaction items", itemsError);
-      }
       return true;
     }));
     created += results.filter(Boolean).length; failed += results.filter(result => !result).length;
