@@ -45,7 +45,7 @@ describe("statement import",()=>{
     const preview=statementPreview(itemizedPayload,[{name:"Banco"}]);
     expect(preview).toContain("Patatas fritas");
     expect(preview).toContain("Agua mineral");
-    expect(preview).toContain("Snacks y dulces");
+    expect(preview).toContain("Snacks/Dulc");
     expect(preview).toContain("1 movimiento");
     expect(preview).not.toContain("0,00");
   });

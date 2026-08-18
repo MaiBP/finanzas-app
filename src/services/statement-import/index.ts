@@ -4,7 +4,7 @@ import type { ResponseInputContent } from "openai/resources/responses/responses"
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { decryptField, encryptField } from "@/lib/security/field-encryption";
-import { ITEM_SUBCATEGORIES, normalizeItemSubcategory } from "@/lib/finance/item-subcategories";
+import { abbreviateItemSubcategory, ITEM_SUBCATEGORIES, normalizeItemSubcategory } from "@/lib/finance/item-subcategories";
 
 const MAX_IMPORTED_TRANSACTIONS = 60;
 const MAX_ITEMS_PER_TRANSACTION = 60;
@@ -172,23 +172,27 @@ function euros(cents: number) {
 }
 
 export function statementPreview(payload: StatementImportPayload, accounts: { name: string }[]) {
+  const totalItems = payload.transactions.reduce((sum, item) => sum + (item.items?.length ?? 0), 0);
+  const movementWord = payload.transactions.length === 1 ? "movimiento" : "movimientos";
+  const itemsSuffix = totalItems ? ` con ${totalItems} ${totalItems === 1 ? "producto" : "productos"}` : "";
+  const header = `🔍 Encontré ${payload.transactions.length} ${movementWord}${itemsSuffix}:`;
+  // Only shown when there's more than one movement — with a single receipt the per-movement row
+  // below already carries the total, so a "0,00 € en ingresos"-style aggregate would be noise.
   const expenses = payload.transactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount_cents, 0);
   const income = payload.transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount_cents, 0);
-  // Only mention the sides that actually have movements — a pure-expense receipt shouldn't say
-  // "0,00 € en ingresos".
   const totalsParts = [expenses ? `${euros(expenses)} en gastos` : null, income ? `${euros(income)} en ingresos` : null].filter(Boolean);
-  const totals = `Encontré ${payload.transactions.length} ${payload.transactions.length === 1 ? "movimiento" : "movimientos"}${totalsParts.length ? `: ${totalsParts.join(" y ")}.` : "."}`;
+  const aggregateLine = payload.transactions.length > 1 && totalsParts.length ? `\n${totalsParts.join(" y ")}.` : "";
   const examples = payload.transactions.slice(0, 6).map(item => {
-    const header = `• ${item.transaction_date} · ${item.description} · ${euros(item.amount_cents)}`;
-    if (!item.items?.length) return header;
-    const lines = item.items.map(product => `   - ${product.description} · ${euros(product.amount_cents)} · ${product.subcategory}`).join("\n");
-    return `${header}\n${lines}`;
-  }).join("\n");
+    const row = `${item.transaction_date} | ${item.description} | ${euros(item.amount_cents)}`;
+    if (!item.items?.length) return row;
+    const productLines = item.items.map((product, index) => `${index + 1}. ${product.description} | ${abbreviateItemSubcategory(product.subcategory)} | ${euros(product.amount_cents)}`).join("\n");
+    return `${row}\n${productLines}`;
+  }).join("\n\n");
   const omitted = payload.omitted_rows ? `\nOmití ${payload.omitted_rows} filas que no eran movimientos o no se leían con seguridad.` : "";
   const accountQuestion = payload.account_name
     ? `\nCuenta: ${payload.account_name}. Responde “sí” para registrar todo, cuéntame qué corregir, o “no” para cancelar.`
     : `\n¿En qué cuenta los registro?\n${accounts.map((account, index) => `${index + 1}. ${account.name}`).join("\n")}\nResponde con el número o el nombre.`;
-  return `${totals}${omitted}\n\nVista previa:\n${examples}${payload.transactions.length > 6 ? "\n…" : ""}${accountQuestion}`;
+  return `${header}${aggregateLine}${omitted}\n\n${examples}${payload.transactions.length > 6 ? "\n…" : ""}${accountQuestion}`;
 }
 
 export async function executeStatementImport(db: SupabaseClient, userId: string, householdId: string, rawPayload: unknown) {

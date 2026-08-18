@@ -11,3 +11,17 @@ const bySubcategory = new Map(ITEM_SUBCATEGORIES.map((subcategory) => [normalize
 export function normalizeItemSubcategory(value: string) {
   return bySubcategory.get(normalize(value)) ?? "Otros";
 }
+
+// Display-only shorthand for narrow chat layouts (Telegram previews) — never stored. The full
+// name from ITEM_SUBCATEGORIES is always what's persisted in transaction_items and shown on web.
+const ABBREVIATIONS: Record<string, string> = {
+  "Frutas y verduras": "Frutas/Verd",
+  "Carnes y pescado": "Carnes/Pesc",
+  "Lácteos y huevos": "Lácteos/Huev",
+  "Snacks y dulces": "Snacks/Dulc",
+  "Higiene personal": "Higiene",
+};
+
+export function abbreviateItemSubcategory(subcategory: string) {
+  return ABBREVIATIONS[subcategory] ?? subcategory;
+}
