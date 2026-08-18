@@ -29,6 +29,15 @@ const callbackQuerySchema=z.object({id:z.string(),data:z.string().max(64).option
 const updateSchema=z.object({message:z.object({chat:z.object({id:z.number()}),from:z.object({id:z.number()}),text:z.string().max(2000).optional(),caption:z.string().max(2000).optional(),document:telegramFileSchema.optional(),photo:z.array(telegramPhotoSchema).optional(),voice:telegramVoiceSchema.optional()}).optional(),callback_query:callbackQuerySchema.optional()});
 const yes=/^(sí|si|confirmo|correcto|vale|ok)$/i; const no=/^(no|cancelar|cancela)$/i;
 
+// Sent as a short back-to-back sequence right after a successful /vincular, instead of one big
+// wall of text — repeats on every re-link (e.g. after a phone change), not just the first time.
+const ONBOARDING_MESSAGES=[
+  "👋 Soy tu asistente financiero. Así de simple es registrar algo:\n💬 Escribime o mandame un audio: “Gasté 20 euros en el súper” o “Ingresé 500 de sueldo”.\nPor defecto lo registro como compartido con tu pareja — agregá la palabra “personal” si es solo tuyo.",
+  "📊 También podés preguntarme por tus finanzas: “¿Cuánto gastamos este mes?”, “¿En qué gasté más?”, “Mostrame los últimos movimientos”. Los números siempre salen de tus datos reales, nunca los invento.",
+  "🧾 ¿Tenés un ticket o extracto? Mandame la foto o el archivo (PDF, Excel, CSV o imagen) y te muestro una vista previa antes de guardar nada — hasta puedo detectar los productos de un ticket de supermercado uno por uno.",
+  "Cuando quieras repasar esto de nuevo, escribí /ayuda. 🙌 ¿Querés probar ahora? Contame un gasto real de hoy.",
+];
+
 async function queueAction(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,action:FinancialAction){
   await db.from("pending_actions").delete().eq("user_id",userId);
   const {error}=await db.from("pending_actions").insert({user_id:userId,household_id:householdId,action_type:action.action,payload:action,expires_at:new Date(Date.now()+10*60*1000).toISOString()});
@@ -207,7 +216,9 @@ export async function POST(request:Request){
       if(unlinkError)throw unlinkError;
       const {error}=await db.rpc("link_telegram_account",{p_code:code,p_telegram_user_id:from.id,p_telegram_chat_id:chat.id});
       if(error)throw error;
-      await sendTelegramMessage(chat.id,"✅ ¡Listo! Tu Telegram ya está vinculado con Miti-Miti.");return NextResponse.json({ok:true});
+      await sendTelegramMessage(chat.id,"✅ ¡Listo! Tu Telegram ya está vinculado con Miti-Miti.");
+      for(const message of ONBOARDING_MESSAGES)await sendTelegramMessage(chat.id,message);
+      return NextResponse.json({ok:true});
     }
     const {data:link}=await db.from("telegram_links").select("user_id").eq("telegram_user_id",from.id).maybeSingle();if(!link){await sendTelegramMessage(chat.id,"🤔 No reconozco esta cuenta. Genera un código en Ajustes y usa <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
     const {data:membership}=await db.from("household_members").select("household_id").eq("user_id",link.user_id).maybeSingle();if(!membership)throw new Error("Tu cuenta aún no pertenece a un hogar.");

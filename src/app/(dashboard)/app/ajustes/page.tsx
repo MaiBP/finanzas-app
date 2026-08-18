@@ -1,6 +1,6 @@
 import { AlertTriangle, Check, Copy, Home, Send, UserRound } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
-import { deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, updateHouseholdName, updatePersonalSpaceName } from "./actions";
+import { deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, unlinkTelegram, updateHouseholdName, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
 import { getHouseholdRoster } from "@/services/household-roster";
 import { TypeToConfirm } from "@/components/settings/type-to-confirm";
@@ -158,13 +158,20 @@ export default async function SettingsPage() {
             </div>
           </div>
           {link ? (
-            <div className="mt-5 space-y-3 rounded-xl bg-(--blue)/25 p-4 text-sm">
-              <p>
-                El bot puede consultar tus espacios, registrar movimientos por texto o nota de voz, y leer extractos
-                PDF, Excel, CSV o imágenes de hasta 12 MB. Los adjuntos y notas de voz no se guardan en Miti-Miti,
-                solo se procesan.
-              </p>
-            </div>
+            <>
+              <div className="mt-5 space-y-3 rounded-xl bg-(--blue)/25 p-4 text-sm">
+                <p>
+                  El bot puede consultar tus espacios, registrar movimientos por texto o nota de voz, y leer extractos
+                  PDF, Excel, CSV o imágenes de hasta 12 MB. Los adjuntos y notas de voz no se guardan en Miti-Miti,
+                  solo se procesan.
+                </p>
+              </div>
+              <form action={unlinkTelegram} className="mt-4">
+                <Button type="submit" size="sm" variant="outline">
+                  Desvincular Telegram
+                </Button>
+              </form>
+            </>
           ) : (
             <>
               <div className="mt-5 rounded-xl bg-(--blue)/25 p-4 text-sm">
