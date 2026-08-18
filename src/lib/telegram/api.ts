@@ -8,7 +8,7 @@ export function escapeTelegramHtml(value: string) {
 export function withTelegramWebSuggestion(message: string) {
   const configuredUrl=process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/,"");
   const appUrl=configuredUrl?.startsWith("https://")?configuredUrl:"https://finanzas-app-six-kappa.vercel.app";
-  return `${escapeTelegramHtml(message)}\n\nSi quieres revisar el detalle, ingresa a la web.\nEnlace: <a href="${escapeTelegramHtml(appUrl)}">${escapeTelegramHtml(appUrl)}</a>`;
+  return `${escapeTelegramHtml(message)}\n\n🌐 Si necesitas revisar el detalle, ingresa con tu usuario a la web: <a href="${escapeTelegramHtml(appUrl)}">${escapeTelegramHtml(appUrl)}</a>`;
 }
 
 async function callTelegramApi(method: string, body: Record<string, unknown>) {

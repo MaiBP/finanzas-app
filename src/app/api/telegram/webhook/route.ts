@@ -100,8 +100,13 @@ async function confirmPending(db:ReturnType<typeof createAdminClient>,userId:str
   if(!data)return {text:"🤷 No hay ninguna acción pendiente o ya ha caducado.",confirmed:false};
   if(data.action_type==="import_statement"){
     const result=await executeStatementImport(db,userId,householdId,data.payload);await db.from("pending_actions").delete().eq("id",data.id);
-    const reasonsNote=result.failureReasons.length?` (${result.failureReasons.join("; ")})`:"";
-    return {text:`✅ Importación terminada en ${result.accountName}: ${result.created} movimientos registrados${result.duplicates?`, ${result.duplicates} duplicados omitidos`:""}${result.failed?`, ${result.failed} no pudieron registrarse${reasonsNote}`:""}.`,confirmed:result.created>0};
+    const movementWord=result.created===1?"movimiento":"movimientos";
+    const duplicatesNote=result.duplicates?` (omití ${result.duplicates} ${result.duplicates===1?"duplicado":"duplicados"})`:"";
+    const failuresNote=result.failed?`\n⚠️ ${result.failed} ${result.failed===1?"no se pudo registrar":"no se pudieron registrar"}${result.failureReasons.length?`: ${result.failureReasons.join("; ")}`:""}.`:"";
+    const text=result.created
+      ? `✅ ¡Listo! Registré ${result.created} ${movementWord} en ${result.accountName}${duplicatesNote}.${failuresNote}`
+      : `⚠️ No pude registrar nada en ${result.accountName}.${failuresNote}`;
+    return {text,confirmed:result.created>0};
   }
   let action=financialActionSchema.parse(data.payload); let reply:string; let confirmed=false;
   if(action.action==="create_transaction"){
@@ -143,7 +148,7 @@ async function handleCallbackQuery(callbackQuery:z.infer<typeof callbackQuerySch
       const {data:pending}=await db.from("pending_actions").select("action_type").eq("user_id",link.user_id).eq("household_id",membership.household_id).gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
       if(pending?.action_type!==actionType)reply="⚠️ Esa opción ya no está disponible.";
       else if(choice==="yes"){const result=await confirmPending(db,link.user_id,membership.household_id);reply=result.text;confirmed=result.confirmed;}
-      else {await db.from("pending_actions").delete().eq("user_id",link.user_id);reply="❌ Acción cancelada.";}
+      else {await db.from("pending_actions").delete().eq("user_id",link.user_id);reply="❌ ¡Listo! No registré nada.";}
     }
     else if(data.startsWith("account:")){
       const index=data.slice("account:".length);
@@ -206,7 +211,7 @@ export async function POST(request:Request){
       text=(await transcribeVoiceMessage(bytes,message.voice.mime_type??"audio/ogg").catch(()=>{throw new Error("VOICE_USER:No entendí el audio, prueba a grabarlo de nuevo o escribe el mensaje.");})).trim();
     }
     const importReply=await handleStatementAttachment(db,message,link.user_id,membership.household_id);if(importReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importReply.text),importReply.keyboard);return NextResponse.json({ok:true});}
-    if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"❌ Acción cancelada.");return NextResponse.json({ok:true});}
+    if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"❌ ¡Listo! No registré nada.");return NextResponse.json({ok:true});}
     const importAccountReply=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,text);if(importAccountReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importAccountReply.text),importAccountReply.keyboard);return NextResponse.json({ok:true});}
     const importEditReply=await handlePendingImportEdit(db,link.user_id,membership.household_id,text);if(importEditReply){await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:importEditReply.text});await sendTelegramMessage(chat.id,escapeTelegramHtml(importEditReply.text),importEditReply.keyboard);return NextResponse.json({ok:true});}
     const accountSelectionReply=await handlePendingAccountSelection(db,link.user_id,membership.household_id,text);if(accountSelectionReply){await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:accountSelectionReply.text});await sendTelegramMessage(chat.id,accountSelectionReply.confirmed?withTelegramWebSuggestion(accountSelectionReply.text):escapeTelegramHtml(accountSelectionReply.text),accountSelectionReply.keyboard);return NextResponse.json({ok:true});}
