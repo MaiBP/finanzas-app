@@ -4,7 +4,7 @@ import type { ResponseInputContent } from "openai/resources/responses/responses"
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { decryptField, encryptField } from "@/lib/security/field-encryption";
-import { abbreviateItemSubcategory, ITEM_SUBCATEGORIES, normalizeItemSubcategory } from "@/lib/finance/item-subcategories";
+import { ITEM_SUBCATEGORIES, normalizeItemSubcategory } from "@/lib/finance/item-subcategories";
 
 const MAX_IMPORTED_TRANSACTIONS = 60;
 const MAX_ITEMS_PER_TRANSACTION = 60;
@@ -185,7 +185,9 @@ export function statementPreview(payload: StatementImportPayload, accounts: { na
   const examples = payload.transactions.slice(0, 6).map(item => {
     const row = `${item.transaction_date} | ${item.description} | ${euros(item.amount_cents)}`;
     if (!item.items?.length) return row;
-    const productLines = item.items.map((product, index) => `${index + 1}. ${product.description} | ${abbreviateItemSubcategory(product.subcategory)} | ${euros(product.amount_cents)}`).join("\n");
+    // Subcategory is intentionally left out of the chat preview — it's stored either way and
+    // shown on web, but the Telegram text stays focused on what the user needs to spot-check.
+    const productLines = item.items.map((product, index) => `${index + 1}. ${product.description} | ${euros(product.amount_cents)}`).join("\n");
     return `${row}\n${productLines}`;
   }).join("\n\n");
   const omitted = payload.omitted_rows ? `\nOmití ${payload.omitted_rows} filas que no eran movimientos o no se leían con seguridad.` : "";

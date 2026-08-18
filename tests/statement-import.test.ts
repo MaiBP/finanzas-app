@@ -40,13 +40,14 @@ describe("statement import",()=>{
     expect(preview).toContain("Responde “sí”");
   });
 
-  it("accepts itemized transactions and lists each product in the preview",()=>{
+  it("accepts itemized transactions and lists each product in the preview, without the subcategory",()=>{
     expect(itemizedPayload.transactions[0].items).toHaveLength(2);
     const preview=statementPreview(itemizedPayload,[{name:"Banco"}]);
     expect(preview).toContain("Patatas fritas");
     expect(preview).toContain("Agua mineral");
-    expect(preview).toContain("Snacks/Dulc");
     expect(preview).toContain("1 movimiento");
     expect(preview).not.toContain("0,00");
+    expect(preview).not.toContain("Snacks");
+    expect(preview).not.toContain("Bebidas");
   });
 });
