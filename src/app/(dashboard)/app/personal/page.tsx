@@ -5,7 +5,6 @@ import { formatMoney } from "@/lib/finance/money";
 import { TransactionForm } from "@/components/transactions/transaction-form";
 import type { Account, Category } from "@/types/database";
 import { archiveAccount, createAccount } from "../cuentas/actions";
-import { softDeleteTransaction } from "../actions";
 import { DeleteTransactionButton } from "@/components/transactions/delete-transaction-button";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
 import { decryptField } from "@/lib/security/field-encryption";
@@ -202,11 +201,7 @@ export default async function PersonalPage({
             >
               <Pencil size={17} />
             </Link>
-            <form action={softDeleteTransaction}>
-              <input type="hidden" name="id" value={row.id} />
-              <input type="hidden" name="returnTo" value="/app/personal" />
-              <DeleteTransactionButton description={row.description} />
-            </form>
+            <DeleteTransactionButton id={row.id} description={row.description} returnTo="/app/personal" />
           </article>
         ))}
         {!transactions.length && (

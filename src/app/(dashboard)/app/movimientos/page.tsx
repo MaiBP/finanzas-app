@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
-import { softDeleteTransaction } from "../actions";
 import { Button, LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Banner } from "@/components/ui/banner";
@@ -249,10 +248,7 @@ export default async function TransactionsPage({
                   <Link href={`/app/movimientos/${row.id}/editar`} aria-label={`Editar ${row.description}`} className="rounded-lg p-2">
                     <Pencil size={17} />
                   </Link>
-                  <form action={softDeleteTransaction}>
-                    <input type="hidden" name="id" value={row.id} />
-                    <DeleteTransactionButton description={row.description} />
-                  </form>
+                  <DeleteTransactionButton id={row.id} description={row.description} />
                 </div>
               ) : <span />}
             </article>
