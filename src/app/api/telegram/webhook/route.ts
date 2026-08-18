@@ -129,7 +129,7 @@ async function confirmPending(db:ReturnType<typeof createAdminClient>,userId:str
     if(!transaction)throw new Error("No encuentro un movimiento tuyo que coincida.");
     const description=decryptField(transaction.description);
     const {error}=await db.from("transactions").update({status:"deleted",deleted_at:new Date().toISOString()}).eq("id",transaction.id).eq("created_by",userId); if(error)throw error; reply=`🗑️ He eliminado “${description}”.`; confirmed=true;
-  } else reply="🔒 Esta edición necesita hacerse desde la web por seguridad.";
+  } else {reply="🔒 Esta edición necesita hacerse desde la web por seguridad.";confirmed=true;}
   await db.from("pending_actions").delete().eq("id",data.id); return {text:reply,confirmed};
 }
 
@@ -230,6 +230,7 @@ export async function POST(request:Request){
     else if(action.action==="general_question")reply=action.data.answer;
     else if(action.action==="query_finances")reply=await executeFinanceQuery(db,membership.household_id,link.user_id,action.data,new Date(),{question:safeText,recentMessages:safeRecent});
     else if(action.action==="cancel_action")reply="👍 De acuerdo, no hago nada.";
+    else if(action.action==="update_transaction"){reply="🔒 Esta edición necesita hacerse desde la web por seguridad.";confirmed=true;}
     else if(action.action==="create_transaction"){
       const eligibleAccounts=accountsForAction(action,(accounts??[]) as AccountOption[]); action=assignOnlyAccount(action,eligibleAccounts);
       if(!action.data.account_name&&eligibleAccounts.length>1){await queueAction(db,link.user_id,membership.household_id,action);reply=accountSelectionQuestion(action,eligibleAccounts);keyboard=accountSelectionKeyboard(eligibleAccounts);}
