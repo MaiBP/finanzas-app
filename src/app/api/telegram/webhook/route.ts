@@ -4,11 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidWebhookSecret } from "@/lib/telegram/security";
 import { checkTelegramMessageRateLimit, checkTelegramVoiceRateLimit, MAX_VOICE_DURATION_SECONDS } from "@/lib/telegram/rate-limit";
 import { answerCallbackQuery, downloadTelegramFile, editMessageReplyMarkup, editMessageText, escapeTelegramHtml, MAX_TELEGRAM_IMPORT_BYTES, sendTelegramMessage, withTelegramWebSuggestion, type InlineKeyboardMarkup } from "@/lib/telegram/api";
-import { accountSelectionKeyboard, confirmCancelKeyboard, importDecisionKeyboard, importReviewKeyboard } from "@/lib/telegram/keyboards";
+import { confirmCancelKeyboard, createTransactionDecisionKeyboard, importDecisionKeyboard, importReviewKeyboard } from "@/lib/telegram/keyboards";
 import { parseFinancialMessage } from "@/services/financial-message-parser";
 import { financialActionSchema, type FinancialAction } from "@/services/financial-message-parser/schema";
 import { executeTelegramAction } from "@/services/transaction-service/telegram";
-import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, matchAccountSelection, type AccountOption, type CreateTransactionAction } from "@/services/transaction-service/account-selection";
+import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, describeCreateTransaction, matchAccountSelection, type AccountOption, type CreateTransactionAction } from "@/services/transaction-service/account-selection";
 import { executeFinanceQuery, getMonthSummary, getRecentTransactions } from "@/services/query-service";
 import { executeStatementImport, extractStatementTransactions, isPersonalStatementImport, isSupportedStatementFile, reviseStatementImport, statementImportPayloadSchema, statementPreview } from "@/services/statement-import";
 import { transcribeVoiceMessage } from "@/services/voice-transcription";
@@ -91,7 +91,7 @@ async function handlePendingAccountSelection(db:ReturnType<typeof createAdminCli
   const accounts=await getAccountsForAction(db,userId,householdId,parsed.data); if(accounts.length<2)return null;
   const selected=matchAccountSelection(text,accounts); if(!selected)return null;
   const action={...parsed.data,data:{...parsed.data.data,account_name:selected.name}};
-  if(action.requires_confirmation){const {error}=await db.from("pending_actions").update({payload:action}).eq("id",data.id);if(error)throw error;return {text:`📋 Usaré ${selected.name}. Responde “sí” para confirmar el movimiento o “no” para cancelar.`,keyboard:confirmCancelKeyboard("create_transaction"),confirmed:false};}
+  if(action.requires_confirmation){const {error}=await db.from("pending_actions").update({payload:action}).eq("id",data.id);if(error)throw error;return {text:`${describeCreateTransaction(action)}\n\n📋 Usaré ${selected.name}.`,keyboard:createTransactionDecisionKeyboard(accounts,selected.name),confirmed:false};}
   const reply=await executeTelegramAction(db,userId,householdId,action); await db.from("pending_actions").delete().eq("id",data.id); return {text:reply,confirmed:true};
 }
 
@@ -151,9 +151,12 @@ async function handleCallbackQuery(callbackQuery:z.infer<typeof callbackQuerySch
       else {await db.from("pending_actions").delete().eq("user_id",link.user_id);reply="❌ ¡Listo! No registré nada.";}
     }
     else if(data.startsWith("account:")){
+      // Same in-place-edit idea as import-account below, but only while the account pick still
+      // needs a follow-up confirm — once it actually registers the movement (confirmed=true),
+      // that's a real state change worth its own new message.
       const index=data.slice("account:".length);
       const selection=await handlePendingAccountSelection(db,link.user_id,membership.household_id,index);
-      reply=selection?.text??"⚠️ Esa opción ya no está disponible."; keyboard=selection?.keyboard; confirmed=selection?.confirmed??false;
+      reply=selection?.text??"⚠️ Esa opción ya no está disponible."; keyboard=selection?.keyboard; confirmed=selection?.confirmed??false; editInPlace=Boolean(selection)&&!confirmed;
     }
     else if(data.startsWith("import-account:")){
       // Picking an account here just updates the same card in place (text + keyboard, with that
@@ -233,9 +236,9 @@ export async function POST(request:Request){
     else if(action.action==="update_transaction"){reply="🔒 Esta edición necesita hacerse desde la web por seguridad.";confirmed=true;}
     else if(action.action==="create_transaction"){
       const eligibleAccounts=accountsForAction(action,(accounts??[]) as AccountOption[]); action=assignOnlyAccount(action,eligibleAccounts);
-      if(!action.data.account_name&&eligibleAccounts.length>1){await queueAction(db,link.user_id,membership.household_id,action);reply=accountSelectionQuestion(action,eligibleAccounts);keyboard=accountSelectionKeyboard(eligibleAccounts);}
+      if(!action.data.account_name&&eligibleAccounts.length>1){await queueAction(db,link.user_id,membership.household_id,action);reply=accountSelectionQuestion(action,eligibleAccounts);keyboard=createTransactionDecisionKeyboard(eligibleAccounts,null);}
       else if(!action.requires_confirmation&&action.confidence>=.85){reply=await executeTelegramAction(db,link.user_id,membership.household_id,action);confirmed=true;}
-      else {await queueAction(db,link.user_id,membership.household_id,action);reply="📋 Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";keyboard=confirmCancelKeyboard("create_transaction");}
+      else {await queueAction(db,link.user_id,membership.household_id,action);reply=`${describeCreateTransaction(action)}\n\n📋 Queda pendiente.`;keyboard=confirmCancelKeyboard("create_transaction");}
     }
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"🗑️ He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"📋 Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";keyboard=confirmCancelKeyboard(action.action);}
     if(mentioned)reply=`${reply}\n\n${HOUSEHOLD_NAME_PRIVACY_NOTE}`;

@@ -24,13 +24,19 @@ export function importReviewKeyboard(): InlineKeyboardMarkup {
   };
 }
 
-export function accountSelectionKeyboard(accounts: AccountOption[]): InlineKeyboardMarkup {
+// Same combined-keyboard idea as importDecisionKeyboard: account buttons plus Sí/Cancelar
+// together, tapping an account re-renders this markup with it checked off instead of losing the
+// confirm/cancel options. selectedAccountName is null until an account has been picked.
+export function createTransactionDecisionKeyboard(accounts: AccountOption[], selectedAccountName: string | null): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       ...accounts.map((account, index) => [
-        { text: `${accountEmoji(account.type)} ${account.name}`, callback_data: `account:${index + 1}` },
+        { text: `${account.name === selectedAccountName ? "✅" : accountEmoji(account.type)} ${account.name}`, callback_data: `account:${index + 1}` },
       ]),
-      [{ text: "❌ Cancelar", callback_data: "confirm:no:create_transaction" }],
+      [
+        { text: "✅ Sí, confirmar", callback_data: "confirm:yes:create_transaction" },
+        { text: "❌ Cancelar", callback_data: "confirm:no:create_transaction" },
+      ],
     ],
   };
 }
