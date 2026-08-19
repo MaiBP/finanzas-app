@@ -135,31 +135,51 @@ function TypewriterText({ prefix, highlight, startDelay = 0 }: { prefix: string;
   // wrapper. Animated inline-blocks are atomic boxes with a break opportunity at their edges,
   // so without this grouping the browser was free to wrap the line between any two letters —
   // splitting "enviar" into "envia"/"r" mid-word once each letter got its own box.
-  let offset = 0;
-  const words = full.split(/(\s+)/).map((token) => {
-    const start = offset;
-    offset += token.length;
-    return { token, start, isSpace: /^\s+$/.test(token) };
-  });
+  function wordsOf(segment: string, segmentStart: number) {
+    let offset = segmentStart;
+    return segment.split(/(\s+)/).map((token) => {
+      const start = offset;
+      offset += token.length;
+      return { token, start, isSpace: /^\s+$/.test(token) };
+    });
+  }
+
+  function renderWords(words: { token: string; start: number; isSpace: boolean }[]) {
+    return words.map(({ token, start, isSpace }, wordIndex) => {
+      const shown = token.slice(0, Math.max(0, Math.min(count - start, token.length)));
+      if (!shown) return null;
+      if (isSpace) return <span key={wordIndex}>{shown}</span>;
+      return (
+        <span key={wordIndex} className="whitespace-nowrap">
+          {[...shown].map((char, charIndex) => (
+            <span key={charIndex} className="type-char">
+              {char}
+            </span>
+          ))}
+        </span>
+      );
+    });
+  }
+
+  // Prefix and highlight always render as two separate block-level lines — never sharing a
+  // line with each other or wrapping into one another — so the phrase always occupies the same
+  // fixed two lines of height. Each line keeps a permanently reserved (but invisible until its
+  // turn) cursor-sized element, so "mensaje"'s line is blank-but-present from the very start
+  // instead of appearing (and pushing the content below) only once typing reaches it.
+  const typingPrefix = count <= prefix.length;
+  const cursorClass = (active: boolean) =>
+    `ml-0.5 inline-block h-[0.85em] w-0.75 translate-y-0.5 bg-(--ink) ${active ? "animate-pulse" : "invisible"}`;
 
   return (
     <span>
-      {words.map(({ token, start, isSpace }, wordIndex) => {
-        const shown = token.slice(0, Math.max(0, Math.min(count - start, token.length)));
-        if (!shown) return null;
-        if (isSpace) return <span key={wordIndex}>{shown}</span>;
-        const isHighlighted = start >= prefix.length;
-        return (
-          <span key={wordIndex} className={`whitespace-nowrap${isHighlighted ? " bg-(--highlight) px-1" : ""}`}>
-            {[...shown].map((char, charIndex) => (
-              <span key={charIndex} className="type-char">
-                {char}
-              </span>
-            ))}
-          </span>
-        );
-      })}
-      <span aria-hidden className="ml-0.5 inline-block h-[0.85em] w-0.75 translate-y-0.5 animate-pulse bg-(--ink)" />
+      <span className="block">
+        {renderWords(wordsOf(prefix, 0))}
+        <span aria-hidden className={cursorClass(typingPrefix)} />
+      </span>
+      <span className="block w-fit bg-(--highlight) px-1">
+        {renderWords(wordsOf(highlight, prefix.length))}
+        <span aria-hidden className={cursorClass(!typingPrefix)} />
+      </span>
     </span>
   );
 }
@@ -189,13 +209,12 @@ export function LandingPage() {
         >
           <motion.p
             variants={fadeUp}
-            className="mb-5 inline-flex items-center gap-2 rounded-full bg-(--blue) px-4 py-2 text-sm font-bold uppercase text-white"
+            className="mb-5 inline-flex items-center gap-2 rounded-full bg-(--ink) px-4 py-2 text-sm font-bold uppercase text-white"
           >
             <HeartHandshake size={16} /> Finanzas en pareja, sin complicaciones
           </motion.p>
           <motion.h1 variants={fadeUp} className={`max-w-xl text-4xl font-extrabold md:text-6xl ${displayFont}`}>
             <span className="bg-(--highlight) px-1">Finanzas</span> en pareja, tan <span className="bg-(--highlight) px-1">fácil</span> como
-            <br />
             <TypewriterText prefix="enviar un " highlight="mensaje" startDelay={650} />
           </motion.h1>
           <motion.p variants={fadeUp} className="mt-6 max-w-lg text-lg leading-8">

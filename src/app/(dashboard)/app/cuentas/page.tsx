@@ -52,10 +52,13 @@ const typeNames: Record<string, string> = {
   investment: "Inversión",
 };
 // Types with dedicated artwork float overflowing the card's corner instead of sitting inside
-// the lime badge (see AccountIcon for the ones that still use a plain lucide icon there).
+// the lime badge (see AccountIcon for the "joint" fallback, the only type without one).
 const FLOATING_ACCOUNT_IMAGES: Partial<Record<string, string>> = {
   bank: "/bank-building.png",
   cash: "/money-cash.png",
+  card: "/credit-card.png",
+  savings: "/piggy-bank.png",
+  investment: "/investing.png",
 };
 
 export default async function AccountsPage() {
