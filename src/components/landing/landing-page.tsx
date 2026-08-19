@@ -88,27 +88,67 @@ const fadeInView = {
   viewport: { once: true, margin: "-60px" },
 } as const;
 
-// Types the text out letter by letter once the hero's own fade-up entrance has settled
-// (startDelay), then leaves a blinking cursor — mimics "sending a message" for the line
-// that literally talks about sending a message.
-function TypewriterText({ text, startDelay = 0 }: { text: string; startDelay?: number }) {
+const TYPE_MS = 65;
+const DELETE_MS = 32;
+const HOLD_MS = 2800;
+const RESTART_MS = 550;
+
+// Types `${prefix}${highlight}` letter by letter (each new letter fades/slides in via the
+// .type-char CSS animation for a smoother feel than an instant pop), holds, deletes, and
+// retypes on a loop — so it replays every so often instead of only once per page load.
+// `highlight` keeps the same yellow-highlight treatment as the hero's other emphasized words,
+// painted in progressively as it's "typed".
+function TypewriterText({ prefix, highlight, startDelay = 0 }: { prefix: string; highlight: string; startDelay?: number }) {
+  const full = prefix + highlight;
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    let frame = 0;
-    const start = setTimeout(() => {
-      const interval = setInterval(() => {
-        frame += 1;
-        setCount(frame);
-        if (frame >= text.length) clearInterval(interval);
-      }, 55);
-    }, startDelay);
-    return () => clearTimeout(start);
-  }, [text, startDelay]);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    function typeStep(i: number) {
+      if (cancelled) return;
+      setCount(i);
+      timer = setTimeout(
+        () => (i < full.length ? typeStep(i + 1) : deleteStep(full.length)),
+        i < full.length ? TYPE_MS : HOLD_MS,
+      );
+    }
+    function deleteStep(i: number) {
+      if (cancelled) return;
+      setCount(i);
+      timer = setTimeout(
+        () => (i > 0 ? deleteStep(i - 1) : typeStep(0)),
+        i > 0 ? DELETE_MS : RESTART_MS,
+      );
+    }
+
+    timer = setTimeout(() => typeStep(0), startDelay);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [full, startDelay]);
+
+  const shownPrefix = prefix.slice(0, Math.min(count, prefix.length));
+  const shownHighlight = count > prefix.length ? highlight.slice(0, count - prefix.length) : "";
 
   return (
     <span>
-      {text.slice(0, count)}
+      {[...shownPrefix].map((char, index) => (
+        <span key={`p${index}`} className="type-char">
+          {char}
+        </span>
+      ))}
+      {shownHighlight && (
+        <span className="bg-(--highlight) px-1">
+          {[...shownHighlight].map((char, index) => (
+            <span key={`h${index}`} className="type-char">
+              {char}
+            </span>
+          ))}
+        </span>
+      )}
       <span aria-hidden className="ml-0.5 inline-block h-[0.85em] w-0.75 translate-y-0.5 animate-pulse bg-(--ink)" />
     </span>
   );
@@ -145,7 +185,7 @@ export function LandingPage() {
           </motion.p>
           <motion.h1 variants={fadeUp} className={`max-w-xl text-5xl font-extrabold md:text-7xl ${displayFont}`}>
             <span className="bg-(--highlight) px-1">Finanzas</span> en pareja, tan <span className="bg-(--highlight) px-1">fácil</span> como{" "}
-            <TypewriterText text="enviar un mensaje" startDelay={650} />
+            <TypewriterText prefix="enviar un " highlight="mensaje" startDelay={650} />
           </motion.h1>
           <motion.p variants={fadeUp} className="mt-6 max-w-lg text-lg leading-8">
             Registra gastos e ingresos hablando con Finzy y entiende fácilmente en qué gastan,
@@ -193,8 +233,21 @@ export function LandingPage() {
 
       <section className="relative z-1 border-t border-(--ink)/15 bg-(--ink) px-5 py-16 text-(--highlight) md:py-20">
         <motion.div className="mx-auto max-w-4xl text-center" {...fadeInView} transition={{ duration: 0.5 }}>
-          <h2 className={`text-2xl font-extrabold tracking-tight text-white md:whitespace-nowrap md:text-3xl ${displayFont}`}>
-            🤝 Una forma <span className="bg-(--highlight) px-1 text-(--ink)">más fácil de gestionar</span> las finanzas en pareja
+          <motion.div
+            className="inline-block"
+            animate={{ y: [0, -12, 0] }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <Image
+              src="/hand-shake.png"
+              alt=""
+              width={280}
+              height={187}
+              className="pointer-events-none h-auto w-24 sm:w-32 md:w-40"
+            />
+          </motion.div>
+          <h2 className={`mt-4 text-2xl font-extrabold tracking-tight text-white md:whitespace-nowrap md:text-3xl ${displayFont}`}>
+            Una forma <span className="bg-(--highlight) px-1 text-(--ink)">más fácil de gestionar</span> las finanzas en pareja
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-(--highlight)/85">
             Son dos personas con ingresos, gastos y costumbres distintas: una cuenta en común, gastos personales
@@ -202,7 +255,7 @@ export function LandingPage() {
             cálculo es tedioso, y es fácil perder de vista en qué se fue el dinero del mes.
           </p>
           <p className="mx-auto mt-4 max-w-2xl font-bold text-(--highlight)">
-            ✨ Miti-Miti lo ordena todo, sin que ninguno de los dos tenga que llevar las cuentas solo.
+            Miti-Miti lo ordena todo, sin que ninguno de los dos tenga que llevar las cuentas solo.
           </p>
         </motion.div>
       </section>

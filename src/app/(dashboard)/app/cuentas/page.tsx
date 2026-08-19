@@ -1,9 +1,8 @@
+import Image from "next/image";
 import {
   Archive,
   ArrowRight,
-  Banknote,
   CreditCard,
-  Landmark,
   PiggyBank,
   TrendingUp,
   UsersRound,
@@ -37,11 +36,11 @@ type ExpenseMovement = {
   amount_cents: number;
 };
 function AccountIcon({ type }: { type: string }) {
-  if (type === "cash") return <Banknote />;
+  if (type === "bank") return <Image src="/bank-building.png" alt="" width={32} height={32} className="size-6 object-contain" />;
+  if (type === "cash") return <Image src="/money-cash.png" alt="" width={32} height={32} className="size-6 object-contain" />;
   if (type === "card") return <CreditCard />;
   if (type === "savings") return <PiggyBank />;
   if (type === "investment") return <TrendingUp />;
-  if (type === "bank") return <Landmark />;
   return <WalletCards />;
 }
 const typeNames: Record<string, string> = {

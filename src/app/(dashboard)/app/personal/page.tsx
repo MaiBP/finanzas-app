@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Archive, CreditCard, Landmark, Pencil, TrendingUp, WalletCards } from "lucide-react";
+import Image from "next/image";
+import { Archive, CreditCard, Landmark, Pencil, TrendingUp } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
 import { TransactionForm } from "@/components/transactions/transaction-form";
@@ -118,8 +119,10 @@ export default async function PersonalPage({
             {accounts.map((account) => (
               <article className="flex items-center gap-3 border-b border-black/10 pb-3" key={account.id}>
                 <span className="grid size-10 place-items-center rounded-xl bg-(--blue)">
-                  {account.type === "cash" ? (
-                    <WalletCards size={19} />
+                  {account.type === "bank" ? (
+                    <Image src="/bank-building.png" alt="" width={32} height={32} className="size-6 object-contain" />
+                  ) : account.type === "cash" ? (
+                    <Image src="/money-cash.png" alt="" width={32} height={32} className="size-6 object-contain" />
                   ) : account.type === "card" ? (
                     <CreditCard size={19} />
                   ) : account.type === "investment" ? (
