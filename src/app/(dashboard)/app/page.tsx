@@ -194,7 +194,7 @@ export default async function DashboardPage({
             ))}
             {!rows.length && (
               <EmptyState
-                icon={ArrowDownLeft}
+                image="/writing-hand.png"
                 title="Aún no hay movimientos"
                 description="El primero se apunta en un minuto."
                 action={{ label: "Añadir movimiento", href: "/app/movimientos/nuevo" }}

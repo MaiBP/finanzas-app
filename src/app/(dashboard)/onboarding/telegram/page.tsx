@@ -39,7 +39,7 @@ export default async function OnboardingTelegramPage() {
           </span>
           <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">Vinculemos tu Telegram</h1>
           <p className="mx-auto mt-3 max-w-md text-(--ink)/75">
-            Así vas a poder registrar y consultar tus finanzas escribiéndole al bot en cualquier momento.
+            Así vas a poder registrar y consultar tus finanzas escribiéndole a Finzy en cualquier momento.
           </p>
         </FadeIn>
 
@@ -78,7 +78,7 @@ export default async function OnboardingTelegramPage() {
             </div>
           ) : (
             <form action={generateAndShowCode}>
-              <p className="text-sm text-(--ink)/75">Generá un código para vincular tu cuenta con el bot.</p>
+              <p className="text-sm text-(--ink)/75">Generá un código para vincular tu cuenta con Finzy.</p>
               <Button type="submit" className="mt-5 w-full">Generar código</Button>
               <button type="submit" formAction={continueFromTelegram} className="mt-3 text-sm font-bold text-(--ink)/70 underline">
                 Hacerlo más tarde

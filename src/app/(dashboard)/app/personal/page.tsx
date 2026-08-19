@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Archive, CreditCard, Landmark, Pencil, PiggyBank, TrendingUp, WalletCards } from "lucide-react";
+import { Archive, CreditCard, Landmark, Pencil, TrendingUp, WalletCards } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
 import { TransactionForm } from "@/components/transactions/transaction-form";
@@ -97,7 +97,7 @@ export default async function PersonalPage({
         <p className="text-sm font-bold uppercase">Espacio personal · privado para ti</p>
         <h1 className="mt-1 text-3xl font-black md:text-4xl">{profile?.personal_space_name ?? "Mi espacio"}</h1>
         <p className="mt-3 max-w-2xl text-(--ink)/75">
-          Tus cuentas y movimientos individuales no se muestran a otros miembros. El asistente y tu bot sí pueden
+          Tus cuentas y movimientos individuales no se muestran a otros miembros. Finzy sí puede
           consultarlos junto con las finanzas del hogar cuando tú lo pidas.
         </p>
       </div>
@@ -206,7 +206,7 @@ export default async function PersonalPage({
         ))}
         {!transactions.length && (
           <EmptyState
-            icon={PiggyBank}
+            image="/piggy-bank.png"
             title="Todavía no hay movimientos personales"
             description="Registrá el primero desde el formulario de arriba."
           />

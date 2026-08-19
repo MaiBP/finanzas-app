@@ -1,4 +1,4 @@
-import { Bot } from "lucide-react";
+import Image from "next/image";
 import { AssistantForm } from "@/components/assistant/assistant-form";
 import { getCurrentHousehold } from "@/lib/household";
 import { fetchRecentMessages } from "@/services/conversation-history";
@@ -10,13 +10,15 @@ export default async function AssistantPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <p className="text-sm font-bold uppercase">Herramienta general</p>
-      <h1 className="mt-1 text-3xl font-black">Asistente</h1>
+      <h1 className="mt-1 text-3xl font-black">Finzy</h1>
       <p className="mt-2 text-(--muted)">
         Pregunta por el hogar, por tu espacio personal o por el resultado combinado.
       </p>
       <section className="card mt-7 p-6">
         <div className="flex gap-3 rounded-2xl bg-(--blue) p-4">
-          <Bot className="shrink-0 text-(--ink)" />
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white">
+            <Image src="/finzy-mascot.png" alt="Finzy" width={40} height={40} className="size-7 object-contain" />
+          </span>
           <div>
             <b>¿Qué quieres saber?</b>
             <p className="mt-1 text-sm text-(--ink)/70">

@@ -36,9 +36,9 @@ if (!infoOnly) {
     throw new Error("NEXT_PUBLIC_APP_URL debe ser la URL HTTPS pública del despliegue");
   }
   const webhookUrl = `${appUrl}/api/telegram/webhook`;
-  await telegram("setMyName", { name: "Miti-Miti" });
-  await telegram("setMyShortDescription", { short_description: "Finanzas compartidas y personales, sin dramas." });
-  await telegram("setMyDescription", { description: "Miti-Miti registra gastos e ingresos, lee extractos PDF o imágenes, consulta tus espacios y detecta patrones financieros." });
+  await telegram("setMyName", { name: "Finzy" });
+  await telegram("setMyShortDescription", { short_description: "Finzy, tu asistente financiero: finanzas compartidas y personales, sin dramas." });
+  await telegram("setMyDescription", { description: "Soy Finzy, el asistente de Miti-Miti: registro gastos e ingresos, leo extractos PDF o imágenes, consulto tus espacios y detecto patrones financieros." });
   await telegram("setWebhook", {
     url: webhookUrl,
     secret_token: secret,

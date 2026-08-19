@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -10,10 +11,7 @@ import {
   HeartHandshake,
   Instagram,
   MessageCircle,
-  ScanLine,
   ShieldCheck,
-  Sparkles,
-  UsersRound,
 } from "lucide-react";
 import { LinkButton } from "@/components/ui/button";
 import { landingFaq } from "@/content/landing-faq";
@@ -25,48 +23,48 @@ const displayFont = "font-(family-name:--font-landing-display)";
 const steps = [
   {
     number: "01",
-    icon: MessageCircle,
+    image: "/phone-chat.png",
     tone: "bg-(--blue)",
-    title: "Le hablas al bot",
+    title: "Le hablas a Finzy",
     description: "Por Telegram, como en cualquier chat: “42 € en el súper” o le mandas la foto del ticket.",
   },
   {
     number: "02",
-    icon: Sparkles,
+    image: "/ai-star.png",
     tone: "bg-(--lilac)",
     title: "La IA lo entiende y lo guarda",
     description: "Detecta el importe, la categoría y si es un gasto compartido o personal. Sin formularios.",
   },
   {
     number: "03",
-    icon: UsersRound,
+    image: "/couple-highfive.png",
     tone: "bg-(--lime)",
     title: "Lo ven juntos, al instante",
-    description: "El resumen del hogar se actualiza solo. Cualquiera de los dos puede preguntarle al asistente.",
+    description: "El resumen del hogar se actualiza solo. Cualquiera de los dos puede preguntarle a Finzy.",
   },
 ] as const;
 
 const features = [
   {
-    icon: MessageCircle,
+    image: "/phone-chat.png",
     tone: "bg-(--blue)",
     title: "Registro por Telegram",
-    description: "Registra gastos e ingresos hablando con el bot, incluso mandando fotos de tickets o extractos.",
+    description: "Registra gastos e ingresos hablando con Finzy, incluso mandando fotos de tickets o extractos.",
   },
   {
-    icon: Bot,
+    image: "/finzy-mascot.png",
     tone: "bg-(--lilac)",
-    title: "Asistente financiero con IA",
+    title: "Finzy, tu asistente con IA",
     description: "Pregúntale cuánto gastaron juntos este mes, o cuánto gastó cada uno por separado.",
   },
   {
-    icon: UsersRound,
+    image: "/heart-hands.png",
     tone: "bg-(--lime)",
     title: "Gastos compartidos y personales",
     description: "Cada movimiento decide si es del hogar o solo tuyo. Tu espacio privado sigue siendo privado.",
   },
   {
-    icon: ScanLine,
+    image: "/financial-report.png",
     tone: "bg-(--pink)",
     title: "Balance sin cálculos",
     description: "Mira de un vistazo quién puso qué este mes, sin abrir una sola hoja de cálculo.",
@@ -129,7 +127,7 @@ export function LandingPage() {
             <span className="bg-(--highlight) px-1">Finanzas</span> en pareja, tan <span className="bg-(--highlight) px-1">fácil</span> como enviar un mensaje
           </motion.h1>
           <motion.p variants={fadeUp} className="mt-6 max-w-lg text-lg leading-8">
-            Registra gastos e ingresos hablando con tu asistente financiero y entiende fácilmente en qué gastan,
+            Registra gastos e ingresos hablando con Finzy y entiende fácilmente en qué gastan,
             cuánto ahorran y cómo evoluciona su economía. Todo desde un chat de Telegram, sin hojas de cálculo.
           </motion.p>
           <motion.div variants={fadeUp} className="mt-8 flex flex-wrap gap-3">
@@ -224,7 +222,7 @@ export function LandingPage() {
               >
                 <div className={`flex items-center justify-between p-6 ${step.tone}`}>
                   <span className="grid size-12 place-items-center rounded-full bg-white">
-                    <step.icon size={22} />
+                    <Image src={step.image} alt="" width={44} height={44} className="size-8 object-contain" />
                   </span>
                   <span className="text-5xl font-black text-(--ink)/20">{step.number}</span>
                 </div>
@@ -280,7 +278,7 @@ export function LandingPage() {
               Pregunta cuando quieras
             </p>
             <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Pregúntale a <span className="bg-(--highlight) px-1">Miti-Miti</span> sobre tu dinero
+              Pregúntale a <span className="bg-(--highlight) px-1">Finzy</span> sobre tu dinero
             </h2>
             <p className="mt-4 max-w-lg text-(--ink)/75">
               Nada de exportar planillas: pregunta en lenguaje natural y recibe la respuesta al instante.
@@ -329,7 +327,7 @@ export function LandingPage() {
                 transition={{ duration: 0.45, delay: index * 0.08 }}
               >
                 <span className="grid size-11 place-items-center rounded-full bg-white">
-                  <feature.icon size={20} />
+                  <Image src={feature.image} alt="" width={40} height={40} className="size-7 object-contain" />
                 </span>
                 <h3 className="mt-4 text-lg font-black">{feature.title}</h3>
                 <p className="mt-1 text-sm text-(--ink)/75">{feature.description}</p>

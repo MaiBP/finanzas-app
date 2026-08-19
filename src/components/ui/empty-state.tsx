@@ -1,13 +1,16 @@
 import type { LucideIcon } from "lucide-react";
+import Image from "next/image";
 import { LinkButton } from "@/components/ui/button";
 
 export function EmptyState({
   icon: Icon,
+  image,
   title,
   description,
   action,
 }: {
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  image?: string;
   title: string;
   description?: string;
   action?: { label: string; href: string };
@@ -15,7 +18,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
       <span className="grid size-14 place-items-center rounded-full bg-(--highlight)">
-        <Icon size={24} />
+        {image ? <Image src={image} alt="" width={40} height={40} className="size-9 object-contain" /> : Icon ? <Icon size={24} /> : null}
       </span>
       <p className="font-black">{title}</p>
       {description && <p className="max-w-sm text-sm text-(--muted)">{description}</p>}

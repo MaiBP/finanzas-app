@@ -1,11 +1,11 @@
 # Miti-Miti
 
-Miti-Miti es una app de finanzas para parejas: cada persona mantiene su propio espacio personal (cuentas y movimientos privados) y comparte un hogar con su pareja para lo común. Todo se puede administrar desde la web o hablándole directamente a un bot de Telegram, por texto o por nota de voz.
+Miti-Miti es una app de finanzas para parejas: cada persona mantiene su propio espacio personal (cuentas y movimientos privados) y comparte un hogar con su pareja para lo común. Todo se puede administrar desde la web o hablándole directamente a Finzy, tu asistente de Telegram, por texto o por nota de voz.
 
 ## Qué hace
 
 - **Web**: alta de movimientos, dashboard mensual, balance del hogar, exportación y auditoría de cambios.
-- **Telegram + IA**: registrás gastos/ingresos o consultás tu situación financiera escribiendo o mandando un audio ("Gasté 20 euros en el súper", "¿cuánto gastamos este mes en comida?"). El bot también lee extractos bancarios (PDF o imagen) y arma una vista previa antes de registrar nada.
+- **Telegram + IA**: registrás gastos/ingresos o consultás tu situación financiera escribiendo o mandando un audio ("Gasté 20 euros en el súper", "¿cuánto gastamos este mes en comida?"). Finzy también lee extractos bancarios (PDF o imagen) y arma una vista previa antes de registrar nada.
 - **Privacidad primero**: la IA nunca recibe nombres reales (se reemplazan por "tú" / "tu pareja"), los campos de texto sensibles se cifran en la base (AES-256) y las cuentas personales nunca son visibles para el otro miembro del hogar.
 - **Onboarding guiado**: aceptación de términos, creación o unión a un hogar (un hogar por persona), elección de canal (Telegram hoy, WhatsApp "próximamente") y vinculación paso a paso.
 - **Salida de datos respetuosa**: se puede abandonar el hogar o eliminar la cuenta sin romper el historial compartido de la otra persona (los movimientos compartidos quedan, anonimizados).
@@ -98,7 +98,7 @@ El endpoint valida `X-Telegram-Bot-Api-Secret-Token`, vincula usuarios con códi
 
 Las notas de voz (hasta 2 minutos) se transcriben con la API de audio de OpenAI y el texto resultante entra por el mismo camino que un mensaje escrito, con la misma paridad para registrar movimientos o consultar finanzas. Cada usuario de Telegram tiene límites atómicos de mensajes (10/min, 100/hora, 300/día) y de notas de voz (20/hora) antes de que se llame a cualquier modelo de OpenAI, para evitar un gasto descontrolado.
 
-El bot acepta extractos PDF e imágenes JPG, PNG o WEBP de hasta 12 MB (por el momento no procesa CSV ni planillas Excel). La IA prepara una vista previa de hasta 60 movimientos y no escribe nada hasta recibir una confirmación explícita. Los movimientos son compartidos por defecto; la leyenda `personal` en el adjunto los dirige al espacio privado. Los posibles duplicados de la misma cuenta, fecha, importe y descripción se omiten al confirmar.
+Finzy acepta extractos PDF e imágenes JPG, PNG o WEBP de hasta 12 MB (por el momento no procesa CSV ni planillas Excel). La IA prepara una vista previa de hasta 60 movimientos y no escribe nada hasta recibir una confirmación explícita. Los movimientos son compartidos por defecto; la leyenda `personal` en el adjunto los dirige al espacio privado. Los posibles duplicados de la misma cuenta, fecha, importe y descripción se omiten al confirmar.
 
 Los adjuntos se envían como Base64 directamente a Responses API con `store: false`; Miti-Miti no conserva el archivo ni crea un objeto en Files API. La política estándar de OpenAI puede mantener registros de control de abuso durante un máximo de 30 días, salvo que el proyecto tenga controles de retención aprobados.
 

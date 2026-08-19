@@ -286,7 +286,7 @@ export default async function AccountsPage() {
           {!fundingAccounts.length && (
             <div className="card">
               <EmptyState
-                icon={WalletCards}
+                image="/bank-building.png"
                 title="Aún no hay cuentas operativas"
                 description="Crea efectivo, banco, tarjeta u otra cuenta para poder registrar nuevos movimientos."
               />
