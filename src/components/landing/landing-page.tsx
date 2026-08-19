@@ -94,13 +94,14 @@ const HOLD_MS = 3200;
 const RESTART_MS = 650;
 
 // Types `${prefix}${highlight}` letter by letter (each new letter fades/slides in via the
-// .type-char CSS animation for a smoother feel than an instant pop), holds, deletes, and
-// retypes on a loop — so it replays every so often instead of only once per page load.
-// `highlight` keeps the same yellow-highlight treatment as the hero's other emphasized words,
-// painted in progressively as it's "typed".
+// .type-char CSS animation for a smoother feel than an instant pop). Only once typing finishes
+// does `highlight` paint yellow — a distinct step after the phrase is fully written, not
+// progressively as those letters appear — then holds, then erases everything and retypes on a
+// loop, so it replays every so often instead of only once per page load.
 function TypewriterText({ prefix, highlight, startDelay = 0 }: { prefix: string; highlight: string; startDelay?: number }) {
   const full = prefix + highlight;
   const [count, setCount] = useState(0);
+  const [highlighted, setHighlighted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,10 +110,15 @@ function TypewriterText({ prefix, highlight, startDelay = 0 }: { prefix: string;
     function typeStep(i: number) {
       if (cancelled) return;
       setCount(i);
-      timer = setTimeout(
-        () => (i < full.length ? typeStep(i + 1) : deleteStep(full.length)),
-        i < full.length ? TYPE_MS : HOLD_MS,
-      );
+      if (i < full.length) {
+        timer = setTimeout(() => typeStep(i + 1), TYPE_MS);
+      } else {
+        setHighlighted(true);
+        timer = setTimeout(() => {
+          setHighlighted(false);
+          deleteStep(full.length);
+        }, HOLD_MS);
+      }
     }
     function deleteStep(i: number) {
       if (cancelled) return;
@@ -176,7 +182,7 @@ function TypewriterText({ prefix, highlight, startDelay = 0 }: { prefix: string;
         {renderWords(wordsOf(prefix, 0))}
         <span aria-hidden className={cursorClass(typingPrefix)} />
       </span>
-      <span className="block w-fit bg-(--highlight) px-1">
+      <span className={`block w-fit px-1 transition-colors duration-300 ${highlighted ? "bg-(--highlight)" : ""}`}>
         {renderWords(wordsOf(highlight, prefix.length))}
         <span aria-hidden className={cursorClass(!typingPrefix)} />
       </span>
