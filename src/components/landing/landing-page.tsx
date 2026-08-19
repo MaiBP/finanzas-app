@@ -93,12 +93,6 @@ export function LandingPage() {
       className={`relative overflow-hidden text-(--ink) font-(family-name:--font-landing-body) ${landingBody.variable} ${landingDisplay.variable}`}
     >
       <ScrollBackground />
-      <motion.div
-        aria-hidden
-        className="absolute -right-20 top-28 size-72 rounded-full bg-(--highlight) md:size-96"
-        animate={{ y: [0, -18, 0] }}
-        transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
-      />
 
       <nav className="relative z-10 mx-auto flex max-w-6xl items-center justify-between border-b border-(--ink)/40 px-5 py-6 uppercase">
         <Link href="/" className="flex items-center gap-2 text-lg font-black">
@@ -148,19 +142,24 @@ export function LandingPage() {
         </motion.div>
 
         <motion.div
-          className="relative mx-auto w-full max-w-2xl"
+          className="relative mx-auto w-full max-w-2xl md:scale-125"
           initial={{ opacity: 0, y: 24, rotate: 0 }}
           animate={{ opacity: 1, y: 0, rotate: 2 }}
           transition={{ duration: 0.6, delay: 0.15 }}
         >
-          <Image
-            src="/finance-summary-card.png"
-            alt="Resumen de agosto en casa: 1.284,30 € disponibles este mes, gráfico de gastos y el último movimiento, «42 € en supermercado», guardado como gasto compartido"
-            width={1536}
-            height={1024}
-            className="h-auto w-full"
-            priority
-          />
+          <motion.div
+            animate={{ y: [0, -16, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <Image
+              src="/finance-summary-card.png"
+              alt="Resumen de agosto en casa: 1.284,30 € disponibles este mes, gráfico de gastos y el último movimiento, «42 € en supermercado», guardado como gasto compartido"
+              width={1536}
+              height={1024}
+              className="h-auto w-full"
+              priority
+            />
+          </motion.div>
         </motion.div>
       </section>
 

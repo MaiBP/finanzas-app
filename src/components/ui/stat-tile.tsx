@@ -28,7 +28,7 @@ export function StatTile({
   breakdown?: { label: string; value: string }[];
 }) {
   return (
-    <article className={cn("min-w-0 overflow-hidden rounded-sm border border-(--ink)/20 p-5", TONES[tone])}>
+    <article className={cn("min-w-0 overflow-hidden rounded-lg border-2 border-(--ink) p-5 shadow-[6px_6px_0_0_var(--ink)]", TONES[tone])}>
       <div className="flex items-start justify-between gap-2">
         <p className="w-fit bg-(--highlight) px-1 text-xs font-bold uppercase tracking-wide text-(--ink)">
           {label}
