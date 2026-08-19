@@ -1,12 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Archive, CreditCard, Landmark, Pencil, TrendingUp } from "lucide-react";
+import { CreditCard, Landmark, Pencil, TrendingUp } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
 import { TransactionForm } from "@/components/transactions/transaction-form";
 import type { Account, Category } from "@/types/database";
 import { archiveAccount, createAccount } from "../cuentas/actions";
 import { DeleteTransactionButton } from "@/components/transactions/delete-transaction-button";
+import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
 import { decryptField } from "@/lib/security/field-encryption";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -136,12 +137,7 @@ export default async function PersonalPage({
                   <p className="text-sm">{formatMoney(calculateAccountBalance(account.id, balanceMovements))}</p>
                   <p className="text-xs text-(--muted)">Según movimientos registrados</p>
                 </div>
-                <form action={archiveAccount}>
-                  <input type="hidden" name="id" value={account.id} />
-                  <button aria-label={`Archivar ${account.name}`} className="rounded-lg p-2">
-                    <Archive size={17} />
-                  </button>
-                </form>
+                <DeleteAccountButton id={account.id} name={account.name} action={archiveAccount} />
               </article>
             ))}
             {!accounts.length && (

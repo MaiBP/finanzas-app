@@ -1,6 +1,5 @@
 import Image from "next/image";
 import {
-  Archive,
   ArrowRight,
   CreditCard,
   PiggyBank,
@@ -19,6 +18,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button, LinkButton } from "@/components/ui/button";
 import { getHouseholdRoster } from "@/services/household-roster";
+import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
 
 type AccountRow = {
   id: string;
@@ -215,15 +215,7 @@ export default async function AccountsPage() {
                         {typeNames[account.type] ?? "Conjunta"}
                       </span>
                       {fundingAccounts.length > 1 && (
-                        <form action={archiveSharedAccount}>
-                          <input type="hidden" name="id" value={account.id} />
-                          <button
-                            aria-label={`Archivar ${account.name}`}
-                            className="rounded-lg p-2"
-                          >
-                            <Archive size={16} />
-                          </button>
-                        </form>
+                        <DeleteAccountButton id={account.id} name={account.name} action={archiveSharedAccount} />
                       )}
                     </div>
                   </div>
