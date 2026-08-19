@@ -10,7 +10,6 @@ import {
   Facebook,
   HeartHandshake,
   Instagram,
-  MessageCircle,
   ShieldCheck,
 } from "lucide-react";
 import { LinkButton } from "@/components/ui/button";
@@ -154,33 +153,14 @@ export function LandingPage() {
           animate={{ opacity: 1, y: 0, rotate: 2 }}
           transition={{ duration: 0.6, delay: 0.15 }}
         >
-          <div className="card relative p-6 md:p-8">
-            <p className="text-sm font-bold uppercase text-(--muted)">Agosto · En casa</p>
-            <p className="mt-2 text-4xl font-black">1.284,30 €</p>
-            <p className="text-sm text-(--muted)">disponibles este mes</p>
-            <div className="my-7 h-32 rounded-sm bg-(--highlight) p-5">
-              <div className="flex h-full items-end gap-2">
-                {[45, 70, 38, 88, 60, 100, 76].map((height, index) => (
-                  <motion.span
-                    key={index}
-                    className="flex-1 bg-(--ink)"
-                    initial={{ height: 0 }}
-                    animate={{ height: `${height}%` }}
-                    transition={{ duration: 0.5, delay: 0.4 + index * 0.05 }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-sm border border-(--ink)/20 bg-(--pink) p-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white">
-                <MessageCircle size={20} />
-              </span>
-              <div>
-                <b className="text-sm">“42 € en supermercado”</b>
-                <p className="text-xs text-(--ink)/70">Listo, gasto compartido guardado</p>
-              </div>
-            </div>
-          </div>
+          <Image
+            src="/finance-summary-card.png"
+            alt="Resumen de agosto en casa: 1.284,30 € disponibles este mes, gráfico de gastos y el último movimiento, «42 € en supermercado», guardado como gasto compartido"
+            width={1536}
+            height={1024}
+            className="h-auto w-full"
+            priority
+          />
         </motion.div>
       </section>
 
@@ -214,16 +194,20 @@ export function LandingPage() {
             {steps.map((step, index) => (
               <motion.article
                 key={step.number}
-                className="card overflow-hidden"
+                className="card relative"
                 initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.45, delay: index * 0.1 }}
               >
-                <div className={`flex items-center justify-between p-6 ${step.tone}`}>
-                  <span className="grid size-12 place-items-center rounded-full bg-white">
-                    <Image src={step.image} alt="" width={44} height={44} className="size-8 object-contain" />
-                  </span>
+                <Image
+                  src={step.image}
+                  alt=""
+                  width={112}
+                  height={112}
+                  className="absolute -top-7 -left-6 z-10 size-24 rotate-[-8deg] object-contain drop-shadow-[4px_4px_0_rgba(58,52,52,0.18)]"
+                />
+                <div className={`flex justify-end rounded-t-[0.35rem] p-6 ${step.tone}`}>
                   <span className="text-5xl font-black text-(--ink)/20">{step.number}</span>
                 </div>
                 <div className="p-6">
@@ -320,17 +304,21 @@ export function LandingPage() {
             {features.map((feature, index) => (
               <motion.article
                 key={feature.title}
-                className={`rounded-sm border border-(--ink)/20 p-6 ${feature.tone}`}
+                className={`relative rounded-sm border border-(--ink)/20 p-6 ${feature.tone}`}
                 initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.45, delay: index * 0.08 }}
               >
-                <span className="grid size-11 place-items-center rounded-full bg-white">
-                  <Image src={feature.image} alt="" width={40} height={40} className="size-7 object-contain" />
-                </span>
-                <h3 className="mt-4 text-lg font-black">{feature.title}</h3>
-                <p className="mt-1 text-sm text-(--ink)/75">{feature.description}</p>
+                <Image
+                  src={feature.image}
+                  alt=""
+                  width={100}
+                  height={100}
+                  className="absolute -top-6 -right-5 z-10 size-20 rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)]"
+                />
+                <h3 className="max-w-[70%] text-lg font-black">{feature.title}</h3>
+                <p className="mt-1 max-w-[88%] text-sm text-(--ink)/75">{feature.description}</p>
               </motion.article>
             ))}
           </div>
