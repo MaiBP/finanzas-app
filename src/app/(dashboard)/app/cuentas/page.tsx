@@ -180,12 +180,26 @@ export default async function AccountsPage() {
                   ? "Saldo negativo"
                   : "En equilibrio";
             return (
-              <article className="card overflow-hidden" key={account.id}>
+              <div className="relative" key={account.id}>
+                {account.type === "bank" && (
+                  <Image
+                    src="/bank-building.png"
+                    alt=""
+                    width={112}
+                    height={112}
+                    className="absolute -top-6 -left-5 z-1 size-16 -rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)] sm:-top-7 sm:-left-6 sm:size-20"
+                  />
+                )}
+                <article className="card overflow-hidden">
                 <div className="p-6">
                   <div className="flex items-center justify-between">
-                    <span className="grid size-11 place-items-center rounded-xl bg-(--lime)">
-                      <AccountIcon type={account.type} />
-                    </span>
+                    {account.type === "bank" ? (
+                      <span className="size-11" />
+                    ) : (
+                      <span className="grid size-11 place-items-center rounded-xl bg-(--lime)">
+                        <AccountIcon type={account.type} />
+                      </span>
+                    )}
                     <div className="flex items-center gap-2">
                       <span className="rounded-full bg-(--lilac) px-2.5 py-1 text-xs font-bold">
                         {typeNames[account.type] ?? "Conjunta"}
@@ -279,7 +293,8 @@ export default async function AccountsPage() {
                     </p>
                   </form>
                 </details>
-              </article>
+                </article>
+              </div>
             );
           })}
           {!fundingAccounts.length && (

@@ -130,25 +130,35 @@ function TypewriterText({ prefix, highlight, startDelay = 0 }: { prefix: string;
     };
   }, [full, startDelay]);
 
-  const shownPrefix = prefix.slice(0, Math.min(count, prefix.length));
-  const shownHighlight = count > prefix.length ? highlight.slice(0, count - prefix.length) : "";
+  // Grouped by word (not by character): each character is still its own animated inline-block
+  // for the fade-in, but every animated char of a word lives inside one `whitespace-nowrap`
+  // wrapper. Animated inline-blocks are atomic boxes with a break opportunity at their edges,
+  // so without this grouping the browser was free to wrap the line between any two letters —
+  // splitting "enviar" into "envia"/"r" mid-word once each letter got its own box.
+  let offset = 0;
+  const words = full.split(/(\s+)/).map((token) => {
+    const start = offset;
+    offset += token.length;
+    return { token, start, isSpace: /^\s+$/.test(token) };
+  });
 
   return (
     <span>
-      {[...shownPrefix].map((char, index) => (
-        <span key={`p${index}`} className="type-char">
-          {char}
-        </span>
-      ))}
-      {shownHighlight && (
-        <span className="bg-(--highlight) px-1">
-          {[...shownHighlight].map((char, index) => (
-            <span key={`h${index}`} className="type-char">
-              {char}
-            </span>
-          ))}
-        </span>
-      )}
+      {words.map(({ token, start, isSpace }, wordIndex) => {
+        const shown = token.slice(0, Math.max(0, Math.min(count - start, token.length)));
+        if (!shown) return null;
+        if (isSpace) return <span key={wordIndex}>{shown}</span>;
+        const isHighlighted = start >= prefix.length;
+        return (
+          <span key={wordIndex} className={`whitespace-nowrap${isHighlighted ? " bg-(--highlight) px-1" : ""}`}>
+            {[...shown].map((char, charIndex) => (
+              <span key={charIndex} className="type-char">
+                {char}
+              </span>
+            ))}
+          </span>
+        );
+      })}
       <span aria-hidden className="ml-0.5 inline-block h-[0.85em] w-0.75 translate-y-0.5 animate-pulse bg-(--ink)" />
     </span>
   );
@@ -179,11 +189,11 @@ export function LandingPage() {
         >
           <motion.p
             variants={fadeUp}
-            className="mb-5 inline-flex items-center gap-2 rounded-full bg-(--highlight) px-4 py-2 text-sm font-bold uppercase"
+            className="mb-5 inline-flex items-center gap-2 rounded-full bg-(--blue) px-4 py-2 text-sm font-bold uppercase"
           >
             <HeartHandshake size={16} /> Finanzas en pareja, sin complicaciones
           </motion.p>
-          <motion.h1 variants={fadeUp} className={`max-w-xl text-5xl font-extrabold md:text-7xl ${displayFont}`}>
+          <motion.h1 variants={fadeUp} className={`max-w-xl text-4xl font-extrabold md:text-6xl ${displayFont}`}>
             <span className="bg-(--highlight) px-1">Finanzas</span> en pareja, tan <span className="bg-(--highlight) px-1">fácil</span> como{" "}
             <TypewriterText prefix="enviar un " highlight="mensaje" startDelay={650} />
           </motion.h1>
