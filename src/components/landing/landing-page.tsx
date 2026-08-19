@@ -182,7 +182,11 @@ function TypewriterText({ prefix, highlight, startDelay = 0 }: { prefix: string;
         {renderWords(wordsOf(prefix, 0))}
         <span aria-hidden className={cursorClass(typingPrefix)} />
       </span>
-      <span className={`block w-fit px-1 transition-colors duration-300 ${highlighted ? "bg-(--highlight)" : ""}`}>
+      <span className="relative block w-fit px-1">
+        <span
+          aria-hidden
+          className={`absolute inset-y-0 left-0 -z-10 bg-(--highlight) transition-[width] duration-1000 ease-in-out ${highlighted ? "w-full" : "w-0"}`}
+        />
         {renderWords(wordsOf(highlight, prefix.length))}
         <span aria-hidden className={cursorClass(!typingPrefix)} />
       </span>
