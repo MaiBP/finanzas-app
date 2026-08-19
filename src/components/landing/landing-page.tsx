@@ -79,12 +79,17 @@ const queries = [
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0 },
-};
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+} as const;
 
+// Named variants (not literal { opacity, y } objects) so a nested motion component — like
+// Highlight's sweep below — can inherit this same hidden/show state from its nearest ancestor
+// instead of tracking scroll visibility a second time on its own.
+const revealVariants = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
 const fadeInView = {
-  initial: { opacity: 0, y: 24 },
-  whileInView: { opacity: 1, y: 0 },
+  variants: revealVariants,
+  initial: "hidden",
+  whileInView: "show",
   viewport: { once: true, margin: "-60px" },
 } as const;
 
@@ -195,17 +200,21 @@ function TypewriterText({ prefix, highlight, startDelay = 0 }: { prefix: string;
 }
 
 // Same highlighter-sweep language as the hero's typewriter reveal, but triggered by scroll
-// visibility (once, like the rest of the section's fadeInView reveals) instead of a typing state
-// machine — for the static emphasized words further down the page.
+// visibility instead of a typing state machine — for the static emphasized words further down
+// the page. Deliberately has no initial/whileInView/viewport of its own: it inherits the
+// hidden/show state from the nearest ancestor motion component (each section's fadeInView
+// wrapper) via matching variant names. Tracking its own viewport visibility used to work
+// inconsistently on mobile — a heading that wraps onto more lines on a narrow screen can put the
+// highlighted word low enough in the block that it's already "in view" the instant its own
+// IntersectionObserver attaches, so it never plays a visible sweep; inheriting from the section's
+// own reveal (anchored to the section's top edge, not wherever the word lands) fixes that.
 function Highlight({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <span className={`relative inline-block px-1 ${className}`}>
       <motion.span
         aria-hidden
         className="absolute inset-0 -z-10 origin-left bg-(--highlight)"
-        initial={{ scaleX: 0 }}
-        whileInView={{ scaleX: 1 }}
-        viewport={{ once: true, margin: "-60px" }}
+        variants={{ hidden: { scaleX: 0 }, show: { scaleX: 1 } }}
         transition={{ duration: 0.8, ease: "easeInOut" }}
       />
       {children}
