@@ -38,7 +38,7 @@ export function StatTile({
           alt=""
           width={96}
           height={96}
-          className="absolute -top-5 -right-4 z-10 size-16 rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)]"
+          className="absolute -top-4 right-1 z-1 size-11 rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)] sm:-top-5 sm:-right-4 sm:size-16"
         />
       )}
       <article className={cn("min-w-0 overflow-hidden rounded-lg border-2 border-(--ink) p-5 shadow-[6px_6px_0_0_var(--ink)]", TONES[tone])}>

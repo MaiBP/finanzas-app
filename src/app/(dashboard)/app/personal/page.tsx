@@ -107,8 +107,8 @@ export default async function PersonalPage({
       <Banner kind="error">{params.error}</Banner>
 
       <section className="mt-7 grid grid-cols-2 gap-3">
-        <StatTile label="Ingresos personales · mes" value={formatMoney(income)} tone="green" />
-        <StatTile label="Gastos personales · mes" value={formatMoney(expenses)} tone="coral" />
+        <StatTile label="Ingresos personales · mes" value={formatMoney(income)} tone="green" image="/incoming-bag.png" />
+        <StatTile label="Gastos personales · mes" value={formatMoney(expenses)} tone="coral" image="/money-wings.png" />
       </section>
 
       <div className="mt-7 grid gap-6 xl:grid-cols-[.9fr_1.1fr]">

@@ -358,13 +358,13 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="relative z-1 overflow-hidden border-t border-(--ink)/15 px-5 py-16 md:py-20">
+      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
         <Image
           src="/finzy-mascot-thinking.png"
           alt=""
           width={320}
           height={263}
-          className="pointer-events-none absolute -bottom-10 right-2 z-0 w-36 rotate-6 opacity-80 sm:right-8 sm:w-52 md:right-16 md:w-64"
+          className="pointer-events-none absolute right-2 top-4 z-0 w-40 rotate-6 opacity-100 sm:right-10 sm:top-6 sm:w-56 md:right-24 md:w-72"
         />
         <motion.div
           className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6 text-center"

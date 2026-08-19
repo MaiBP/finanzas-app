@@ -53,8 +53,8 @@ export default async function BalancePage() {
         </div>
       </div>
       <section className="mt-7 grid gap-4 sm:grid-cols-2">
-        <StatTile label="Ingresos del mes" value={formatMoney(totalIncome)} tone="green" />
-        <StatTile label="Gastos del mes" value={formatMoney(totalExpenses)} tone="coral" />
+        <StatTile label="Ingresos del mes" value={formatMoney(totalIncome)} tone="green" image="/incoming-bag.png" />
+        <StatTile label="Gastos del mes" value={formatMoney(totalExpenses)} tone="coral" image="/money-wings.png" />
       </section>
       <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_.9fr]">
         <article className="card min-w-0 p-6">

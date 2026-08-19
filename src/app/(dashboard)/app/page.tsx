@@ -121,7 +121,7 @@ export default async function DashboardPage({
           value={formatMoney(income)}
           tone="green"
           detail={`Acumulado ${currentYear}: ${formatMoney(annualIncome)}`}
-          image="/money-bag.png"
+          image="/incoming-bag.png"
         />
         <StatTile
           label="Gastos del mes"
