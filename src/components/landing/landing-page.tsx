@@ -194,6 +194,25 @@ function TypewriterText({ prefix, highlight, startDelay = 0 }: { prefix: string;
   );
 }
 
+// Same highlighter-sweep language as the hero's typewriter reveal, but triggered by scroll
+// visibility (once, like the rest of the section's fadeInView reveals) instead of a typing state
+// machine — for the static emphasized words further down the page.
+function Highlight({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={`relative inline-block px-1 ${className}`}>
+      <motion.span
+        aria-hidden
+        className="absolute inset-0 -z-10 origin-left bg-(--highlight)"
+        initial={{ scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.8, ease: "easeInOut" }}
+      />
+      {children}
+    </span>
+  );
+}
+
 export function LandingPage() {
   return (
     <main
@@ -287,7 +306,7 @@ export function LandingPage() {
             />
           </motion.div>
           <h2 className={`mt-4 text-2xl font-extrabold tracking-tight text-white md:whitespace-nowrap md:text-3xl ${displayFont}`}>
-            Una forma <span className="bg-(--highlight) px-1 text-(--ink)">más fácil de gestionar</span> las finanzas en pareja
+            Una forma <Highlight className="text-(--ink)">más fácil de gestionar</Highlight> las finanzas en pareja
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-(--highlight)/85">
             Son dos personas con ingresos, gastos y costumbres distintas: una cuenta en común, gastos personales
@@ -307,7 +326,7 @@ export function LandingPage() {
               Registra hablando
             </p>
             <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              De un mensaje a un <span className="bg-(--highlight) px-1">resumen claro</span>
+              De un mensaje a un <Highlight>resumen claro</Highlight>
             </h2>
           </motion.div>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
@@ -349,7 +368,7 @@ export function LandingPage() {
               Compartido y personal
             </p>
             <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Lo tuyo. Lo suyo. Lo de <span className="bg-(--highlight) px-1">los dos</span>.
+              Lo tuyo. Lo suyo. Lo de <Highlight>los dos</Highlight>.
             </h2>
             <p className="mt-4 max-w-lg text-(--ink)/75">
               Cada movimiento decide si es personal o compartido: los gastos propios quedan aparte, sin mezclarse con
@@ -384,7 +403,7 @@ export function LandingPage() {
               Pregunta cuando quieras
             </p>
             <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Pregúntale a <span className="bg-(--highlight) px-1">Finzy</span> sobre tu dinero
+              Pregúntale a <Highlight>Finzy</Highlight> sobre tu dinero
             </h2>
             <p className="mt-4 max-w-lg text-(--ink)/75">
               Nada de exportar planillas: pregunta en lenguaje natural y recibe la respuesta al instante.
@@ -419,7 +438,7 @@ export function LandingPage() {
               Todo lo que necesitan
             </p>
             <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Todo lo que necesitan para <span className="bg-(--highlight) px-1">organizar su dinero</span>
+              Todo lo que necesitan para <Highlight>organizar su dinero</Highlight>
             </h2>
           </motion.div>
           <div className="mt-10 grid gap-5 sm:grid-cols-2">
