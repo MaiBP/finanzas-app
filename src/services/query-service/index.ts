@@ -3,6 +3,7 @@ import type { FinancialAction } from "@/services/financial-message-parser/schema
 import type { ConversationMessage } from "@/services/conversation-history";
 import { phraseFinanceReply } from "@/services/finance-reply";
 import { decryptField } from "@/lib/security/field-encryption";
+import { ACCOUNT_TYPE_LABELS } from "@/lib/finance/account-types";
 
 interface DbClient {
   from: (table: string) => ReturnType<import("@supabase/supabase-js").SupabaseClient["from"]>;
@@ -38,6 +39,9 @@ export type FinanceQueryFacts =
   | { kind: "item_spending"; scope: FinanceScope; rangeLabel: string; empty: true }
   | { kind: "item_spending"; scope: FinanceScope; rangeLabel: string; empty?: false; items: { subcategory: string; amount_cents: number }[] }
   | { kind: "user_contributions"; rangeLabel: string; members: { name: string; income: number; expenses: number }[] }
+  // Reads the live accounts table (excludes archived_at), unlike account_summary below which
+  // infers "accounts" from transaction activity in a period — different question, different source.
+  | { kind: "account_list"; scope: FinanceScope; accounts: { name: string; type: string; shared: boolean }[] }
   | { kind: "account_summary"; rangeLabel: string; accounts: { name: string; income: number; expenses: number; result: number }[] }
   | { kind: "largest_transactions"; movementType: "expense" | "income"; rangeLabel: string; empty: true }
   | { kind: "largest_transactions"; movementType: "expense" | "income"; rangeLabel: string; empty?: false; items: { description: string; amount_cents: number; date: string }[] }
@@ -276,6 +280,28 @@ export async function computeFinanceQueryFacts(
   now = new Date(),
 ): Promise<FinanceQueryFacts> {
   const filters = data.filters;
+  if (data.query_type === "account_list") {
+    const scope = filters.scope ?? "combined";
+    let accountQuery = db
+      .from("accounts")
+      .select("name,type,is_shared")
+      .eq("household_id", householdId)
+      .neq("type", "joint")
+      .is("archived_at", null);
+    accountQuery = scope === "shared"
+      ? accountQuery.eq("is_shared", true)
+      : scope === "personal"
+        ? accountQuery.eq("is_shared", false).eq("owner_user_id", userId)
+        : accountQuery.or(`is_shared.eq.true,and(is_shared.eq.false,owner_user_id.eq.${userId})`);
+    const { data: accountsData, error } = await accountQuery.order("created_at");
+    if (error) throw error;
+    const accounts = ((accountsData ?? []) as { name: string; type: string; is_shared: boolean }[]).map((account) => ({
+      name: account.name,
+      type: ACCOUNT_TYPE_LABELS[account.type] ?? account.type,
+      shared: account.is_shared,
+    }));
+    return { kind: "account_list", scope, accounts };
+  }
   const today = madridToday(now);
   let range = resolveFinancePeriod(filters, now);
   if (data.query_type === "household_balance" || data.query_type === "recent_transactions") {
@@ -439,6 +465,9 @@ export function formatFinanceReply(facts: FinanceQueryFacts): string {
       return `🧾 Detalle de productos en ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: ${facts.items.map((i) => `${i.subcategory}: ${formatMoney(i.amount_cents)}`).join("; ")}.`;
     case "user_contributions":
       return `👥 Detalle por persona durante ${facts.rangeLabel}: ${facts.members.map((m) => `${m.name}: ingresos ${formatMoney(m.income)}, gastos ${formatMoney(m.expenses)}`).join("; ")}.`;
+    case "account_list":
+      if (!facts.accounts.length) return `🤷 No tenés cuentas activas en ${scopeLabel(facts.scope)} todavía.`;
+      return `🏦 Tenés ${facts.accounts.length} ${facts.accounts.length === 1 ? "cuenta activa" : "cuentas activas"} en ${scopeLabel(facts.scope)}: ${facts.accounts.map((a) => `${a.name} (${a.type})`).join(", ")}.`;
     case "account_summary":
       return `🏦 Actividad por cuenta durante ${facts.rangeLabel}: ${facts.accounts.map((a) => `${a.name}: ingresos ${formatMoney(a.income)}, gastos ${formatMoney(a.expenses)}, saldo ${formatMoney(a.result)}`).join("; ")}.`;
     case "largest_transactions":

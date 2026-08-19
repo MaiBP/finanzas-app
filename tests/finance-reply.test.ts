@@ -173,6 +173,31 @@ describe("computeFinanceQueryFacts", () => {
     expect(facts.kind).toBe("no_data");
   });
 
+  it("lists active accounts straight from the accounts table, not from transaction activity", async () => {
+    const accounts = [
+      { name: "Banco", type: "bank", is_shared: true },
+      { name: "Efectivo", type: "cash", is_shared: false },
+    ];
+    const db = {
+      from(table: string) {
+        if (table === "accounts") return chainable({ data: accounts, error: null });
+        throw new Error(`unexpected table ${table}`);
+      },
+    } as Parameters<typeof computeFinanceQueryFacts>[0];
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "account_list",
+      filters: baseFilters,
+    });
+    expect(facts).toEqual({
+      kind: "account_list",
+      scope: "shared",
+      accounts: [
+        { name: "Banco", type: "Banco", shared: true },
+        { name: "Efectivo", type: "Efectivo", shared: false },
+      ],
+    });
+  });
+
   it("only includes the expense amount for an expense-only period summary, never a stray zero income", async () => {
     const db = createDb(rows, members);
     const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
@@ -296,6 +321,19 @@ describe("formatFinanceReply", () => {
     expect(reply).toBe(
       `💰 El saldo actual de el hogar es ${formatMoney(65_000)}: ${formatMoney(100_000)} de ingresos menos ${formatMoney(35_000)} de gastos registrados.`,
     );
+  });
+
+  it("formats account_list facts, singular vs plural", () => {
+    expect(formatFinanceReply({ kind: "account_list", scope: "shared", accounts: [] })).toBe(
+      "🤷 No tenés cuentas activas en el hogar todavía.",
+    );
+    expect(
+      formatFinanceReply({
+        kind: "account_list",
+        scope: "personal",
+        accounts: [{ name: "Efectivo", type: "Efectivo", shared: false }],
+      }),
+    ).toBe("🏦 Tenés 1 cuenta activa en tu espacio personal: Efectivo (Efectivo).");
   });
 });
 

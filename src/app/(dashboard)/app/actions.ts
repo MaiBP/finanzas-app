@@ -6,6 +6,7 @@ import { eurosToCents } from "@/lib/finance/money";
 import { getCurrentHousehold } from "@/lib/household";
 import { transactionSchema } from "@/lib/validations/transaction";
 import { encryptField } from "@/lib/security/field-encryption";
+import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
 
 export type ActionState = { error?: string; success?: string };
 type FinanceMode = "shared" | "personal";
@@ -59,6 +60,11 @@ export async function softDeleteTransaction(formData: FormData) {
   const { supabase } = await getCurrentHousehold();
   const id = String(formData.get("id"));
   const returnTo = formData.get("returnTo") === "/app/personal" ? "/app/personal" : "/app/movimientos";
+  const { data: existing } = await supabase.from("transactions").select("categories(name)").eq("id", id).maybeSingle();
+  const category = (existing as { categories: { name: string } | null } | null)?.categories;
+  if (category?.name === SYNTHETIC_BALANCE_CATEGORY) {
+    redirect(`${returnTo}?error=${encodeURIComponent("Este movimiento sostiene el saldo de la cuenta y no se puede eliminar.")}`);
+  }
   const { error } = await supabase.rpc("soft_delete_financial_transaction", { p_transaction_id: id });
   if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
   revalidatePath("/app"); revalidatePath("/app/movimientos"); revalidatePath("/app/personal");

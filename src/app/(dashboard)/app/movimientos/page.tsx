@@ -16,6 +16,7 @@ import { Banner } from "@/components/ui/banner";
 import { DeleteTransactionButton } from "@/components/transactions/delete-transaction-button";
 import { decryptField } from "@/lib/security/field-encryption";
 import { getHouseholdRoster } from "@/services/household-roster";
+import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
 
 type Row = {
   id: string;
@@ -243,7 +244,7 @@ export default async function TransactionsPage({
               <b className={`self-start text-right xl:self-auto ${row.type === "income" ? "text-(--ink)" : ""}`}>
                 {row.type === "expense" ? "−" : "+"}{formatMoney(row.amount_cents)}
               </b>
-              {row.created_by === user.id ? (
+              {row.created_by === user.id && row.categories?.name !== SYNTHETIC_BALANCE_CATEGORY ? (
                 <div className="col-start-2 flex justify-end xl:col-auto">
                   <Link href={`/app/movimientos/${row.id}/editar`} aria-label={`Editar ${row.description}`} className="rounded-lg p-2">
                     <Pencil size={17} />

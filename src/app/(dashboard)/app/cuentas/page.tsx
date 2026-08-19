@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button, LinkButton } from "@/components/ui/button";
 import { getHouseholdRoster } from "@/services/household-roster";
 import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
+import { ACCOUNT_TYPE_LABELS } from "@/lib/finance/account-types";
 
 type AccountRow = {
   id: string;
@@ -43,14 +44,7 @@ function AccountIcon({ type }: { type: string }) {
   if (type === "investment") return <TrendingUp />;
   return <WalletCards />;
 }
-const typeNames: Record<string, string> = {
-  joint: "General",
-  bank: "Banco",
-  card: "Tarjeta",
-  cash: "Efectivo",
-  savings: "Ahorro",
-  investment: "Inversión",
-};
+const typeNames = ACCOUNT_TYPE_LABELS;
 // Types with dedicated artwork float overflowing the card's corner instead of sitting inside
 // the lime badge (see AccountIcon for the "joint" fallback, the only type without one).
 const FLOATING_ACCOUNT_IMAGES: Partial<Record<string, string>> = {
