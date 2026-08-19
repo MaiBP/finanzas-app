@@ -45,10 +45,10 @@
 }
 
 .card {
-  border: 1px solid rgba(58, 52, 52, 0.16);
-  border-radius: .35rem;
+  border: 2px solid var(--ink);
+  border-radius: .5rem;
   background: var(--paper);
-  box-shadow: 6px 6px 0 rgba(58, 52, 52, 0.14);
+  box-shadow: 4px 4px 0 0 var(--highlight), 7px 7px 0 0 var(--ink);
   min-width: 0;
   overflow: hidden;
 }

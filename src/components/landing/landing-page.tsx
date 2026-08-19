@@ -148,7 +148,7 @@ export function LandingPage() {
         </motion.div>
 
         <motion.div
-          className="relative mx-auto w-full max-w-md"
+          className="relative mx-auto w-full max-w-2xl"
           initial={{ opacity: 0, y: 24, rotate: 0 }}
           animate={{ opacity: 1, y: 0, rotate: 2 }}
           transition={{ duration: 0.6, delay: 0.15 }}
@@ -192,9 +192,9 @@ export function LandingPage() {
           </motion.div>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {steps.map((step, index) => (
-              <motion.article
+              <motion.div
                 key={step.number}
-                className="card relative"
+                className="relative"
                 initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
@@ -207,14 +207,16 @@ export function LandingPage() {
                   height={112}
                   className="absolute -top-7 -left-6 z-10 size-24 rotate-[-8deg] object-contain drop-shadow-[4px_4px_0_rgba(58,52,52,0.18)]"
                 />
-                <div className={`flex justify-end rounded-t-[0.35rem] p-6 ${step.tone}`}>
-                  <span className="text-5xl font-black text-(--ink)/20">{step.number}</span>
-                </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-black">{step.title}</h3>
-                  <p className="mt-2 text-sm text-(--ink)/75">{step.description}</p>
-                </div>
-              </motion.article>
+                <article className="card">
+                  <div className={`flex justify-end rounded-t-lg p-6 ${step.tone}`}>
+                    <span className="text-5xl font-black text-(--ink)/20">{step.number}</span>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-black">{step.title}</h3>
+                    <p className="mt-2 text-sm text-(--ink)/75">{step.description}</p>
+                  </div>
+                </article>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -304,7 +306,7 @@ export function LandingPage() {
             {features.map((feature, index) => (
               <motion.article
                 key={feature.title}
-                className={`relative rounded-sm border border-(--ink)/20 p-6 ${feature.tone}`}
+                className={`relative rounded-lg border-2 border-(--ink) p-6 shadow-[6px_6px_0_0_var(--ink)] ${feature.tone}`}
                 initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
@@ -357,9 +359,16 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
+      <section className="relative z-1 overflow-hidden border-t border-(--ink)/15 px-5 py-16 md:py-20">
+        <Image
+          src="/finzy-mascot-thinking.png"
+          alt=""
+          width={320}
+          height={263}
+          className="pointer-events-none absolute -bottom-10 right-2 z-0 w-36 rotate-6 opacity-80 sm:right-8 sm:w-52 md:right-16 md:w-64"
+        />
         <motion.div
-          className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center"
+          className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6 text-center"
           {...fadeInView}
           transition={{ duration: 0.5 }}
         >
