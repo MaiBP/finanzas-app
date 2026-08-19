@@ -6,15 +6,14 @@ import {
   Pencil,
   Plus,
   Search,
-  Trash2,
   X,
 } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
-import { softDeleteTransaction } from "../actions";
 import { Button, LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Banner } from "@/components/ui/banner";
+import { DeleteTransactionButton } from "@/components/transactions/delete-transaction-button";
 import { decryptField } from "@/lib/security/field-encryption";
 import { getHouseholdRoster } from "@/services/household-roster";
 
@@ -249,12 +248,7 @@ export default async function TransactionsPage({
                   <Link href={`/app/movimientos/${row.id}/editar`} aria-label={`Editar ${row.description}`} className="rounded-lg p-2">
                     <Pencil size={17} />
                   </Link>
-                  <form action={softDeleteTransaction}>
-                    <input type="hidden" name="id" value={row.id} />
-                    <button aria-label={`Eliminar ${row.description}`} className="rounded-lg p-2">
-                      <Trash2 size={17} />
-                    </button>
-                  </form>
+                  <DeleteTransactionButton id={row.id} description={row.description} />
                 </div>
               ) : <span />}
             </article>

@@ -106,6 +106,15 @@ export function AppShell({
         {mobileNav.map((item) => (
           <NavLink key={item.href} href={item.href} label={item.label} icon={<item.icon size={19} />} variant="mobile" />
         ))}
+        <form action={logout} className="contents">
+          <button
+            type="submit"
+            className="flex min-w-16 flex-1 flex-col items-center gap-1 rounded-full p-2 text-[10px] text-(--ink) hover:bg-(--highlight)"
+          >
+            <LogOut size={19} />
+            Salir
+          </button>
+        </form>
       </nav>
     </div>
   );

@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { Archive, CreditCard, Landmark, Pencil, PiggyBank, Trash2, TrendingUp, WalletCards } from "lucide-react";
+import { Archive, CreditCard, Landmark, Pencil, PiggyBank, TrendingUp, WalletCards } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
 import { TransactionForm } from "@/components/transactions/transaction-form";
 import type { Account, Category } from "@/types/database";
 import { archiveAccount, createAccount } from "../cuentas/actions";
-import { softDeleteTransaction } from "../actions";
+import { DeleteTransactionButton } from "@/components/transactions/delete-transaction-button";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
 import { decryptField } from "@/lib/security/field-encryption";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -201,13 +201,7 @@ export default async function PersonalPage({
             >
               <Pencil size={17} />
             </Link>
-            <form action={softDeleteTransaction}>
-              <input type="hidden" name="id" value={row.id} />
-              <input type="hidden" name="returnTo" value="/app/personal" />
-              <button aria-label={`Eliminar ${row.description}`} className="rounded-lg p-2">
-                <Trash2 size={17} />
-              </button>
-            </form>
+            <DeleteTransactionButton id={row.id} description={row.description} returnTo="/app/personal" />
           </article>
         ))}
         {!transactions.length && (
