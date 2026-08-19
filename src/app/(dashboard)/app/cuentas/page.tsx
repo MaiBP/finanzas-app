@@ -51,6 +51,12 @@ const typeNames: Record<string, string> = {
   savings: "Ahorro",
   investment: "Inversión",
 };
+// Types with dedicated artwork float overflowing the card's corner instead of sitting inside
+// the lime badge (see AccountIcon for the ones that still use a plain lucide icon there).
+const FLOATING_ACCOUNT_IMAGES: Partial<Record<string, string>> = {
+  bank: "/bank-building.png",
+  cash: "/money-cash.png",
+};
 
 export default async function AccountsPage() {
   const { supabase, household } = await getCurrentHousehold();
@@ -179,11 +185,12 @@ export default async function AccountsPage() {
                 : balance < 0
                   ? "Saldo negativo"
                   : "En equilibrio";
+            const floatingImage = FLOATING_ACCOUNT_IMAGES[account.type];
             return (
               <div className="relative" key={account.id}>
-                {account.type === "bank" && (
+                {floatingImage && (
                   <Image
-                    src="/bank-building.png"
+                    src={floatingImage}
                     alt=""
                     width={112}
                     height={112}
@@ -193,7 +200,7 @@ export default async function AccountsPage() {
                 <article className="card overflow-hidden">
                 <div className="p-6">
                   <div className="flex items-center justify-between">
-                    {account.type === "bank" ? (
+                    {floatingImage ? (
                       <span className="size-11" />
                     ) : (
                       <span className="grid size-11 place-items-center rounded-xl bg-(--lime)">

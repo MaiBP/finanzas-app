@@ -88,10 +88,10 @@ const fadeInView = {
   viewport: { once: true, margin: "-60px" },
 } as const;
 
-const TYPE_MS = 65;
-const DELETE_MS = 32;
-const HOLD_MS = 2800;
-const RESTART_MS = 550;
+const TYPE_MS = 110;
+const DELETE_MS = 55;
+const HOLD_MS = 3200;
+const RESTART_MS = 650;
 
 // Types `${prefix}${highlight}` letter by letter (each new letter fades/slides in via the
 // .type-char CSS animation for a smoother feel than an instant pop), holds, deletes, and
@@ -189,12 +189,13 @@ export function LandingPage() {
         >
           <motion.p
             variants={fadeUp}
-            className="mb-5 inline-flex items-center gap-2 rounded-full bg-(--blue) px-4 py-2 text-sm font-bold uppercase"
+            className="mb-5 inline-flex items-center gap-2 rounded-full bg-(--blue) px-4 py-2 text-sm font-bold uppercase text-white"
           >
             <HeartHandshake size={16} /> Finanzas en pareja, sin complicaciones
           </motion.p>
           <motion.h1 variants={fadeUp} className={`max-w-xl text-4xl font-extrabold md:text-6xl ${displayFont}`}>
-            <span className="bg-(--highlight) px-1">Finanzas</span> en pareja, tan <span className="bg-(--highlight) px-1">fácil</span> como{" "}
+            <span className="bg-(--highlight) px-1">Finanzas</span> en pareja, tan <span className="bg-(--highlight) px-1">fácil</span> como
+            <br />
             <TypewriterText prefix="enviar un " highlight="mensaje" startDelay={650} />
           </motion.h1>
           <motion.p variants={fadeUp} className="mt-6 max-w-lg text-lg leading-8">
