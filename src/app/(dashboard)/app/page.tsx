@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, PiggyBank, Plus } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Plus } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -112,7 +112,7 @@ export default async function DashboardPage({
             value={formatMoney(currentBalance)}
             tone="plain"
             detail="Según movimientos registrados"
-            icon={PiggyBank}
+            image="/piggy-bank.png"
             breakdown={accountBalances}
           />
         </div>
@@ -121,12 +121,14 @@ export default async function DashboardPage({
           value={formatMoney(income)}
           tone="green"
           detail={`Acumulado ${currentYear}: ${formatMoney(annualIncome)}`}
+          image="/money-bag.png"
         />
         <StatTile
           label="Gastos del mes"
           value={formatMoney(expenses)}
           tone="coral"
           detail={`Acumulado ${currentYear}: ${formatMoney(annualExpenses)}`}
+          image="/money-wings.png"
         />
         <div className="col-span-2 lg:col-span-1">
           <StatTile
@@ -134,6 +136,7 @@ export default async function DashboardPage({
             value={insight.message}
             tone="lilac"
             detail={insight.detail}
+            image="/writing-hand.png"
             compact
           />
         </div>
