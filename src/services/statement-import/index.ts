@@ -9,7 +9,7 @@ import { ITEM_SUBCATEGORIES, normalizeItemSubcategory } from "@/lib/finance/item
 const MAX_IMPORTED_TRANSACTIONS = 60;
 const MAX_ITEMS_PER_TRANSACTION = 60;
 const imageMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const fileExtensions = new Set(["pdf", "csv", "xls", "xlsx", "jpg", "jpeg", "png", "webp"]);
+const fileExtensions = new Set(["pdf", "jpg", "jpeg", "png", "webp"]);
 
 const importedItemSchema = z.object({
   description: z.string().min(1).max(160),
@@ -59,7 +59,7 @@ const extensionOf = (fileName: string) => fileName.split(".").pop()?.toLowerCase
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 function resolvedMimeType(fileName: string, mimeType: string) {
-  const byExtension: Record<string,string>={pdf:"application/pdf",csv:"text/csv",xls:"application/vnd.ms-excel",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp"};
+  const byExtension: Record<string,string>={pdf:"application/pdf",jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp"};
   return byExtension[extensionOf(fileName)]??mimeType.toLowerCase();
 }
 

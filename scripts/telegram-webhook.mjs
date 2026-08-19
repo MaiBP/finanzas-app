@@ -38,7 +38,7 @@ if (!infoOnly) {
   const webhookUrl = `${appUrl}/api/telegram/webhook`;
   await telegram("setMyName", { name: "Miti-Miti" });
   await telegram("setMyShortDescription", { short_description: "Finanzas compartidas y personales, sin dramas." });
-  await telegram("setMyDescription", { description: "Miti-Miti registra gastos e ingresos, lee extractos PDF, Excel o imágenes, consulta tus espacios y detecta patrones financieros." });
+  await telegram("setMyDescription", { description: "Miti-Miti registra gastos e ingresos, lee extractos PDF o imágenes, consulta tus espacios y detecta patrones financieros." });
   await telegram("setWebhook", {
     url: webhookUrl,
     secret_token: secret,

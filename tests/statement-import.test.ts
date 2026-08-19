@@ -20,10 +20,12 @@ const itemizedPayload=statementImportPayloadSchema.parse({
 });
 
 describe("statement import",()=>{
-  it("accepts statements and supported images",()=>{
+  it("accepts statements and supported images, but not spreadsheets",()=>{
     expect(isSupportedStatementFile("resumen.PDF","application/pdf")).toBe(true);
-    expect(isSupportedStatementFile("cuenta.xlsx","application/octet-stream")).toBe(true);
     expect(isSupportedStatementFile("foto","image/jpeg")).toBe(true);
+    expect(isSupportedStatementFile("cuenta.xlsx","application/octet-stream")).toBe(false);
+    expect(isSupportedStatementFile("cuenta.xls","application/vnd.ms-excel")).toBe(false);
+    expect(isSupportedStatementFile("movimientos.csv","text/csv")).toBe(false);
     expect(isSupportedStatementFile("archivo.zip","application/zip")).toBe(false);
   });
 
