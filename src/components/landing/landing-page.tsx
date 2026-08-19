@@ -359,18 +359,23 @@ export function LandingPage() {
       </section>
 
       <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
-        <Image
-          src="/finzy-mascot-thinking.png"
-          alt=""
-          width={320}
-          height={263}
-          className="pointer-events-none absolute right-2 top-4 z-0 w-40 rotate-6 opacity-100 sm:right-10 sm:top-6 sm:w-56 md:right-24 md:w-72"
-        />
         <motion.div
           className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6 text-center"
           {...fadeInView}
           transition={{ duration: 0.5 }}
         >
+          <motion.div
+            animate={{ y: [0, -14, 0] }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <Image
+              src="/finzy-mascot-thinking.png"
+              alt=""
+              width={320}
+              height={263}
+              className="pointer-events-none w-28 rotate-6 sm:w-36 md:w-44"
+            />
+          </motion.div>
           <h2 className={`text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>¿Organizamos las cuentas de una vez?</h2>
           <p className="max-w-lg text-(--ink)/75">
             Crear el hogar toma menos de un minuto. Después, todo pasa por el chat.
