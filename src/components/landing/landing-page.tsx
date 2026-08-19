@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -87,6 +88,32 @@ const fadeInView = {
   viewport: { once: true, margin: "-60px" },
 } as const;
 
+// Types the text out letter by letter once the hero's own fade-up entrance has settled
+// (startDelay), then leaves a blinking cursor — mimics "sending a message" for the line
+// that literally talks about sending a message.
+function TypewriterText({ text, startDelay = 0 }: { text: string; startDelay?: number }) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let frame = 0;
+    const start = setTimeout(() => {
+      const interval = setInterval(() => {
+        frame += 1;
+        setCount(frame);
+        if (frame >= text.length) clearInterval(interval);
+      }, 55);
+    }, startDelay);
+    return () => clearTimeout(start);
+  }, [text, startDelay]);
+
+  return (
+    <span>
+      {text.slice(0, count)}
+      <span aria-hidden className="ml-0.5 inline-block h-[0.85em] w-0.75 translate-y-0.5 animate-pulse bg-(--ink)" />
+    </span>
+  );
+}
+
 export function LandingPage() {
   return (
     <main
@@ -117,7 +144,8 @@ export function LandingPage() {
             <HeartHandshake size={16} /> Finanzas en pareja, sin complicaciones
           </motion.p>
           <motion.h1 variants={fadeUp} className={`max-w-xl text-5xl font-extrabold md:text-7xl ${displayFont}`}>
-            <span className="bg-(--highlight) px-1">Finanzas</span> en pareja, tan <span className="bg-(--highlight) px-1">fácil</span> como enviar un mensaje
+            <span className="bg-(--highlight) px-1">Finanzas</span> en pareja, tan <span className="bg-(--highlight) px-1">fácil</span> como{" "}
+            <TypewriterText text="enviar un mensaje" startDelay={650} />
           </motion.h1>
           <motion.p variants={fadeUp} className="mt-6 max-w-lg text-lg leading-8">
             Registra gastos e ingresos hablando con Finzy y entiende fácilmente en qué gastan,
