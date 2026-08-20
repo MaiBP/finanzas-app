@@ -35,7 +35,7 @@ export default async function EditPage({ params }: { params: Promise<{ id: strin
       </Link>
       <h1 className="text-3xl font-black">Editar movimiento {row.scope === "personal" ? "personal" : "conjunto"}</h1>
       <section className="card mt-7 p-6">
-        <form action={editTransaction} className="space-y-4">
+        <form action={editTransaction} className="space-y-5">
           <input type="hidden" name="id" value={id} />
           <label>
             <span className="label">Descripción</span>

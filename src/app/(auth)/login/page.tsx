@@ -16,7 +16,7 @@ export default async function LoginPage({
     <AuthCard
       tone="blue"
       title="Qué gusto verte"
-      subtitle="Entra y mira cómo va vuestro mes."
+      subtitle="Entra y mira cómo va tu mes."
       footer={
         <>
           ¿Primera vez?{" "}
@@ -34,7 +34,7 @@ export default async function LoginPage({
         o entra con email
         <span className="h-px flex-1 bg-(--ink)/20" />
       </div>
-      <form action={login} className="space-y-4">
+      <form action={login} className="space-y-5">
         <label>
           <span className="label">Email</span>
           <input className="field" required type="email" name="email" autoComplete="email" />

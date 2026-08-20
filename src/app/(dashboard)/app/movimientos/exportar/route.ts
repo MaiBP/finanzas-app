@@ -6,6 +6,7 @@ function normalize(value: string) {
   return value.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLocaleLowerCase("es").trim();
 }
 
+type ExportItem = { description: string; amount_cents: number; subcategory: string };
 type ExportRow = {
   type: "expense" | "income";
   amount_cents: number;
@@ -14,6 +15,7 @@ type ExportRow = {
   created_by: string | null;
   categories: { name: string } | null;
   accounts: { name: string } | null;
+  transaction_items: ExportItem[] | null;
 };
 
 const CHUNK_SIZE = 1_000;
@@ -40,7 +42,7 @@ export async function GET(request: Request) {
   for (let offset = 0; ; offset += CHUNK_SIZE) {
     let query = supabase
       .from("transactions")
-      .select("type,amount_cents,description,transaction_date,created_by,categories(name),accounts(name)")
+      .select("type,amount_cents,description,transaction_date,created_by,categories(name),accounts(name),transaction_items(description,amount_cents,subcategory)")
       .eq("household_id", household.id)
       .eq("scope", "shared")
       .eq("status", "confirmed")
@@ -52,7 +54,11 @@ export async function GET(request: Request) {
     if (to) query = query.lte("transaction_date", to);
     const { data, error } = await query;
     if (error) return new Response("No se pudo preparar la exportación", { status: 500 });
-    const chunk = ((data ?? []) as unknown as ExportRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+    const chunk = ((data ?? []) as unknown as ExportRow[]).map((row) => ({
+      ...row,
+      description: decryptField(row.description),
+      transaction_items: row.transaction_items?.map((item) => ({ ...item, description: decryptField(item.description) })) ?? null,
+    }));
     rows.push(...chunk);
     if (chunk.length < CHUNK_SIZE) break;
   }
@@ -62,25 +68,28 @@ export async function GET(request: Request) {
   const roster = await getHouseholdRoster(supabase, household.id);
   const memberNames = new Map(roster.map((member) => [member.userId, member.displayName]));
 
-  const header = ["Fecha", "Tipo", "Descripción", "Categoría", "Cuenta", "Registrado por", "Importe (EUR)"];
+  // Every row shares the transaction-level columns (Fecha..Registrado por) so the sheet stays
+  // filterable either way; product rows leave Importe (EUR) blank and use Importe producto (EUR)
+  // instead, since item amounts don't have to add up to the transaction total and would otherwise
+  // silently double-count a naive sum of one shared amount column.
+  const header = ["Fecha", "Tipo", "Descripción", "Categoría", "Cuenta", "Registrado por", "Importe (EUR)", "Producto", "Subcategoría producto", "Importe producto (EUR)"];
   const lines = ["sep=;", header.map(csvCell).join(";")];
   for (const row of matchedRows) {
-    const amount = ((row.type === "income" ? 1 : -1) * row.amount_cents / 100)
-      .toFixed(2)
-      .replace(".", ",");
-    lines.push(
-      [
-        row.transaction_date,
-        row.type === "income" ? "Ingreso" : "Gasto",
-        safeText(row.description),
-        safeText(row.categories?.name ?? "Sin categoría"),
-        safeText(row.accounts?.name ?? "Sin cuenta"),
-        safeText(row.created_by === null ? "Miembro eliminado" : (memberNames.get(row.created_by) ?? "Miembro eliminado")),
-        amount,
-      ]
-        .map(csvCell)
-        .join(";"),
-    );
+    const amount = ((row.type === "income" ? 1 : -1) * row.amount_cents / 100).toFixed(2).replace(".", ",");
+    const registeredBy = row.created_by === null ? "Miembro eliminado" : (memberNames.get(row.created_by) ?? "Miembro eliminado");
+    const sharedCells = [
+      row.transaction_date,
+      row.type === "income" ? "Ingreso" : "Gasto",
+      safeText(row.description),
+      safeText(row.categories?.name ?? "Sin categoría"),
+      safeText(row.accounts?.name ?? "Sin cuenta"),
+      safeText(registeredBy),
+    ];
+    lines.push([...sharedCells, amount, "", "", ""].map(csvCell).join(";"));
+    for (const item of row.transaction_items ?? []) {
+      const itemAmount = ((row.type === "income" ? 1 : -1) * item.amount_cents / 100).toFixed(2).replace(".", ",");
+      lines.push([...sharedCells, "", safeText(item.description), safeText(item.subcategory), itemAmount].map(csvCell).join(";"));
+    }
   }
 
   const dateSuffix = new Date().toISOString().slice(0, 10);

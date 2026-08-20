@@ -22,7 +22,7 @@ export default async function ResetPage({
       }
     >
       <Banner kind="error">{error}</Banner>
-      <form action={requestPasswordReset} className="space-y-4">
+      <form action={requestPasswordReset} className="space-y-5">
         <label>
           <span className="label">Email</span>
           <input className="field" required type="email" name="email" />

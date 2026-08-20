@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { TransactionForm } from "@/components/transactions/transaction-form";
@@ -18,13 +19,22 @@ export default async function NewPersonalTransactionPage() {
       </Link>
       <h1 className="text-3xl font-black tracking-tight">Nuevo movimiento personal</h1>
       <p className="mt-2 text-[#6c7f7a]">Solo vos vas a poder verlo; no se muestra a otros miembros del hogar.</p>
-      <section className="card mt-7 p-6 md:p-8">
-        <TransactionForm
-          mode="personal"
-          accounts={(accounts ?? []) as Pick<Account, "id" | "name">[]}
-          categories={(categories ?? []) as Category[]}
+      <div className="relative mt-7">
+        <Image
+          src="/writing-hand.png"
+          alt=""
+          width={112}
+          height={112}
+          className="absolute -top-6 -left-5 z-1 size-16 -rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)] sm:-top-7 sm:-left-6 sm:size-20"
         />
-      </section>
+        <section className="card p-6 md:p-8">
+          <TransactionForm
+            mode="personal"
+            accounts={(accounts ?? []) as Pick<Account, "id" | "name">[]}
+            categories={(categories ?? []) as Category[]}
+          />
+        </section>
+      </div>
     </div>
   );
 }
