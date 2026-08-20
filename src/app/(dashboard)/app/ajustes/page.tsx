@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { AlertTriangle, Check, Copy, Home, UserRound } from "lucide-react";
+import { AlertTriangle, Check, Copy } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, unlinkTelegram, updateHouseholdName, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ export default async function SettingsPage() {
         <section className="card p-6">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-xl bg-(--lilac)">
-              <Home size={20} />
+              <Image src="/home.png" alt="" width={32} height={32} className="size-7 object-contain" />
             </span>
             <div>
               <p className="text-xs font-bold uppercase text-(--muted)">Espacio compartido</p>
@@ -117,7 +117,7 @@ export default async function SettingsPage() {
         <section className="card p-6">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-xl bg-(--lime)">
-              <UserRound size={20} />
+              <Image src="/private.png" alt="" width={32} height={32} className="size-7 object-contain" />
             </span>
             <div>
               <p className="text-xs font-bold uppercase text-(--muted)">Espacio privado</p>

@@ -4,7 +4,6 @@ import {
   CreditCard,
   PiggyBank,
   TrendingUp,
-  UsersRound,
   WalletCards,
 } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
@@ -345,7 +344,7 @@ export default async function AccountsPage() {
       </section>
       <section className="card mt-7 flex max-w-2xl flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-3">
-          <UsersRound className="shrink-0" />
+          <Image src="/private.png" alt="" width={32} height={32} className="size-6 shrink-0 object-contain" />
           <div>
             <h2 className="font-black">¿Quieres gestionar dinero solo tuyo?</h2>
             <p className="mt-1 text-sm text-(--muted)">
