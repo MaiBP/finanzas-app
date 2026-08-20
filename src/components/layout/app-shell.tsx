@@ -45,7 +45,7 @@ export function AppShell({
     <div className="min-h-screen bg-white text-(--ink) md:grid md:grid-cols-[260px_1fr]">
       <aside className="hidden border-r border-(--ink)/25 bg-white p-5 text-(--ink) md:flex md:flex-col">
         <Link href="/app" className="flex items-center gap-2 text-lg font-black uppercase">
-          <span className="grid size-10 place-items-center rounded-full bg-(--highlight) text-xl">½</span>
+          <Image src="/logo-mitimiti.png" alt="" width={40} height={40} className="size-10 object-contain" />
           Miti-Miti
         </Link>
 
@@ -102,11 +102,12 @@ export function AppShell({
 
       <SectionSurface>
         <header className="section-header sticky top-0 z-10 flex items-center justify-between border-b border-(--ink)/30 px-5 py-4 backdrop-blur md:px-8">
-          <Link href="/app" className="font-black uppercase md:hidden">
+          <Link href="/app" className="flex items-center gap-2 font-black uppercase md:hidden">
+            <Image src="/logo-mitimiti.png" alt="" width={28} height={28} className="size-7 object-contain" />
             Miti-Miti
           </Link>
           <AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName} />
-          <div className="grid size-9 place-items-center rounded-full bg-white text-sm font-black">½</div>
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={36} height={36} className="size-9 object-contain" />
         </header>
         <main className="mx-auto max-w-7xl p-5 md:p-8">{children}</main>
       </SectionSurface>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ArrowRight, Home, ShieldCheck, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
@@ -26,9 +27,7 @@ export default async function Onboarding({
         <div className="relative z-10 mx-auto max-w-xl">
           <StepIndicator step={1} total={6} label="Términos" />
           <FadeIn className="text-center">
-            <span className="mx-auto grid size-12 place-items-center rounded-full bg-(--ink) text-2xl font-black text-(--highlight)">
-              ½
-            </span>
+            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={48} height={48} className="mx-auto size-12 object-contain" />
             <p className="mx-auto mt-5 w-fit bg-(--highlight) px-2 text-xs font-black uppercase tracking-wider">
               Antes de empezar
             </p>
@@ -65,9 +64,7 @@ export default async function Onboarding({
       <div className="relative z-10 mx-auto max-w-5xl">
         <StepIndicator step={2} total={6} label="Hogar" />
         <FadeIn className="text-center">
-          <span className="mx-auto grid size-12 place-items-center rounded-full bg-(--ink) text-2xl font-black text-(--highlight)">
-            ½
-          </span>
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={48} height={48} className="mx-auto size-12 object-contain" />
           <p className="mx-auto mt-5 w-fit bg-(--highlight) px-2 text-xs font-black uppercase tracking-wider">
             Bienvenidos a Miti-Miti
           </p>

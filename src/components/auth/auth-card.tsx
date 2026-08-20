@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 
 const TONES = {
@@ -45,9 +46,7 @@ export function AuthCard({
         transition={{ duration: 0.4 }}
       >
         <Link href="/" className="mb-7 flex items-center justify-center gap-3 text-lg font-black">
-          <span className="grid size-10 place-items-center rounded-full bg-(--ink) text-xl text-(--highlight)">
-            ½
-          </span>
+          <Image src="/logo-mitimiti.png" alt="" width={40} height={40} className="size-10 object-contain" />
           <span className="bg-(--highlight) px-1">Miti-Miti</span>
         </Link>
 

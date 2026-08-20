@@ -494,7 +494,7 @@ export function formatFinanceReply(facts: FinanceQueryFacts): string {
       return `📊 En ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: 💰 ${formatMoney(facts.totals.income)} de ingresos y 💸 ${formatMoney(facts.totals.expenses)} de gastos. El resultado es ${formatMoney(facts.totals.result)}.`;
     }
     case "average_daily_spend":
-      return `📆 Durante ${facts.rangeLabel} (${facts.daysLabel} días), gastaron ${formatMoney(facts.totalExpenses)} en total, un promedio de ${formatMoney(facts.dailyAverage)} por día.`;
+      return `📆 Durante ${facts.rangeLabel} (${facts.daysLabel} días), ${facts.scope === "personal" ? "gastaste" : "gastaron"} ${formatMoney(facts.totalExpenses)} en total, un promedio de ${formatMoney(facts.dailyAverage)} por día.`;
     case "spending_ratio":
       if (facts.empty) return `🤷 No tengo suficientes movimientos de "${facts.labelA}" o "${facts.labelB}" durante ${facts.rangeLabel} para calcular esa equivalencia.`;
       return `🧮 Con lo gastado en "${facts.labelA}" (${formatMoney(facts.amountA)}) durante ${facts.rangeLabel}, cubrirían unas ${facts.countLabel} veces el gasto promedio en "${facts.labelB}" (${formatMoney(facts.avgB)} cada uno).`;

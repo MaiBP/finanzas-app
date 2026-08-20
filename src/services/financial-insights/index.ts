@@ -34,7 +34,7 @@ function lowerFirst(value: string) {
   return cleaned ? cleaned.charAt(0).toLocaleLowerCase("es") + cleaned.slice(1) : value;
 }
 
-export function analyzeFinancialBehavior(transactions: InsightTransaction[], month: string, today: string): FinancialInsight {
+export function analyzeFinancialBehavior(transactions: InsightTransaction[], month: string, today: string, scope: "shared" | "personal" = "shared"): FinancialInsight {
   const todayMonth = today.slice(0, 7);
   const currentRows = transactions.filter(transaction => transaction.transaction_date.slice(0, 7) === month);
   const currentExpenses = currentRows.filter(transaction => transaction.type === "expense").reduce((total, transaction) => total + transaction.amount_cents, 0);
@@ -63,7 +63,7 @@ export function analyzeFinancialBehavior(transactions: InsightTransaction[], mon
     if (recurring) return {
       key: `${month}:recurring:${recurring.key}`,
       label: "Recordatorio",
-      message: `¡No os olvidéis de pagar ${lowerFirst(recurring.description)}!`,
+      message: scope === "personal" ? `¡No te olvides de pagar ${lowerFirst(recurring.description)}!` : `¡No os olvidéis de pagar ${lowerFirst(recurring.description)}!`,
       detail: `Suele registrarse cerca del día ${recurring.expectedDay}.`,
       notifiable: true,
     };
@@ -102,7 +102,7 @@ export function analyzeFinancialBehavior(transactions: InsightTransaction[], mon
     return savings >= 0 ? {
       key: `${month}:savings:positive`,
       label: "Ahorro",
-      message: `Este mes ahorraron un ${savingsRate} %.`,
+      message: scope === "personal" ? `Este mes ahorraste un ${savingsRate} %.` : `Este mes ahorraron un ${savingsRate} %.`,
       detail: `Ahorro actual: ${formatMoney(savings)}.`,
       notifiable: month === todayMonth && Number(today.slice(8, 10)) >= 7,
     } : {
@@ -118,7 +118,7 @@ export function analyzeFinancialBehavior(transactions: InsightTransaction[], mon
     key: `${month}:insufficient-data`,
     label: "Recordatorio",
     message: "Todavía no hay suficientes datos para detectar patrones.",
-    detail: "Seguid registrando movimientos y aquí aparecerán recomendaciones.",
+    detail: scope === "personal" ? "Sigue registrando movimientos y aquí aparecerán recomendaciones." : "Seguid registrando movimientos y aquí aparecerán recomendaciones.",
     notifiable: false,
   };
 }
@@ -129,7 +129,7 @@ export async function getHouseholdFinancialInsight(db: SupabaseClient, household
   const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name)").eq("household_id", householdId).eq("scope", "shared").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
   if (error) throw error;
   const transactions = ((data ?? []) as unknown as InsightTransaction[]).map((row) => ({ ...row, description: decryptField(row.description) }));
-  return analyzeFinancialBehavior(transactions, month, today);
+  return analyzeFinancialBehavior(transactions, month, today, "shared");
 }
 
 export async function getPersonalFinancialInsight(db: SupabaseClient, userId: string, householdId: string, month: string, today = new Date().toISOString().slice(0, 10)) {
@@ -138,5 +138,5 @@ export async function getPersonalFinancialInsight(db: SupabaseClient, userId: st
   const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name)").eq("household_id", householdId).eq("created_by", userId).eq("scope", "personal").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
   if (error) throw error;
   const transactions = ((data ?? []) as unknown as InsightTransaction[]).map((row) => ({ ...row, description: decryptField(row.description) }));
-  return analyzeFinancialBehavior(transactions, month, today);
+  return analyzeFinancialBehavior(transactions, month, today, "personal");
 }
