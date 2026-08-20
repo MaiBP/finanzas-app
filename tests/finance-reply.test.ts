@@ -369,6 +369,55 @@ describe("category_trend", () => {
   });
 });
 
+describe("subcategory_trend", () => {
+  const itemRows = [
+    { type: "expense", amount_cents: 5_000, description: "Super", transaction_date: "2026-07-15", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t1" },
+    { type: "expense", amount_cents: 6_000, description: "Super", transaction_date: "2026-08-05", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t2" },
+  ];
+  const items = [
+    { transaction_id: "t1", amount_cents: 2_000, subcategory: "Snacks y dulces" },
+    { transaction_id: "t2", amount_cents: 3_000, subcategory: "Snacks y dulces" },
+    { transaction_id: "t2", amount_cents: 1_000, subcategory: "Bebidas" },
+  ];
+
+  it("breaks down a single subcategory's item spend by month", async () => {
+    const db = {
+      from(table: string) {
+        if (table === "transactions") return chainable({ data: itemRows, error: null });
+        if (table === "household_members") return chainable({ data: members, error: null });
+        if (table === "transaction_items") return chainable({ data: items, error: null });
+        throw new Error(`unexpected table ${table}`);
+      },
+    } as Parameters<typeof computeFinanceQueryFacts>[0];
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "subcategory_trend",
+      filters: { ...baseFilters, subcategory: "snacks", period: "custom", date_from: "2026-07-01", date_to: "2026-08-31" },
+    });
+    expect(facts).toEqual({
+      kind: "subcategory_trend",
+      scope: "shared",
+      subcategoryLabel: "snacks",
+      months: [{ month: "2026-07", amount_cents: 2_000 }, { month: "2026-08", amount_cents: 3_000 }],
+    });
+  });
+
+  it("reports empty when no items match the requested subcategory", async () => {
+    const db = {
+      from(table: string) {
+        if (table === "transactions") return chainable({ data: itemRows, error: null });
+        if (table === "household_members") return chainable({ data: members, error: null });
+        if (table === "transaction_items") return chainable({ data: items, error: null });
+        throw new Error(`unexpected table ${table}`);
+      },
+    } as Parameters<typeof computeFinanceQueryFacts>[0];
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "subcategory_trend",
+      filters: { ...baseFilters, subcategory: "limpieza", period: "custom", date_from: "2026-07-01", date_to: "2026-08-31" },
+    });
+    expect(facts).toEqual({ kind: "subcategory_trend", scope: "shared", subcategoryLabel: "limpieza", empty: true });
+  });
+});
+
 describe("savings_opportunities", () => {
   const monthlyRows: Row[] = [
     { type: "expense", amount_cents: 3_000, description: "Cena", transaction_date: "2026-07-10", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Restaurantes" }, accounts: { name: "Banco" } },
