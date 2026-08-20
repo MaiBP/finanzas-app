@@ -26,6 +26,7 @@ describe("bot finance access", () => {
       movement_type: "both",
       limit: null,
       scope: "shared",
+      include_deleted_accounts: false,
     }, new Date("2026-08-06T08:00:00Z"))).toEqual({
       from: "2026-01-01",
       to: "2026-08-06",
