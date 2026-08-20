@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CreateTransactionAction } from "@/services/transaction-service/account-selection";
-import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, describeCreateTransaction, matchAccountSelection } from "@/services/transaction-service/account-selection";
+import { accountOptionsForSelection, accountSelectionQuestion, accountsForAction, assignOnlyAccount, describeCreateTransaction, matchAccountSelection } from "@/services/transaction-service/account-selection";
 import { confirmCancelKeyboard, createTransactionDecisionKeyboard } from "@/lib/telegram/keyboards";
 
 const action: CreateTransactionAction = {
@@ -29,21 +29,21 @@ describe("account selection", () => {
   it("keeps the account empty and asks when several accounts are eligible", () => {
     const eligible = accountsForAction(action, accounts);
     expect(assignOnlyAccount(action, eligible).data.account_name).toBeNull();
-    expect(accountSelectionQuestion(action, eligible)).toContain("¿De qué cuenta sale el dinero?");
+    expect(accountSelectionQuestion(action)).toContain("¿De qué cuenta sale el dinero?");
   });
 
   it("describes the identified expense/income before asking anything", () => {
     expect(describeCreateTransaction(action)).toBe("💸 Identifiqué un gasto de 25,00 € en “Compra semanal” (Supermercado).");
     const income = { ...action, data: { ...action.data, type: "income" as const } };
     expect(describeCreateTransaction(income)).toContain("💰 Identifiqué un ingreso de");
-    expect(accountSelectionQuestion(action, accountsForAction(action, accounts))).toContain("Identifiqué un gasto");
+    expect(accountSelectionQuestion(action)).toContain("Identifiqué un gasto");
   });
 
   it("asks where an income enters and only offers personal accounts for personal movements", () => {
     const personalIncome = { ...action, data: { ...action.data, type: "income" as const, scope: "personal" as const } };
     const eligible = accountsForAction(personalIncome, accounts);
     expect(eligible.map(account => account.name)).toEqual(["Mi efectivo"]);
-    expect(accountSelectionQuestion(personalIncome, eligible)).toContain("¿En qué cuenta entra el dinero?");
+    expect(accountSelectionQuestion(personalIncome)).toContain("¿En qué cuenta entra el dinero?");
   });
 
   it("accepts a number, an exact name or an unambiguous mention", () => {
@@ -53,28 +53,35 @@ describe("account selection", () => {
     expect(matchAccountSelection("Usa Efectivo de casa", eligible)?.name).toBe("Efectivo de casa");
   });
 
+  it("widens the button list to also offer personal accounts once a shared movement is already ambiguous", () => {
+    const options = accountOptionsForSelection(action, accounts);
+    expect(options.map(account => account.name)).toEqual(["Efectivo de casa", "Banco común", "Mi efectivo"]);
+  });
+
+  it("never widens a personal movement's button list with shared accounts", () => {
+    const personal = { ...action, data: { ...action.data, scope: "personal" as const } };
+    const options = accountOptionsForSelection(personal, accounts);
+    expect(options.map(account => account.name)).toEqual(["Mi efectivo"]);
+  });
+
   it("explains that Telegram can't create accounts, and offers an existing one instead", () => {
     const wantsNewAccount = { ...action, data: { ...action.data, wants_new_account: true } };
-    const eligible = accountsForAction(wantsNewAccount, accounts);
     const description = describeCreateTransaction(wantsNewAccount);
     expect(description).toContain("Para crear una cuenta conjunta deberás ingresar a la web con tu usuario.");
     expect(description).toContain("Identifiqué un gasto");
-    const question = accountSelectionQuestion(wantsNewAccount, eligible);
+    const question = accountSelectionQuestion(wantsNewAccount);
     expect(question).toContain("¿Deseas registrarlo de todos modos en una cuenta existente?");
   });
 });
 
 describe("telegram inline keyboards", () => {
-  it("builds one button per account (1-based callback index) plus a confirm/cancel row", () => {
+  it("builds one button per account (1-based callback index) plus a cancel row — no separate confirm, picking the account is the confirmation", () => {
     const eligible = accountsForAction(action, accounts);
     expect(createTransactionDecisionKeyboard(eligible, null)).toEqual({
       inline_keyboard: [
         [{ text: "🏦 Efectivo de casa", callback_data: "account:1" }],
         [{ text: "🏦 Banco común", callback_data: "account:2" }],
-        [
-          { text: "✅ Sí, confirmar", callback_data: "confirm:yes:create_transaction" },
-          { text: "❌ Cancelar", callback_data: "confirm:no:create_transaction" },
-        ],
+        [{ text: "❌ Cancelar", callback_data: "confirm:no:create_transaction" }],
       ],
     });
   });
@@ -84,6 +91,12 @@ describe("telegram inline keyboards", () => {
     const keyboard = createTransactionDecisionKeyboard(eligible, "Banco común");
     expect(keyboard.inline_keyboard[0][0].text).toBe("🏦 Efectivo de casa");
     expect(keyboard.inline_keyboard[1][0].text).toBe("✅ Banco común");
+  });
+
+  it("marks a personal account with a lock when it's offered alongside shared ones", () => {
+    const options = accountOptionsForSelection(action, accounts);
+    const keyboard = createTransactionDecisionKeyboard(options, null);
+    expect(keyboard.inline_keyboard[2][0].text).toBe("🔒🏦 Mi efectivo");
   });
 
   it("builds a confirm/cancel row carrying the action type", () => {

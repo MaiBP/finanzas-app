@@ -8,7 +8,7 @@ import { confirmCancelKeyboard, createTransactionDecisionKeyboard, importDecisio
 import { parseFinancialMessage } from "@/services/financial-message-parser";
 import { financialActionSchema, type FinancialAction } from "@/services/financial-message-parser/schema";
 import { executeTelegramAction } from "@/services/transaction-service/telegram";
-import { accountSelectionQuestion, accountsForAction, assignOnlyAccount, describeCreateTransaction, matchAccountSelection, type AccountOption, type CreateTransactionAction } from "@/services/transaction-service/account-selection";
+import { accountOptionsForSelection, accountSelectionQuestion, accountsForAction, assignOnlyAccount, describeCreateTransaction, matchAccountSelection, type AccountOption, type CreateTransactionAction } from "@/services/transaction-service/account-selection";
 import { executeFinanceQuery, getMonthSummary, getRecentTransactions } from "@/services/query-service";
 import { executeStatementImport, extractStatementTransactions, isPersonalStatementImport, isSupportedStatementFile, reviseStatementImport, statementImportPayloadSchema, statementPreview } from "@/services/statement-import";
 import { transcribeVoiceMessage } from "@/services/voice-transcription";
@@ -28,6 +28,7 @@ const telegramVoiceSchema=z.object({file_id:z.string(),file_unique_id:z.string()
 const callbackQuerySchema=z.object({id:z.string(),data:z.string().max(64).optional(),from:z.object({id:z.number()}),message:z.object({chat:z.object({id:z.number()}),message_id:z.number()}).optional()});
 const updateSchema=z.object({message:z.object({chat:z.object({id:z.number()}),from:z.object({id:z.number()}),text:z.string().max(2000).optional(),caption:z.string().max(2000).optional(),document:telegramFileSchema.optional(),photo:z.array(telegramPhotoSchema).optional(),voice:telegramVoiceSchema.optional()}).optional(),callback_query:callbackQuerySchema.optional()});
 const yes=/^(sí|si|confirmo|correcto|vale|ok)$/i; const no=/^(no|cancelar|cancela)$/i;
+const STALE_ACTION_MESSAGE="⏳ Pasó tiempo desde que enviaste ese mensaje. Por favor, volvé a contarme el movimiento.";
 
 // Sent as a short back-to-back sequence right after a successful /vincular, instead of one big
 // wall of text — repeats on every re-link (e.g. after a phone change), not just the first time.
@@ -44,26 +45,36 @@ async function queueAction(db:ReturnType<typeof createAdminClient>,userId:string
   if(error)throw error;
 }
 
+// Mirrors accountOptionsForSelection's combined shared+personal list (scope defaults to shared, so
+// that's the one case worth also offering the user's own personal accounts) — used everywhere a
+// pending create_transaction is resolved after the fact (button tap, typed account name, or a typed
+// "sí"), where there's no in-memory account list left to reuse from the original message turn.
 async function getAccountsForAction(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,action:CreateTransactionAction){
   let query=db.from("accounts").select("name,is_shared,type").eq("household_id",householdId).neq("type","joint").is("archived_at",null);
-  query=action.data.scope==="shared"?query.eq("is_shared",true):query.eq("is_shared",false).eq("owner_user_id",userId);
+  query=action.data.scope==="personal"?query.eq("is_shared",false).eq("owner_user_id",userId):query.or(`owner_user_id.eq.${userId},is_shared.eq.true`);
   const {data,error}=await query.order("created_at"); if(error)throw error;
   return (data??[]) as AccountOption[];
 }
 
 async function getImportAccounts(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,scope:"shared"|"personal"){
   let query=db.from("accounts").select("name,is_shared,type").eq("household_id",householdId).neq("type","joint").is("archived_at",null);
-  query=scope==="shared"?query.eq("is_shared",true):query.eq("is_shared",false).eq("owner_user_id",userId);
+  query=scope==="personal"?query.eq("is_shared",false).eq("owner_user_id",userId):query.or(`owner_user_id.eq.${userId},is_shared.eq.true`);
   const {data,error}=await query.order("created_at");if(error)throw error;return (data??[]) as AccountOption[];
 }
 
-async function handlePendingImportAccountSelection(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,text:string){
+// Returned account_name is always set here already (handleStatementAttachment auto-assigns it
+// whenever there's only one eligible account), so reaching this far always means there were 2+
+// options — picking one is itself the confirmation, same as the plain create_transaction flow, so
+// this executes the import immediately instead of just re-showing the preview for a separate
+// "Sí, registrar" tap.
+async function handlePendingImportAccountSelection(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,text:string):Promise<{text:string;keyboard?:InlineKeyboardMarkup;confirmed:boolean}|null>{
   const {data}=await db.from("pending_actions").select("id,payload").eq("user_id",userId).eq("household_id",householdId).eq("action_type","import_statement").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
   const parsed=statementImportPayloadSchema.safeParse(data?.payload);if(!data||!parsed.success||parsed.data.account_name)return null;
   const accounts=await getImportAccounts(db,userId,householdId,parsed.data.scope);const selected=matchAccountSelection(text,accounts);
-  if(!selected)return {text:`🤔 Antes de importar, elige una cuenta:\n${accounts.map((account,index)=>`${index+1}. ${account.name}`).join("\n")}`,keyboard:importDecisionKeyboard(accounts,null)};
-  const payload={...parsed.data,account_name:selected.name};const {error}=await db.from("pending_actions").update({payload}).eq("id",data.id);if(error)throw error;
-  return {text:statementPreview(payload,accounts),keyboard:accounts.length>1?importDecisionKeyboard(accounts,selected.name):importReviewKeyboard()};
+  if(!selected)return {text:"🤔 Antes de importar, elige una cuenta.",keyboard:importDecisionKeyboard(accounts,null),confirmed:false};
+  const payload={...parsed.data,account_name:selected.name};
+  const result=await executeStatementImport(db,userId,householdId,payload); await db.from("pending_actions").delete().eq("id",data.id);
+  return formatImportResult(result);
 }
 
 async function handlePendingImportEdit(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,text:string){
@@ -74,8 +85,7 @@ async function handlePendingImportEdit(db:ReturnType<typeof createAdminClient>,u
   if(!transactions.length)throw new Error("IMPORT_USER:No encontré movimientos después de esa corrección. Probá de nuevo o cancelá con “no”.");
   const payload=statementImportPayloadSchema.parse({...parsed.data,transactions});
   const {error}=await db.from("pending_actions").update({payload}).eq("id",data.id);if(error)throw error;
-  const accounts=await getImportAccounts(db,userId,householdId,payload.scope);
-  return {text:statementPreview(payload,accounts),keyboard:importReviewKeyboard()};
+  return {text:statementPreview(payload),keyboard:importReviewKeyboard()};
 }
 
 async function handleStatementAttachment(db:ReturnType<typeof createAdminClient>,message:NonNullable<z.infer<typeof updateSchema>["message"]>,userId:string,householdId:string){
@@ -91,17 +101,38 @@ async function handleStatementAttachment(db:ReturnType<typeof createAdminClient>
   if(!extraction.transactions.length)throw new Error("IMPORT_USER:No encontré movimientos legibles. Prueba con el PDF original o una imagen más nítida.");
   const payload=statementImportPayloadSchema.parse({kind:"statement_import",file_name:fileName,account_name:accounts.length===1?accounts[0].name:null,scope,transactions:extraction.transactions,omitted_rows:extraction.omitted_rows,note:extraction.note});
   await db.from("pending_actions").delete().eq("user_id",userId);const {error}=await db.from("pending_actions").insert({user_id:userId,household_id:householdId,action_type:"import_statement",payload,expires_at:new Date(Date.now()+30*60*1000).toISOString()});if(error)throw error;
-  return {text:statementPreview(payload,accounts),keyboard:accounts.length>1?importDecisionKeyboard(accounts,payload.account_name):importReviewKeyboard()};
+  return {text:statementPreview(payload),keyboard:accounts.length>1?importDecisionKeyboard(accounts,payload.account_name):importReviewKeyboard()};
 }
 
+// Picking an account is the confirmation (see createTransactionDecisionKeyboard) — no separate
+// "requires_confirmation" gate here, so this always executes as soon as a valid account is matched.
+// The selected account's own scope/privacy override whatever the parser originally guessed (shared
+// by default), since accountOptionsForSelection can offer a personal account here too.
 async function handlePendingAccountSelection(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,text:string){
   const {data}=await db.from("pending_actions").select("id,payload").eq("user_id",userId).eq("household_id",householdId).eq("action_type","create_transaction").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
   const parsed=financialActionSchema.safeParse(data?.payload); if(!data||!parsed.success||parsed.data.action!=="create_transaction"||parsed.data.data.account_name)return null;
   const accounts=await getAccountsForAction(db,userId,householdId,parsed.data); if(accounts.length<2)return null;
   const selected=matchAccountSelection(text,accounts); if(!selected)return null;
-  const action={...parsed.data,data:{...parsed.data.data,account_name:selected.name}};
-  if(action.requires_confirmation){const {error}=await db.from("pending_actions").update({payload:action}).eq("id",data.id);if(error)throw error;return {text:`${describeCreateTransaction(action)}\n\n📋 Usaré ${selected.name}.`,keyboard:createTransactionDecisionKeyboard(accounts,selected.name),confirmed:false};}
+  const action={...parsed.data,data:{...parsed.data.data,account_name:selected.name,scope:(selected.is_shared?"shared":"personal") as "shared"|"personal",privacy:(selected.is_shared?"visible":"private") as "visible"|"private"}};
   const reply=await executeTelegramAction(db,userId,householdId,action); await db.from("pending_actions").delete().eq("id",data.id); return {text:reply,confirmed:true};
+}
+
+function formatImportResult(result:{created:number;duplicates:number;failed:number;accountName:string;failureReasons:string[]}){
+  const failuresNote=result.failed?`\n⚠️ ${result.failed} ${result.failed===1?"no se pudo registrar":"no se pudieron registrar"}${result.failureReasons.length?`: ${result.failureReasons.join("; ")}`:""}.`:"";
+  if(result.created>0){
+    const movementWord=result.created===1?"movimiento":"movimientos";
+    const duplicatesNote=result.duplicates?`\n🔁 ${result.duplicates} ya ${result.duplicates===1?"estaba registrado":"estaban registrados"} en tus movimientos, no ${result.duplicates===1?"lo":"los"} volví a cargar.`:"";
+    return {text:`✅ ¡Listo! Registré ${result.created} ${movementWord} en ${result.accountName}.${duplicatesNote}${failuresNote}`,confirmed:true};
+  }
+  if(result.duplicates>0&&!result.failed) return {text:`🔁 ${result.duplicates===1?"Ese gasto ya está registrado":"Esos gastos ya están registrados"} en tus movimientos, no hice cambios.`,confirmed:true};
+  return {text:`⚠️ No pude registrar nada en ${result.accountName}.${failuresNote}`,confirmed:false};
+}
+
+// Checked before answering an "edit"/stale-looking tap so it can name the real cause (too much time
+// passed, or the user moved on to something newer) instead of a vague "no longer available".
+async function hasFreshPendingAction(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,actionType:string){
+  const {data}=await db.from("pending_actions").select("id").eq("user_id",userId).eq("household_id",householdId).eq("action_type",actionType).gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  return Boolean(data);
 }
 
 async function confirmPending(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string):Promise<{text:string;confirmed:boolean}>{
@@ -109,23 +140,12 @@ async function confirmPending(db:ReturnType<typeof createAdminClient>,userId:str
   if(!data)return {text:"🤷 No hay ninguna acción pendiente o ya ha caducado.",confirmed:false};
   if(data.action_type==="import_statement"){
     const result=await executeStatementImport(db,userId,householdId,data.payload);await db.from("pending_actions").delete().eq("id",data.id);
-    const failuresNote=result.failed?`\n⚠️ ${result.failed} ${result.failed===1?"no se pudo registrar":"no se pudieron registrar"}${result.failureReasons.length?`: ${result.failureReasons.join("; ")}`:""}.`:"";
-    let text:string; let confirmed:boolean;
-    if(result.created>0){
-      const movementWord=result.created===1?"movimiento":"movimientos";
-      const duplicatesNote=result.duplicates?`\n🔁 ${result.duplicates} ya ${result.duplicates===1?"estaba registrado":"estaban registrados"} en tus movimientos, no ${result.duplicates===1?"lo":"los"} volví a cargar.`:"";
-      text=`✅ ¡Listo! Registré ${result.created} ${movementWord} en ${result.accountName}.${duplicatesNote}${failuresNote}`;confirmed=true;
-    } else if(result.duplicates>0&&!result.failed){
-      text=`🔁 ${result.duplicates===1?"Ese gasto ya está registrado":"Esos gastos ya están registrados"} en tus movimientos, no hice cambios.`;confirmed=true;
-    } else {
-      text=`⚠️ No pude registrar nada en ${result.accountName}.${failuresNote}`;confirmed=false;
-    }
-    return {text,confirmed};
+    return formatImportResult(result);
   }
   let action=financialActionSchema.parse(data.payload); let reply:string; let confirmed=false;
   if(action.action==="create_transaction"){
     const accounts=await getAccountsForAction(db,userId,householdId,action); action=assignOnlyAccount(action,accounts);
-    if(!action.data.account_name&&accounts.length>1)return {text:accountSelectionQuestion(action,accounts),confirmed:false};
+    if(!action.data.account_name&&accounts.length>1)return {text:accountSelectionQuestion(action),confirmed:false};
     reply=await executeTelegramAction(db,userId,householdId,action); confirmed=true;
   }
   else if(action.action==="delete_transaction"){
@@ -160,28 +180,28 @@ async function handleCallbackQuery(callbackQuery:z.infer<typeof callbackQuerySch
     if(data.startsWith("confirm:")){
       const [,choice,actionType]=data.split(":");
       const {data:pending}=await db.from("pending_actions").select("action_type").eq("user_id",link.user_id).eq("household_id",membership.household_id).gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
-      if(pending?.action_type!==actionType)reply="⚠️ Esa opción ya no está disponible.";
+      if(pending?.action_type!==actionType)reply=STALE_ACTION_MESSAGE;
       else if(choice==="yes"){const result=await confirmPending(db,link.user_id,membership.household_id);reply=result.text;confirmed=result.confirmed;}
       else {await db.from("pending_actions").delete().eq("user_id",link.user_id);reply="❌ ¡Listo! No registré nada.";}
     }
     else if(data.startsWith("account:")){
-      // Same in-place-edit idea as import-account below, but only while the account pick still
-      // needs a follow-up confirm — once it actually registers the movement (confirmed=true),
-      // that's a real state change worth its own new message.
+      // Picking an account now always registers the movement right away (see
+      // createTransactionDecisionKeyboard) — always a real state change, so always a new message,
+      // never an in-place edit of the original question.
       const index=data.slice("account:".length);
       const selection=await handlePendingAccountSelection(db,link.user_id,membership.household_id,index);
-      reply=selection?.text??"⚠️ Esa opción ya no está disponible."; keyboard=selection?.keyboard; confirmed=selection?.confirmed??false; editInPlace=Boolean(selection)&&!confirmed;
+      reply=selection?.text??STALE_ACTION_MESSAGE; confirmed=selection?.confirmed??false;
     }
     else if(data.startsWith("import-account:")){
-      // Picking an account here just updates the same card in place (text + keyboard, with that
-      // account checked off) — it isn't a state transition worth a brand-new message, unlike
-      // confirming/cancelling/editing below.
+      // Same idea as account: above — picking an account with 2+ options now runs the import
+      // immediately, so this is only ever an in-place edit when the tap failed to match anything.
       const index=data.slice("import-account:".length);
       const selection=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,index);
-      reply=selection?.text??"⚠️ Esa opción ya no está disponible."; keyboard=selection?.keyboard; editInPlace=true;
+      reply=selection?.text??STALE_ACTION_MESSAGE; keyboard=selection?.keyboard; confirmed=selection?.confirmed??false; editInPlace=Boolean(selection)&&!confirmed;
     }
     else if(data.startsWith("edit:")){
-      reply="✍️ Contame qué querés corregir (por ejemplo: “el segundo producto son 30€, no 25€” o “la fecha es el 3 de agosto”).";
+      const actionType=data.slice("edit:".length);
+      reply=(await hasFreshPendingAction(db,link.user_id,membership.household_id,actionType))?"✍️ Contame qué querés corregir (por ejemplo: “el segundo producto son 30€, no 25€” o “la fecha es el 3 de agosto”).":STALE_ACTION_MESSAGE;
     }
     else return;
   }catch(error){reply=error instanceof Error?error.message:"⚠️ No he podido completar eso. Inténtalo de nuevo.";}
@@ -231,9 +251,9 @@ export async function POST(request:Request){
     }
     const importReply=await handleStatementAttachment(db,message,link.user_id,membership.household_id);if(importReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importReply.text),importReply.keyboard);return NextResponse.json({ok:true});}
     if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"❌ ¡Listo! No registré nada.");return NextResponse.json({ok:true});}
-    const importAccountReply=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,text);if(importAccountReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importAccountReply.text),importAccountReply.keyboard);return NextResponse.json({ok:true});}
+    const importAccountReply=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,text);if(importAccountReply){await sendTelegramMessage(chat.id,importAccountReply.confirmed?withTelegramWebSuggestion(importAccountReply.text):escapeTelegramHtml(importAccountReply.text),importAccountReply.keyboard);return NextResponse.json({ok:true});}
     const importEditReply=await handlePendingImportEdit(db,link.user_id,membership.household_id,text);if(importEditReply){await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:importEditReply.text});await sendTelegramMessage(chat.id,escapeTelegramHtml(importEditReply.text),importEditReply.keyboard);return NextResponse.json({ok:true});}
-    const accountSelectionReply=await handlePendingAccountSelection(db,link.user_id,membership.household_id,text);if(accountSelectionReply){await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:accountSelectionReply.text});await sendTelegramMessage(chat.id,accountSelectionReply.confirmed?withTelegramWebSuggestion(accountSelectionReply.text):escapeTelegramHtml(accountSelectionReply.text),accountSelectionReply.keyboard);return NextResponse.json({ok:true});}
+    const accountSelectionReply=await handlePendingAccountSelection(db,link.user_id,membership.household_id,text);if(accountSelectionReply){await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:accountSelectionReply.text});await sendTelegramMessage(chat.id,accountSelectionReply.confirmed?withTelegramWebSuggestion(accountSelectionReply.text):escapeTelegramHtml(accountSelectionReply.text));return NextResponse.json({ok:true});}
     if(yes.test(text)){const result=await confirmPending(db,link.user_id,membership.household_id);await sendTelegramMessage(chat.id,result.confirmed?withTelegramWebSuggestion(result.text):escapeTelegramHtml(result.text));return NextResponse.json({ok:true});}
     if(text==="/resumen"){await sendTelegramMessage(chat.id,escapeTelegramHtml(await getMonthSummary(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
     if(text==="/ultimos"){await sendTelegramMessage(chat.id,escapeTelegramHtml(await getRecentTransactions(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
@@ -251,8 +271,16 @@ export async function POST(request:Request){
     else if(action.action==="cancel_action")reply="👍 De acuerdo, no hago nada.";
     else if(action.action==="update_transaction"){reply="🔒 Esta edición necesita hacerse desde la web por seguridad.";confirmed=true;}
     else if(action.action==="create_transaction"){
+      // eligibleAccounts (scope-only) decides whether a question is needed at all — a household
+      // with a single shared account still auto-assigns it below even if the user also has a
+      // personal account. Once a question IS needed, the actual button list is wider (see
+      // accountOptionsForSelection): defaulted-to-shared movements also offer the personal escape
+      // hatch, since "shared" is what the parser falls back to whenever no space was named.
       const eligibleAccounts=accountsForAction(action,(accounts??[]) as AccountOption[]); action=assignOnlyAccount(action,eligibleAccounts);
-      if(!action.data.account_name&&eligibleAccounts.length>1){await queueAction(db,link.user_id,membership.household_id,action);reply=accountSelectionQuestion(action,eligibleAccounts);keyboard=createTransactionDecisionKeyboard(eligibleAccounts,null);}
+      if(!action.data.account_name&&eligibleAccounts.length>1){
+        const options=accountOptionsForSelection(action,(accounts??[]) as AccountOption[]);
+        await queueAction(db,link.user_id,membership.household_id,action);reply=accountSelectionQuestion(action);keyboard=createTransactionDecisionKeyboard(options,null);
+      }
       else if(!action.requires_confirmation&&action.confidence>=.85){reply=await executeTelegramAction(db,link.user_id,membership.household_id,action);confirmed=true;}
       else {await queueAction(db,link.user_id,membership.household_id,action);reply=`${describeCreateTransaction(action)}\n\n📋 Queda pendiente.`;keyboard=confirmCancelKeyboard("create_transaction");}
     }
