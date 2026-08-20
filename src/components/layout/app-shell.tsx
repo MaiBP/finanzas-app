@@ -5,6 +5,7 @@ import { logout } from "@/app/(auth)/actions";
 import { AppContextLabel } from "@/components/layout/app-context-label";
 import { SectionSurface } from "@/components/layout/section-surface";
 import { NavLink } from "@/components/layout/nav-link";
+import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
 
 const householdNav = [
   { href: "/app", label: "Resumen", icon: Home },
@@ -30,7 +31,6 @@ const generalNav = [
   { href: "/app/asistente", label: "Asistente", icon: Bot },
   { href: "/app/ajustes", label: "Ajustes", icon: Settings },
 ] as const;
-const mobileNav = [...householdNav, ...personalMobileNav, ...generalNav];
 
 export function AppShell({
   children,
@@ -101,29 +101,24 @@ export function AppShell({
 
       <SectionSurface>
         <header className="section-header sticky top-0 z-10 flex items-center justify-between border-b border-(--ink)/30 px-5 py-4 backdrop-blur md:px-8">
-          <Link href="/app" className="flex items-center md:hidden">
-            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={44} height={44} className="size-11 object-contain" />
-          </Link>
+          <div className="flex items-center gap-3 md:hidden">
+            <MobileNavDrawer
+              householdNav={householdNav.map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={19} /> }))}
+              personalNav={personalMobileNav.map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={19} /> }))}
+              generalNav={generalNav.map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={19} /> }))}
+              householdName={householdName}
+              personalSpaceName={personalSpaceName}
+              logout={logout}
+            />
+            <Link href="/app" className="flex items-center">
+              <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={36} height={36} className="size-9 object-contain" />
+            </Link>
+          </div>
           <AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName} />
-          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={44} height={44} className="size-11 object-contain" />
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={44} height={44} className="hidden size-11 object-contain md:block" />
         </header>
         <main className="mx-auto max-w-7xl p-5 md:p-8">{children}</main>
       </SectionSurface>
-
-      <nav className="fixed inset-x-3 bottom-3 z-20 flex overflow-x-auto rounded-full border border-(--ink)/20 bg-white px-2 py-2 text-(--ink) shadow-2xl md:hidden">
-        {mobileNav.map((item) => (
-          <NavLink key={item.href} href={item.href} label={item.label} icon={<item.icon size={19} />} variant="mobile" />
-        ))}
-        <form action={logout} className="contents">
-          <button
-            type="submit"
-            className="flex min-w-16 flex-1 flex-col items-center gap-1 rounded-full p-2 text-[10px] text-(--ink) hover:bg-(--highlight)"
-          >
-            <LogOut size={19} />
-            Salir
-          </button>
-        </form>
-      </nav>
     </div>
   );
 }

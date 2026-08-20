@@ -19,5 +19,5 @@ function getSectionTheme(pathname: string) {
 
 export function SectionSurface({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  return <div className={`section-surface min-w-0 pb-24 md:pb-0 ${getSectionTheme(pathname)}`}>{children}</div>;
+  return <div className={`section-surface min-w-0 ${getSectionTheme(pathname)}`}>{children}</div>;
 }
