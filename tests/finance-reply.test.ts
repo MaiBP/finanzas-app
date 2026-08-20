@@ -338,6 +338,72 @@ describe("spending_ratio", () => {
   });
 });
 
+describe("category_trend", () => {
+  const trendRows: Row[] = [
+    { type: "expense", amount_cents: 3_000, description: "Cena", transaction_date: "2026-07-10", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Restaurantes" }, accounts: { name: "Banco" } },
+    { type: "expense", amount_cents: 8_000, description: "Cena", transaction_date: "2026-08-05", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Restaurantes" }, accounts: { name: "Banco" } },
+    { type: "expense", amount_cents: 10_000, description: "Super", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Supermercado" }, accounts: { name: "Banco" } },
+  ];
+
+  it("breaks down a single category's spend by month", async () => {
+    const db = createDb(trendRows, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "category_trend",
+      filters: { ...baseFilters, category: "Restaurantes", period: "custom", date_from: "2026-07-01", date_to: "2026-08-31" },
+    });
+    expect(facts).toEqual({
+      kind: "category_trend",
+      scope: "shared",
+      categoryLabel: "Restaurantes",
+      months: [{ month: "2026-07", amount_cents: 3_000 }, { month: "2026-08", amount_cents: 8_000 }],
+    });
+  });
+
+  it("reports no data when the category has no expenses in range", async () => {
+    const db = createDb(trendRows, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {
+      query_type: "category_trend",
+      filters: { ...baseFilters, category: "Inexistente", period: "custom", date_from: "2026-07-01", date_to: "2026-08-31" },
+    });
+    expect(facts.kind).toBe("no_data");
+  });
+});
+
+describe("savings_opportunities", () => {
+  const monthlyRows: Row[] = [
+    { type: "expense", amount_cents: 3_000, description: "Cena", transaction_date: "2026-07-10", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Restaurantes" }, accounts: { name: "Banco" } },
+    { type: "expense", amount_cents: 8_000, description: "Cena", transaction_date: "2026-08-05", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Restaurantes" }, accounts: { name: "Banco" } },
+    { type: "expense", amount_cents: 10_000, description: "Super", transaction_date: "2026-07-02", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Supermercado" }, accounts: { name: "Banco" } },
+    { type: "expense", amount_cents: 9_000, description: "Super", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Supermercado" }, accounts: { name: "Banco" } },
+  ];
+
+  it("ranks categories whose expenses grew from the previous month to the current one", async () => {
+    const db = createDb(monthlyRows, members);
+    const facts = await computeFinanceQueryFacts(
+      db, "household-1", "user-1",
+      { query_type: "savings_opportunities", filters: baseFilters },
+      new Date("2026-08-15T10:00:00Z"),
+    );
+    expect(facts).toEqual({
+      kind: "savings_opportunities",
+      scope: "shared",
+      targetMonth: "2026-08",
+      previousMonth: "2026-07",
+      risingCategories: [{ name: "Restaurantes", current: 8_000, previous: 3_000, increase: 5_000 }],
+    });
+  });
+
+  it("reports empty when nothing increased month over month", async () => {
+    const db = createDb(monthlyRows, members);
+    const facts = await computeFinanceQueryFacts(
+      db, "household-1", "user-1",
+      { query_type: "savings_opportunities", filters: { ...baseFilters, category: "Supermercado" } },
+      new Date("2026-08-15T10:00:00Z"),
+    );
+    expect(facts).toEqual({ kind: "savings_opportunities", scope: "shared", targetMonth: "2026-08", previousMonth: "2026-07", empty: true });
+  });
+});
+
 describe("formatFinanceReply", () => {
   it("formats household balance facts deterministically", () => {
     const reply = formatFinanceReply({
