@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LogOut, Menu, X } from "lucide-react";
@@ -24,7 +25,11 @@ export function MobileNavDrawer({
   logout: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+
+  // document.body isn't available during SSR, so the portal target is only safe to use post-mount.
+  useEffect(() => setMounted(true), []);
 
   // Route changes only happen via a nav link, so this is the one signal that means "close me".
   useEffect(() => setOpen(false), [pathname]);
@@ -48,7 +53,7 @@ export function MobileNavDrawer({
         <Menu size={20} />
       </button>
 
-      {open && (
+      {open && mounted && createPortal(
         <div className="fixed inset-0 z-30">
           <button type="button" aria-label="Cerrar menú" className="absolute inset-0 bg-(--ink)/40" onClick={() => setOpen(false)} />
           <div className="absolute inset-y-0 left-0 w-[82%] max-w-xs overflow-y-auto border-r border-(--ink)/25 bg-white p-5 shadow-2xl">
@@ -114,7 +119,8 @@ export function MobileNavDrawer({
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
