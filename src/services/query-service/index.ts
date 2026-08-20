@@ -51,6 +51,11 @@ export type FinanceQueryFacts =
   // broken down by month instead of collapsed into one total — "how has X evolved" instead of
   // "how much did I spend on X this period".
   | { kind: "category_trend"; scope: FinanceScope; categoryLabel: string; months: { month: string; amount_cents: number }[] }
+  // Same idea as category_trend but at the item/subcategory level (see item_spending) — needs its
+  // own empty flag rather than relying on the early no_data check, since the parent expense
+  // transactions can exist for the period while zero of their items match the requested subcategory.
+  | { kind: "subcategory_trend"; scope: FinanceScope; subcategoryLabel: string; empty: true }
+  | { kind: "subcategory_trend"; scope: FinanceScope; subcategoryLabel: string; empty?: false; months: { month: string; amount_cents: number }[] }
   // Always compares targetMonth against the month right before it, regardless of any period filter —
   // "where can I cut" is inherently a month-over-month question, not a fixed-range one.
   | { kind: "savings_opportunities"; scope: FinanceScope; targetMonth: string; previousMonth: string; empty: true }
@@ -339,7 +344,7 @@ export async function computeFinanceQueryFacts(
   if (data.query_type === "account_summary" && !filters.period && !filters.month && !filters.date_from && !filters.date_to) {
     range = { from: null, to: null, label: "todo el historial" };
   }
-  if ((data.query_type === "monthly_trend" || data.query_type === "category_trend") && !filters.period && !filters.month && !filters.date_from && !filters.date_to) {
+  if ((data.query_type === "monthly_trend" || data.query_type === "category_trend" || data.query_type === "subcategory_trend") && !filters.period && !filters.month && !filters.date_from && !filters.date_to) {
     range = resolveFinancePeriod({ ...filters, period: "current_year" }, now);
   }
   if (data.query_type === "compare_months" || data.query_type === "savings_opportunities") {
@@ -456,6 +461,27 @@ export async function computeFinanceQueryFacts(
     const categoryLabel = filters.category ?? filters.search_text ?? "esa categoría";
     return { kind: "category_trend", scope, categoryLabel, months };
   }
+  if (data.query_type === "subcategory_trend") {
+    const expenseIds = rows.filter((row) => row.type === "expense").map((row) => row.id);
+    let items = await fetchItemRows(db, expenseIds);
+    if (filters.subcategory) {
+      const subcategoryTerm = normalize(filters.subcategory);
+      items = items.filter((item) => normalize(item.subcategory).includes(subcategoryTerm));
+    }
+    const subcategoryLabel = filters.subcategory ?? "todos los productos";
+    if (!items.length) return { kind: "subcategory_trend", scope, subcategoryLabel, empty: true };
+    // Items only carry transaction_id — bucket by the parent transaction's own date.
+    const dateByTransactionId = new Map(rows.map((row) => [row.id, row.transaction_date]));
+    const monthsMap = new Map<string, number>();
+    for (const item of items) {
+      const date = dateByTransactionId.get(item.transaction_id);
+      if (!date) continue;
+      const month = date.slice(0, 7);
+      monthsMap.set(month, (monthsMap.get(month) ?? 0) + item.amount_cents);
+    }
+    const months = [...monthsMap].sort(([a], [b]) => a.localeCompare(b)).map(([month, amount_cents]) => ({ month, amount_cents }));
+    return { kind: "subcategory_trend", scope, subcategoryLabel, months };
+  }
   if (data.query_type === "compare_months") {
     const targetMonth = filters.month ?? today.slice(0, 7);
     const previousMonth = shiftMonth(targetMonth, -1);
@@ -540,6 +566,9 @@ export function formatFinanceReply(facts: FinanceQueryFacts): string {
     case "category_trend":
       if (!facts.months.length) return `🤷 No hay gastos confirmados en "${facts.categoryLabel}" en ${scopeLabel(facts.scope)} para ese período.`;
       return `📈 Evolución de "${facts.categoryLabel}" en ${scopeLabel(facts.scope)}:\n${facts.months.map((m) => `${m.month}: ${formatMoney(m.amount_cents)}`).join("\n")}`;
+    case "subcategory_trend":
+      if (facts.empty) return `🤷 No tengo productos detallados de "${facts.subcategoryLabel}" en ${scopeLabel(facts.scope)} para ese período.`;
+      return `📈 Evolución de "${facts.subcategoryLabel}" en ${scopeLabel(facts.scope)}:\n${facts.months.map((m) => `${m.month}: ${formatMoney(m.amount_cents)}`).join("\n")}`;
     case "compare_months": {
       const trend = facts.expenseDifference >= 0 ? "🔺" : "🔻";
       return `📊 ${facts.targetMonth}: ingresos ${formatMoney(facts.current.income)}, gastos ${formatMoney(facts.current.expenses)}. ${facts.previousMonth}: ingresos ${formatMoney(facts.previous.income)}, gastos ${formatMoney(facts.previous.expenses)}. ${trend} La diferencia de gastos es ${facts.expenseDifference >= 0 ? "+" : ""}${formatMoney(facts.expenseDifference)}.`;
