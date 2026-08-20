@@ -391,15 +391,29 @@ export function LandingPage() {
             viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <div className="rounded-sm border border-(--ink)/20 bg-(--lime) p-5">
+            <div className="relative rounded-lg border-2 border-(--ink) bg-(--lime) p-5 shadow-[6px_6px_0_0_var(--ink)]">
+              <Image
+                src="/home.png"
+                alt=""
+                width={100}
+                height={100}
+                className="absolute -top-6 -right-5 z-10 size-20 rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)]"
+              />
               <p className="w-fit bg-(--highlight) px-1 text-xs font-black uppercase">Espacio compartido</p>
               <p className="mt-3 text-2xl font-black">Hogar</p>
-              <p className="mt-1 text-sm text-(--ink)/75">Alquiler, súper, servicios: todo lo que pagan entre los dos.</p>
+              <p className="mt-1 max-w-[85%] text-sm text-(--ink)/75">Alquiler, súper, servicios: todo lo que pagan entre los dos.</p>
             </div>
-            <div className="rounded-sm border border-(--ink)/20 bg-(--blue) p-5">
+            <div className="relative rounded-lg border-2 border-(--ink) bg-(--blue) p-5 shadow-[6px_6px_0_0_var(--ink)]">
+              <Image
+                src="/private.png"
+                alt=""
+                width={100}
+                height={100}
+                className="absolute -top-6 -right-5 z-10 size-20 rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)]"
+              />
               <p className="w-fit bg-(--highlight) px-1 text-xs font-black uppercase">Espacio personal</p>
               <p className="mt-3 text-2xl font-black">Solo tuyo</p>
-              <p className="mt-1 text-sm text-(--ink)/75">Tus gastos privados, visibles únicamente para ti.</p>
+              <p className="mt-1 max-w-[85%] text-sm text-(--ink)/75">Tus gastos privados, visibles únicamente para ti.</p>
             </div>
           </motion.div>
         </div>
@@ -447,7 +461,7 @@ export function LandingPage() {
               Todo lo que necesitan
             </p>
             <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Todo lo que necesitan para <Highlight>organizar su dinero</Highlight>
+              Todo lo que necesitan para <Highlight>organizar</Highlight> su dinero
             </h2>
           </motion.div>
           <div className="mt-10 grid gap-5 sm:grid-cols-2">
