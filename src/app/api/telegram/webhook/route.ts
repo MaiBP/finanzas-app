@@ -72,7 +72,11 @@ async function handlePendingImportAccountSelection(db:ReturnType<typeof createAd
   const parsed=statementImportPayloadSchema.safeParse(data?.payload);if(!data||!parsed.success||parsed.data.account_name)return null;
   const accounts=await getImportAccounts(db,userId,householdId,parsed.data.scope);const selected=matchAccountSelection(text,accounts);
   if(!selected)return {text:"🤔 Antes de importar, elige una cuenta.",keyboard:importDecisionKeyboard(accounts,null),confirmed:false};
-  const payload={...parsed.data,account_name:selected.name};
+  // getImportAccounts widens the list to include personal accounts when the import defaulted to
+  // shared (same rescue-hatch idea as the plain create_transaction flow) — scope must follow
+  // whichever one was actually picked, or executeStatementImport's is_shared lookup mismatches and
+  // reports a perfectly valid account as "no longer available".
+  const payload={...parsed.data,account_name:selected.name,scope:(selected.is_shared?"shared":"personal") as "shared"|"personal"};
   const result=await executeStatementImport(db,userId,householdId,payload); await db.from("pending_actions").delete().eq("id",data.id);
   return formatImportResult(result);
 }
@@ -112,7 +116,11 @@ async function handleStatementAttachment(db:ReturnType<typeof createAdminClient>
   const [{data:categories,error:categoryError},bytes]=await Promise.all([db.from("categories").select("name,kind").or(`household_id.eq.${householdId},household_id.is.null`),downloadTelegramFile(attachment.file_id)]);if(categoryError)throw categoryError;
   const extraction=await extractStatementTransactions({bytes,fileName,mimeType,caption},categories??[]);
   if(!extraction.transactions.length)throw new Error("IMPORT_USER:No encontré movimientos legibles. Prueba con el PDF original o una imagen más nítida.");
-  const payload=statementImportPayloadSchema.parse({kind:"statement_import",file_name:fileName,account_name:accounts.length===1?accounts[0].name:null,scope,transactions:extraction.transactions,omitted_rows:extraction.omitted_rows,note:extraction.note});
+  // accounts can include the user's personal accounts too when scope defaulted to shared (see
+  // getImportAccounts) — if there's only one candidate overall and it's personal, the payload's
+  // scope must follow it, or executeStatementImport's is_shared lookup won't find it later.
+  const resolvedScope=accounts.length===1&&!accounts[0].is_shared?"personal":scope;
+  const payload=statementImportPayloadSchema.parse({kind:"statement_import",file_name:fileName,account_name:accounts.length===1?accounts[0].name:null,scope:resolvedScope,transactions:extraction.transactions,omitted_rows:extraction.omitted_rows,note:extraction.note});
   await db.from("pending_actions").delete().eq("user_id",userId);const {error}=await db.from("pending_actions").insert({user_id:userId,household_id:householdId,action_type:"import_statement",payload,expires_at:new Date(Date.now()+30*60*1000).toISOString()});if(error)throw error;
   return {text:statementPreview(payload),keyboard:accounts.length>1?importDecisionKeyboard(accounts,payload.account_name):importReviewKeyboard()};
 }
