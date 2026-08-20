@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
-  Bot,
   Check,
   Facebook,
   HeartHandshake,
@@ -69,12 +68,6 @@ const features = [
     title: "Balance sin cálculos",
     description: "Mira de un vistazo quién puso qué este mes, sin abrir una sola hoja de cálculo.",
   },
-] as const;
-
-const queries = [
-  { question: "¿Cuánto gastamos este mes?", answer: "Llevan 1.240 € de gasto, 180 € menos que el mes pasado." },
-  { question: "¿En qué gastamos más?", answer: "El mayor gasto fue Supermercado, con 320 € este mes." },
-  { question: "¿Cuánto ahorramos respecto al mes pasado?", answer: "Ahorraron 95 € más que el mes anterior." },
 ] as const;
 
 const fadeUp = {
@@ -433,23 +426,19 @@ export function LandingPage() {
             </p>
           </motion.div>
           <motion.div
-            className="card mx-auto mt-10 max-w-xl space-y-3 p-6"
+            className="mx-auto mt-10 max-w-sm"
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            {queries.map((item) => (
-              <div key={item.question} className="space-y-2">
-                <div className="ml-auto w-fit max-w-[85%] rounded-2xl bg-(--highlight) px-4 py-2 text-sm font-bold">
-                  {item.question}
-                </div>
-                <div className="flex w-fit max-w-[85%] items-start gap-2 rounded-2xl bg-(--blue) px-4 py-2 text-sm">
-                  <Bot size={16} className="mt-0.5 shrink-0" />
-                  {item.answer}
-                </div>
-              </div>
-            ))}
+            <Image
+              src="/chat-mockup.png"
+              alt="Conversación con Finzy: «¿Cuánto gastamos este mes?», «¿En qué gastamos más?», «¿Cuánto ahorramos respecto al mes pasado?», con respuestas al instante"
+              width={1024}
+              height={1536}
+              className="h-auto w-full"
+            />
           </motion.div>
         </div>
       </section>
