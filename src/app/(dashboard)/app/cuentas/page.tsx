@@ -1,12 +1,9 @@
+import Image from "next/image";
 import {
-  Archive,
   ArrowRight,
-  Banknote,
   CreditCard,
-  Landmark,
   PiggyBank,
   TrendingUp,
-  UsersRound,
   WalletCards,
 } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
@@ -20,6 +17,8 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button, LinkButton } from "@/components/ui/button";
 import { getHouseholdRoster } from "@/services/household-roster";
+import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
+import { ACCOUNT_TYPE_LABELS } from "@/lib/finance/account-types";
 
 type AccountRow = {
   id: string;
@@ -37,20 +36,22 @@ type ExpenseMovement = {
   amount_cents: number;
 };
 function AccountIcon({ type }: { type: string }) {
-  if (type === "cash") return <Banknote />;
+  if (type === "bank") return <Image src="/bank-building.png" alt="" width={32} height={32} className="size-6 object-contain" />;
+  if (type === "cash") return <Image src="/money-cash.png" alt="" width={32} height={32} className="size-6 object-contain" />;
   if (type === "card") return <CreditCard />;
   if (type === "savings") return <PiggyBank />;
   if (type === "investment") return <TrendingUp />;
-  if (type === "bank") return <Landmark />;
   return <WalletCards />;
 }
-const typeNames: Record<string, string> = {
-  joint: "General",
-  bank: "Banco",
-  card: "Tarjeta",
-  cash: "Efectivo",
-  savings: "Ahorro",
-  investment: "Inversión",
+const typeNames = ACCOUNT_TYPE_LABELS;
+// Types with dedicated artwork float overflowing the card's corner instead of sitting inside
+// the lime badge (see AccountIcon for the "joint" fallback, the only type without one).
+const FLOATING_ACCOUNT_IMAGES: Partial<Record<string, string>> = {
+  bank: "/bank-building.png",
+  cash: "/money-cash.png",
+  card: "/credit-card.png",
+  savings: "/piggy-bank.png",
+  investment: "/investing.png",
 };
 
 export default async function AccountsPage() {
@@ -180,27 +181,34 @@ export default async function AccountsPage() {
                 : balance < 0
                   ? "Saldo negativo"
                   : "En equilibrio";
+            const floatingImage = FLOATING_ACCOUNT_IMAGES[account.type];
             return (
-              <article className="card overflow-hidden" key={account.id}>
+              <div className="relative" key={account.id}>
+                {floatingImage && (
+                  <Image
+                    src={floatingImage}
+                    alt=""
+                    width={112}
+                    height={112}
+                    className="absolute -top-6 -left-5 z-1 size-16 -rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)] sm:-top-7 sm:-left-6 sm:size-20"
+                  />
+                )}
+                <article className="card overflow-hidden">
                 <div className="p-6">
                   <div className="flex items-center justify-between">
-                    <span className="grid size-11 place-items-center rounded-xl bg-(--lime)">
-                      <AccountIcon type={account.type} />
-                    </span>
+                    {floatingImage ? (
+                      <span className="size-11" />
+                    ) : (
+                      <span className="grid size-11 place-items-center rounded-xl bg-(--lime)">
+                        <AccountIcon type={account.type} />
+                      </span>
+                    )}
                     <div className="flex items-center gap-2">
                       <span className="rounded-full bg-(--lilac) px-2.5 py-1 text-xs font-bold">
                         {typeNames[account.type] ?? "Conjunta"}
                       </span>
                       {fundingAccounts.length > 1 && (
-                        <form action={archiveSharedAccount}>
-                          <input type="hidden" name="id" value={account.id} />
-                          <button
-                            aria-label={`Archivar ${account.name}`}
-                            className="rounded-lg p-2"
-                          >
-                            <Archive size={16} />
-                          </button>
-                        </form>
+                        <DeleteAccountButton id={account.id} name={account.name} action={archiveSharedAccount} />
                       )}
                     </div>
                   </div>
@@ -280,13 +288,14 @@ export default async function AccountsPage() {
                     </p>
                   </form>
                 </details>
-              </article>
+                </article>
+              </div>
             );
           })}
           {!fundingAccounts.length && (
             <div className="card">
               <EmptyState
-                icon={WalletCards}
+                image="/bank-building.png"
                 title="Aún no hay cuentas operativas"
                 description="Crea efectivo, banco, tarjeta u otra cuenta para poder registrar nuevos movimientos."
               />
@@ -335,7 +344,7 @@ export default async function AccountsPage() {
       </section>
       <section className="card mt-7 flex max-w-2xl flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-3">
-          <UsersRound className="shrink-0" />
+          <Image src="/private.png" alt="" width={32} height={32} className="size-6 shrink-0 object-contain" />
           <div>
             <h2 className="font-black">¿Quieres gestionar dinero solo tuyo?</h2>
             <p className="mt-1 text-sm text-(--muted)">

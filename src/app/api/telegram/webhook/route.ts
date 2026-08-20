@@ -32,9 +32,9 @@ const yes=/^(sí|si|confirmo|correcto|vale|ok)$/i; const no=/^(no|cancelar|cance
 // Sent as a short back-to-back sequence right after a successful /vincular, instead of one big
 // wall of text — repeats on every re-link (e.g. after a phone change), not just the first time.
 const ONBOARDING_MESSAGES=[
-  "👋 Soy tu asistente financiero. Así de simple es registrar algo:\n💬 Escribime o mandame un audio: “Gasté 20 euros en el súper” o “Ingresé 500 de sueldo”.\nPor defecto lo registro como compartido con tu pareja — agregá la palabra “personal” si es solo tuyo.",
+  "👋 Soy Finzy, tu asistente financiero. Así de simple es registrar algo:\n💬 Escribime o mandame un audio: “Gasté 20 euros en el súper” o “Ingresé 500 de sueldo”.\nPor defecto lo registro como compartido con tu pareja — agregá la palabra “personal” si es solo tuyo.",
   "📊 También podés preguntarme por tus finanzas: “¿Cuánto gastamos este mes?”, “¿En qué gasté más?”, “Mostrame los últimos movimientos”. Los números siempre salen de tus datos reales, nunca los invento.",
-  "🧾 ¿Tenés un ticket o extracto? Mandame la foto o el archivo (PDF, Excel, CSV o imagen) y te muestro una vista previa antes de guardar nada — hasta puedo detectar los productos de un ticket de supermercado uno por uno.",
+  "🧾 ¿Tenés un ticket o extracto? Mandame la foto o el PDF y te muestro una vista previa antes de guardar nada — hasta puedo detectar los productos de un ticket de supermercado uno por uno.",
   "Cuando quieras repasar esto de nuevo, escribí /ayuda. 🙌 ¿Querés probar ahora? Contame un gasto real de hoy.",
 ];
 
@@ -82,7 +82,7 @@ async function handleStatementAttachment(db:ReturnType<typeof createAdminClient>
   const photo=message.photo?.at(-1);const attachment=message.document??photo;if(!attachment)return null;
   const fileName=message.document?.file_name??"resumen.jpg";const mimeType=message.document?.mime_type??"image/jpeg";const caption=message.caption??"";
   if((attachment.file_size??0)>MAX_TELEGRAM_IMPORT_BYTES)throw new Error("IMPORT_USER:El archivo supera el límite de 12 MB.");
-  if(!isSupportedStatementFile(fileName,mimeType))throw new Error("IMPORT_USER:Solo puedo leer PDF, Excel (.xls/.xlsx), CSV o imágenes JPG, PNG y WEBP.");
+  if(!isSupportedStatementFile(fileName,mimeType))throw new Error("IMPORT_USER:Solo puedo leer PDF o imágenes JPG, PNG y WEBP.");
   const scope=isPersonalStatementImport(caption)?"personal":"shared";const accounts=await getImportAccounts(db,userId,householdId,scope);
   if(!accounts.length)throw new Error(`IMPORT_USER:Primero crea una cuenta ${scope==="shared"?"compartida":"personal"} de banco, tarjeta o efectivo en la web.`);
   await sendTelegramMessage(message.chat.id,"📄 Estoy leyendo el archivo y preparando una vista previa. Puede tardar unos segundos…");
@@ -200,14 +200,14 @@ export async function POST(request:Request){
   const message=parsed.data.message;const {chat,from}=message;let text=(message.text??message.caption??"").trim();const db=createAdminClient();
   try{
     if(!(await checkTelegramMessageRateLimit(db,from.id))){await sendTelegramMessage(chat.id,"⏳ Has enviado demasiados mensajes seguidos. Espera un momento y vuelve a intentarlo.");return NextResponse.json({ok:true});}
-    if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"💡 En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”, por texto o por nota de voz. También puedes adjuntar un PDF, Excel, CSV o imagen de un extracto: te mostraré una vista previa antes de registrar nada, y si algo está mal podés contarme qué corregir antes de confirmar. Los archivos y notas de voz se procesan con OpenAI y no se guardan en Miti-Miti. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. Comandos: 📊 /resumen · 🧾 /ultimos · ❌ /cancelar.");return NextResponse.json({ok:true});}
+    if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"💡 En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”, por texto o por nota de voz. También puedes adjuntar un PDF o una imagen de un extracto: te mostraré una vista previa antes de registrar nada, y si algo está mal podés contarme qué corregir antes de confirmar. Los archivos y notas de voz se procesan con OpenAI y no se guardan en Miti-Miti. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. Comandos: 📊 /resumen · 🧾 /ultimos · ❌ /cancelar.");return NextResponse.json({ok:true});}
     if(text.startsWith("/start")||text.startsWith("/vincular")){
       // Telegram's deep link (t.me/<bot>?start=CODE) sends "/start CODE" automatically, so it
       // shares this same linking branch instead of only showing the greeting.
       const code=text.split(/\s+/)[1]?.trim().toUpperCase();
       if(!code){
         if(text.startsWith("/vincular")){await sendTelegramMessage(chat.id,"⚠️ Falta el código. Ejemplo: <code>/vincular ABC12345</code>");return NextResponse.json({ok:true});}
-        await sendTelegramMessage(chat.id,"Hola 👋 Soy el asistente de <b>Miti-Miti</b>. Vincula tu cuenta desde Ajustes y envíame <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});
+        await sendTelegramMessage(chat.id,"Hola 👋 Soy Finzy, el asistente de <b>Miti-Miti</b>. Vincula tu cuenta desde Ajustes y envíame <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});
       }
       const {data:activeCode,error:codeError}=await db.from("telegram_link_codes").select("user_id").eq("code",code).is("used_at",null).gt("expires_at",new Date().toISOString()).maybeSingle();
       if(codeError)throw codeError;

@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { Archive, CreditCard, Landmark, Pencil, PiggyBank, TrendingUp, WalletCards } from "lucide-react";
+import Image from "next/image";
+import { CreditCard, Landmark, Pencil, TrendingUp } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
 import { TransactionForm } from "@/components/transactions/transaction-form";
 import type { Account, Category } from "@/types/database";
 import { archiveAccount, createAccount } from "../cuentas/actions";
 import { DeleteTransactionButton } from "@/components/transactions/delete-transaction-button";
+import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
 import { decryptField } from "@/lib/security/field-encryption";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -97,7 +99,7 @@ export default async function PersonalPage({
         <p className="text-sm font-bold uppercase">Espacio personal · privado para ti</p>
         <h1 className="mt-1 text-3xl font-black md:text-4xl">{profile?.personal_space_name ?? "Mi espacio"}</h1>
         <p className="mt-3 max-w-2xl text-(--ink)/75">
-          Tus cuentas y movimientos individuales no se muestran a otros miembros. El asistente y tu bot sí pueden
+          Tus cuentas y movimientos individuales no se muestran a otros miembros. Finzy sí puede
           consultarlos junto con las finanzas del hogar cuando tú lo pidas.
         </p>
       </div>
@@ -107,8 +109,8 @@ export default async function PersonalPage({
       <Banner kind="error">{params.error}</Banner>
 
       <section className="mt-7 grid grid-cols-2 gap-3">
-        <StatTile label="Ingresos personales · mes" value={formatMoney(income)} tone="green" />
-        <StatTile label="Gastos personales · mes" value={formatMoney(expenses)} tone="coral" />
+        <StatTile label="Ingresos personales · mes" value={formatMoney(income)} tone="green" image="/incoming-bag.png" />
+        <StatTile label="Gastos personales · mes" value={formatMoney(expenses)} tone="coral" image="/money-wings.png" />
       </section>
 
       <div className="mt-7 grid gap-6 xl:grid-cols-[.9fr_1.1fr]">
@@ -118,8 +120,10 @@ export default async function PersonalPage({
             {accounts.map((account) => (
               <article className="flex items-center gap-3 border-b border-black/10 pb-3" key={account.id}>
                 <span className="grid size-10 place-items-center rounded-xl bg-(--blue)">
-                  {account.type === "cash" ? (
-                    <WalletCards size={19} />
+                  {account.type === "bank" ? (
+                    <Image src="/bank-building.png" alt="" width={32} height={32} className="size-6 object-contain" />
+                  ) : account.type === "cash" ? (
+                    <Image src="/money-cash.png" alt="" width={32} height={32} className="size-6 object-contain" />
                   ) : account.type === "card" ? (
                     <CreditCard size={19} />
                   ) : account.type === "investment" ? (
@@ -133,12 +137,7 @@ export default async function PersonalPage({
                   <p className="text-sm">{formatMoney(calculateAccountBalance(account.id, balanceMovements))}</p>
                   <p className="text-xs text-(--muted)">Según movimientos registrados</p>
                 </div>
-                <form action={archiveAccount}>
-                  <input type="hidden" name="id" value={account.id} />
-                  <button aria-label={`Archivar ${account.name}`} className="rounded-lg p-2">
-                    <Archive size={17} />
-                  </button>
-                </form>
+                <DeleteAccountButton id={account.id} name={account.name} action={archiveAccount} />
               </article>
             ))}
             {!accounts.length && (
@@ -206,7 +205,7 @@ export default async function PersonalPage({
         ))}
         {!transactions.length && (
           <EmptyState
-            icon={PiggyBank}
+            image="/piggy-bank.png"
             title="Todavía no hay movimientos personales"
             description="Registrá el primero desde el formulario de arriba."
           />

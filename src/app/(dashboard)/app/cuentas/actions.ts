@@ -5,6 +5,7 @@ import { calculateAccountBalance } from "@/lib/finance/account-overview";
 import { eurosToCentsSigned, formatMoney } from "@/lib/finance/money";
 import { notifyOtherMembers } from "@/services/telegram-notify";
 import { decryptField, encryptField } from "@/lib/security/field-encryption";
+import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
 
 async function actorName(supabase: Awaited<ReturnType<typeof getCurrentHousehold>>["supabase"], userId: string) {
   const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
@@ -32,9 +33,9 @@ export async function createSharedAccount(formData:FormData){
   if(error)throw new Error(error.message);
   if(initialCents!==0){
     const txType=initialCents>0?"income":"expense";
-    const {data:category,error:categoryError}=await supabase.from("categories").select("id").eq("name","Ajuste de saldo").eq("kind",txType).or(`household_id.eq.${household.id},household_id.is.null`).limit(1).maybeSingle();
+    const {data:category,error:categoryError}=await supabase.from("categories").select("id").eq("name",SYNTHETIC_BALANCE_CATEGORY).eq("kind",txType).or(`household_id.eq.${household.id},household_id.is.null`).limit(1).maybeSingle();
     if(categoryError)throw new Error(categoryError.message);
-    if(!category)throw new Error("Falta la categoría «Ajuste de saldo». Aplica la migración correspondiente.");
+    if(!category)throw new Error(`Falta la categoría «${SYNTHETIC_BALANCE_CATEGORY}». Aplica la migración correspondiente.`);
     const {error:txError}=await supabase.rpc("create_financial_transaction",{
       p_household_id:household.id,
       p_account_id:account.id,
@@ -97,16 +98,16 @@ export async function adjustSharedAccountBalance(formData: FormData) {
   if (delta === 0) return;
 
   const type = delta > 0 ? "income" : "expense";
-  const { data: category, error: categoryError } = await supabase.from("categories").select("id").eq("name", "Ajuste de saldo").eq("kind", type).or(`household_id.eq.${household.id},household_id.is.null`).limit(1).maybeSingle();
+  const { data: category, error: categoryError } = await supabase.from("categories").select("id").eq("name", SYNTHETIC_BALANCE_CATEGORY).eq("kind", type).or(`household_id.eq.${household.id},household_id.is.null`).limit(1).maybeSingle();
   if (categoryError) throw new Error(categoryError.message);
-  if (!category) throw new Error("Falta la categoría «Ajuste de saldo». Aplica la migración correspondiente.");
+  if (!category) throw new Error(`Falta la categoría «${SYNTHETIC_BALANCE_CATEGORY}». Aplica la migración correspondiente.`);
 
   const { error } = await supabase.rpc("create_financial_transaction", {
     p_household_id: household.id,
     p_account_id: id,
     p_type: type,
     p_amount_cents: Math.abs(delta),
-    p_description: encryptField("Ajuste de saldo"),
+    p_description: encryptField(SYNTHETIC_BALANCE_CATEGORY),
     p_category_id: category.id,
     p_scope: "shared",
     p_privacy: "visible",

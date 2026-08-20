@@ -49,7 +49,7 @@ export async function askAssistant(_state: AssistantState, formData: FormData): 
     } else if (action.action === "request_clarification") {
       reply = action.data.question;
     } else {
-      reply = "He entendido una acción sobre un movimiento. Por ahora, confírmala desde Movimientos o envíala al bot de Telegram.";
+      reply = "He entendido una acción sobre un movimiento. Por ahora, confírmala desde Movimientos o envíasela a Finzy por Telegram.";
     }
     if (mentioned) reply = `${reply}\n\n${HOUSEHOLD_NAME_PRIVACY_NOTE}`;
 

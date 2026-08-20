@@ -16,6 +16,7 @@ import { Banner } from "@/components/ui/banner";
 import { DeleteTransactionButton } from "@/components/transactions/delete-transaction-button";
 import { decryptField } from "@/lib/security/field-encryption";
 import { getHouseholdRoster } from "@/services/household-roster";
+import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
 
 type Row = {
   id: string;
@@ -110,6 +111,26 @@ export default async function TransactionsPage({
   }
   const roster = await getHouseholdRoster(supabase, household.id);
   const memberNames = new Map(roster.map((member) => [member.userId, member.displayName]));
+  // Archiving an account isn't itself a financial movement (no amount to show as a row), but
+  // it's still worth a trace here — otherwise "why did this account disappear" has no answer in
+  // the one place people look for a change history. Backed by the audit_logs trigger on accounts.
+  const { data: deletedAccountLogs } = await supabase
+    .from("audit_logs")
+    .select("id,created_at,new_values")
+    .eq("household_id", household.id)
+    .eq("entity_type", "account")
+    .eq("action", "deleted")
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const deletedAccounts = ((deletedAccountLogs ?? []) as { id: number; created_at: string; new_values: { name?: string; is_shared?: boolean } | null }[])
+    // This page only shows shared movements; a personal account's own archival note belongs on
+    // the personal page's context, not mixed in here even if RLS would let the actor see it.
+    .filter((log) => log.new_values?.is_shared === true)
+    .map((log) => ({
+      id: log.id,
+      name: log.new_values?.name ?? "Cuenta",
+      date: log.created_at,
+    }));
   const { data: itemRows } = rows.length
     ? await supabase.from("transaction_items").select("transaction_id,description,amount_cents,subcategory").in("transaction_id", rows.map((row) => row.id))
     : { data: [] as ItemRow[] };
@@ -201,6 +222,18 @@ export default async function TransactionsPage({
           </div>
         </div>
       </form>
+      {deletedAccounts.length > 0 && (
+        <section className="card mt-5 p-4">
+          <p className="text-xs font-black uppercase tracking-wide text-(--muted)">Cuentas eliminadas recientemente</p>
+          <ul className="mt-2 space-y-1 text-sm text-(--muted)">
+            {deletedAccounts.map((account) => (
+              <li key={account.id}>
+                🗑️ {account.name} · {account.date.slice(0, 10)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section className="card mt-5 overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,1.2fr)_120px_110px_110px_100px_120px_76px] gap-3 border-b border-black/10 px-6 py-3 text-xs font-bold uppercase tracking-wide text-(--muted) xl:grid">
           <span>Descripción</span><span>Registrado por</span><span>Cuenta</span>
@@ -243,7 +276,7 @@ export default async function TransactionsPage({
               <b className={`self-start text-right xl:self-auto ${row.type === "income" ? "text-(--ink)" : ""}`}>
                 {row.type === "expense" ? "−" : "+"}{formatMoney(row.amount_cents)}
               </b>
-              {row.created_by === user.id ? (
+              {row.created_by === user.id && row.categories?.name !== SYNTHETIC_BALANCE_CATEGORY ? (
                 <div className="col-start-2 flex justify-end xl:col-auto">
                   <Link href={`/app/movimientos/${row.id}/editar`} aria-label={`Editar ${row.description}`} className="rounded-lg p-2">
                     <Pencil size={17} />

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { BarChart3, Bot, CircleDollarSign, CreditCard, Home, LogOut, Settings, UserRound, UsersRound } from "lucide-react";
+import Image from "next/image";
+import { BarChart3, Bot, CircleDollarSign, CreditCard, Home, LogOut, Settings, UserRound } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { AppContextLabel } from "@/components/layout/app-context-label";
 import { SectionSurface } from "@/components/layout/section-surface";
@@ -43,7 +44,7 @@ export function AppShell({
         <div className="mt-8 rounded-2xl border border-(--ink)/15 p-3">
           <div className="flex items-center gap-3 px-2 pb-2">
             <span className="grid size-9 place-items-center rounded-full bg-(--lilac)">
-              <UsersRound size={18} />
+              <Image src="/home.png" alt="" width={28} height={28} className="size-6 object-contain" />
             </span>
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-wider text-(--muted)">Hogar</p>
@@ -60,7 +61,7 @@ export function AppShell({
         <div className="mt-4 rounded-2xl border border-(--ink)/15 p-3">
           <div className="flex items-center gap-3 px-2 pb-2">
             <span className="grid size-9 place-items-center rounded-full bg-(--lime)">
-              <UserRound size={18} />
+              <Image src="/private.png" alt="" width={28} height={28} className="size-6 object-contain" />
             </span>
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-wider text-(--muted)">Personal</p>

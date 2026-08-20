@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Bot, Send, UserRound } from "lucide-react";
+import Image from "next/image";
+import { Send, UserRound } from "lucide-react";
 import { motion } from "framer-motion";
 import { askAssistant, type AssistantState } from "@/app/(dashboard)/app/asistente/actions";
 import { Button } from "@/components/ui/button";
@@ -43,9 +44,13 @@ export function AssistantForm({ initialMessages }: { initialMessages: Conversati
             className={`flex items-end gap-2 ${message.role === "user" ? "flex-row-reverse" : ""}`}
           >
             <span
-              className={`grid size-8 shrink-0 place-items-center rounded-full ${message.role === "user" ? "bg-(--lime)" : "bg-(--blue)"}`}
+              className={`grid size-8 shrink-0 place-items-center rounded-full ${message.role === "user" ? "bg-(--lime)" : "bg-white"}`}
             >
-              {message.role === "user" ? <UserRound size={16} /> : <Bot size={16} />}
+              {message.role === "user" ? (
+                <UserRound size={16} />
+              ) : (
+                <Image src="/finzy-mascot.png" alt="Finzy" width={32} height={32} className="size-6 object-contain" />
+              )}
             </span>
             <div
               className={`max-w-[80%] whitespace-pre-line rounded-2xl p-3 text-sm leading-6 ${message.role === "user" ? "bg-(--highlight)" : "bg-(--blue)"}`}

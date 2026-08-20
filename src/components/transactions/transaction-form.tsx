@@ -14,6 +14,6 @@ export function TransactionForm({ accounts, categories, mode = "shared" }: { acc
     <div className="grid gap-3 sm:grid-cols-2"><label><span className="label">Categoría</span><select className="field" name="categoryId" required defaultValue=""><option value="" disabled>Elige una</option>{categories.map(c=><option key={c.id} value={c.id}>{c.kind === "income" ? "↑ " : "↓ "}{c.name}</option>)}</select></label><label><span className="label">Cuenta</span><select className="field" name="accountId" required defaultValue=""><option value="" disabled>Elige una</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label></div>
     <label><span className="label">Fecha</span><input className="field" name="transactionDate" type="date" defaultValue={today} required/></label>
     <button disabled={pending || !accounts.length} className="w-full rounded-xl px-5 py-3.5 font-bold disabled:opacity-60">{pending ? "Guardando…" : mode === "shared" ? "Guardar en conjunto" : "Guardar en mi espacio"}</button>
-    <p className="text-center text-xs text-[#6c7f7a]">{mode === "shared" ? "Se repartirá automáticamente entre los miembros activos." : "Solo tú podrás ver este movimiento; el bot podrá incluirlo en tus consultas."}</p>
+    <p className="text-center text-xs text-[#6c7f7a]">{mode === "shared" ? "Se repartirá automáticamente entre los miembros activos." : "Solo tú podrás ver este movimiento; Finzy podrá incluirlo en tus consultas."}</p>
   </form>;
 }

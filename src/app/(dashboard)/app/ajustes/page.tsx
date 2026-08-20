@@ -1,4 +1,5 @@
-import { AlertTriangle, Check, Copy, Home, Send, UserRound } from "lucide-react";
+import Image from "next/image";
+import { AlertTriangle, Check, Copy } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, unlinkTelegram, updateHouseholdName, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ export default async function SettingsPage() {
         <section className="card p-6">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-xl bg-(--lilac)">
-              <Home size={20} />
+              <Image src="/home.png" alt="" width={32} height={32} className="size-7 object-contain" />
             </span>
             <div>
               <p className="text-xs font-bold uppercase text-(--muted)">Espacio compartido</p>
@@ -116,7 +117,7 @@ export default async function SettingsPage() {
         <section className="card p-6">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-xl bg-(--lime)">
-              <UserRound size={20} />
+              <Image src="/private.png" alt="" width={32} height={32} className="size-7 object-contain" />
             </span>
             <div>
               <p className="text-xs font-bold uppercase text-(--muted)">Espacio privado</p>
@@ -149,11 +150,13 @@ export default async function SettingsPage() {
         <section className="card p-6 lg:col-span-2">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-xl bg-(--blue)">
-              <Send size={20} />
+              <span className="grid size-8 place-items-center rounded-full bg-white">
+                <Image src="/finzy-mascot.png" alt="Finzy" width={32} height={32} className="size-6 object-contain" />
+              </span>
             </span>
             <div>
               <p className="text-xs font-bold uppercase text-(--muted)">Herramienta general</p>
-              <h2 className="font-black">Telegram · Miti-Miti</h2>
+              <h2 className="font-black">Telegram · Finzy</h2>
               <p className="text-sm text-(--muted)">{link ? "Vinculado" : "No vinculado"}</p>
             </div>
           </div>
@@ -161,8 +164,8 @@ export default async function SettingsPage() {
             <>
               <div className="mt-5 space-y-3 rounded-xl bg-(--blue)/25 p-4 text-sm">
                 <p>
-                  El bot puede consultar tus espacios, registrar movimientos por texto o nota de voz, y leer extractos
-                  PDF, Excel, CSV o imágenes de hasta 12 MB. Los adjuntos y notas de voz no se guardan en Miti-Miti,
+                  Finzy puede consultar tus espacios, registrar movimientos por texto o nota de voz, y leer extractos
+                  PDF o imágenes de hasta 12 MB. Los adjuntos y notas de voz no se guardan en Miti-Miti,
                   solo se procesan.
                 </p>
               </div>
@@ -175,7 +178,7 @@ export default async function SettingsPage() {
           ) : (
             <>
               <div className="mt-5 rounded-xl bg-(--blue)/25 p-4 text-sm">
-                <p className="font-bold">Vincula el bot correcto:</p>
+                <p className="font-bold">Vincula con el Finzy correcto:</p>
                 <ol className="mt-2 list-decimal space-y-1 pl-5">
                   <li>
                     Abre{" "}
