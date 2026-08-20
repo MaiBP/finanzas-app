@@ -55,6 +55,36 @@ describe("financial conversational defaults", () => {
     expect(applyFinancialDefaults(query, "¿Cuánto gastamos?")).toBe(query);
   });
 
+  it("reroutes a category filter that isn't a real category name into search_text", () => {
+    const query: FinancialAction = {
+      action: "query_finances",
+      confidence: 0.9,
+      requires_confirmation: false,
+      data: {
+        query_type: "category_spending",
+        filters: { category: "café", subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope: "shared", include_deleted_accounts: false },
+      },
+    };
+    const result = applyFinancialDefaults(query, "¿Cuánto gastamos en café?", [{ name: "Restaurantes" }, { name: "Supermercado" }]);
+    expect(result.action === "query_finances" && result.data.filters.category).toBeNull();
+    expect(result.action === "query_finances" && result.data.filters.search_text).toBe("café");
+  });
+
+  it("leaves a category filter alone when it matches a real category name", () => {
+    const query: FinancialAction = {
+      action: "query_finances",
+      confidence: 0.9,
+      requires_confirmation: false,
+      data: {
+        query_type: "category_spending",
+        filters: { category: "Restaurantes", subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope: "shared", include_deleted_accounts: false },
+      },
+    };
+    const result = applyFinancialDefaults(query, "¿Cuánto gastamos en Restaurantes?", [{ name: "Restaurantes" }, { name: "Supermercado" }]);
+    expect(result.action === "query_finances" && result.data.filters.category).toBe("Restaurantes");
+    expect(result.action === "query_finances" && result.data.filters.search_text).toBeNull();
+  });
+
   it("flips include_deleted_accounts to true only when the user explicitly asks for historical/deleted-account data", () => {
     const query: FinancialAction = {
       action: "query_finances",
