@@ -131,3 +131,12 @@ export async function getHouseholdFinancialInsight(db: SupabaseClient, household
   const transactions = ((data ?? []) as unknown as InsightTransaction[]).map((row) => ({ ...row, description: decryptField(row.description) }));
   return analyzeFinancialBehavior(transactions, month, today);
 }
+
+export async function getPersonalFinancialInsight(db: SupabaseClient, userId: string, householdId: string, month: string, today = new Date().toISOString().slice(0, 10)) {
+  const historyStart = `${monthAtOffset(month, -3)}-01`;
+  const historyEnd = `${monthAtOffset(month, 1)}-01`;
+  const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name)").eq("household_id", householdId).eq("created_by", userId).eq("scope", "personal").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
+  if (error) throw error;
+  const transactions = ((data ?? []) as unknown as InsightTransaction[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+  return analyzeFinancialBehavior(transactions, month, today);
+}

@@ -25,7 +25,7 @@ export default async function EditPage({ params }: { params: Promise<{ id: strin
     supabase.from("transaction_items").select("description,amount_cents,subcategory").eq("transaction_id", id).order("created_at"),
   ]);
   const items = ((itemRows ?? []) as ItemRow[]).map((item) => ({ ...item, description: decryptField(item.description) }));
-  const returnTo = row.scope === "personal" ? "/app/personal" : "/app/movimientos";
+  const returnTo = row.scope === "personal" ? "/app/personal/movimientos" : "/app/movimientos";
 
   return (
     <div className="mx-auto max-w-2xl">

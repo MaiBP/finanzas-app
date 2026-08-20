@@ -16,7 +16,10 @@ export function NavLink({
   variant?: "sidebar" | "mobile";
 }) {
   const pathname = usePathname();
-  const active = href === "/app" ? pathname === "/app" : pathname.startsWith(href);
+  // "/app" and "/app/personal" are each another section's own landing page, so they need an
+  // exact match — otherwise every personal sub-route (movimientos, cuentas) would also light up
+  // "Resumen personal" at the same time as its own nav entry.
+  const active = href === "/app" || href === "/app/personal" ? pathname === href : pathname.startsWith(href);
 
   if (variant === "mobile") {
     return (

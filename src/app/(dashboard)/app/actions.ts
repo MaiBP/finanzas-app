@@ -44,7 +44,7 @@ async function createTransactionForMode(formData: FormData, mode: FinanceMode): 
   });
   if (error) return { error: error.message };
 
-  revalidatePath("/app"); revalidatePath("/app/movimientos"); revalidatePath("/app/personal");
+  revalidatePath("/app"); revalidatePath("/app/movimientos"); revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
   redirect(mode === "shared" ? "/app?created=1" : "/app/personal?created=1");
 }
 
@@ -56,10 +56,13 @@ export async function createPersonalTransaction(_state: ActionState, formData: F
   return createTransactionForMode(formData, "personal");
 }
 
+const ALLOWED_DELETE_RETURN_PATHS = ["/app/personal", "/app/personal/movimientos"];
+
 export async function softDeleteTransaction(formData: FormData) {
   const { supabase } = await getCurrentHousehold();
   const id = String(formData.get("id"));
-  const returnTo = formData.get("returnTo") === "/app/personal" ? "/app/personal" : "/app/movimientos";
+  const requestedReturn = String(formData.get("returnTo") ?? "");
+  const returnTo = ALLOWED_DELETE_RETURN_PATHS.includes(requestedReturn) ? requestedReturn : "/app/movimientos";
   const { data: existing } = await supabase.from("transactions").select("categories(name)").eq("id", id).maybeSingle();
   const category = (existing as { categories: { name: string } | null } | null)?.categories;
   if (category?.name === SYNTHETIC_BALANCE_CATEGORY) {
@@ -67,5 +70,5 @@ export async function softDeleteTransaction(formData: FormData) {
   }
   const { error } = await supabase.rpc("soft_delete_financial_transaction", { p_transaction_id: id });
   if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
-  revalidatePath("/app"); revalidatePath("/app/movimientos"); revalidatePath("/app/personal");
+  revalidatePath("/app"); revalidatePath("/app/movimientos"); revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
 }

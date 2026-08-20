@@ -45,7 +45,7 @@ export async function createAccount(formData:FormData){
     });
     if(txError)throw new Error(txError.message);
   }
-  revalidatePath("/app/personal");
+  revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
 }
 
 export async function updateAccount(formData:FormData){
@@ -61,7 +61,7 @@ export async function updateAccount(formData:FormData){
   if(!account)throw new Error("Cuenta no encontrada");
   const {error}=await supabase.from("accounts").update({name,type,current_balance_cents:0}).eq("id",id).eq("owner_user_id",user.id);
   if(error)throw new Error(error.message);
-  revalidatePath("/app/personal");
+  revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
 }
 
 export async function adjustAccountBalance(formData:FormData){
@@ -98,7 +98,7 @@ export async function adjustAccountBalance(formData:FormData){
     p_paid_by:user.id,
   });
   if(error)throw new Error(error.message);
-  revalidatePath("/app/personal");
+  revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
 }
 
 export async function createSharedAccount(formData:FormData){
@@ -153,7 +153,7 @@ export async function updateSharedAccount(formData: FormData) {
 }
 
 export async function archiveAccount(formData:FormData){
-  const {supabase,user}=await getCurrentHousehold(); const {error}=await supabase.from("accounts").update({archived_at:new Date().toISOString()}).eq("id",String(formData.get("id"))).eq("owner_user_id",user.id); if(error)throw new Error(error.message); revalidatePath("/app/personal");
+  const {supabase,user}=await getCurrentHousehold(); const {error}=await supabase.from("accounts").update({archived_at:new Date().toISOString()}).eq("id",String(formData.get("id"))).eq("owner_user_id",user.id); if(error)throw new Error(error.message); revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
 }
 
 export async function adjustSharedAccountBalance(formData: FormData) {

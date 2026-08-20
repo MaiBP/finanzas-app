@@ -13,16 +13,24 @@ const householdNav = [
   { href: "/app/balance", label: "Balance", icon: BarChart3 },
 ] as const;
 
-const personalNav = [{ href: "/app/personal", label: "Resumen personal", icon: UserRound }] as const;
+const personalNav = [
+  { href: "/app/personal", label: "Resumen", icon: UserRound },
+  { href: "/app/personal/movimientos", label: "Movimientos", icon: CircleDollarSign },
+  { href: "/app/personal/cuentas", label: "Cuentas", icon: CreditCard },
+] as const;
+// Distinct labels from personalNav's: the mobile bar flattens household + personal into one row
+// with no group headers, so "Movimientos" appearing twice (household vs. personal) would be
+// ambiguous the way it isn't in the sidebar, where the "Personal" box header disambiguates it.
+const personalMobileNav = [
+  { href: "/app/personal", label: "Mi resumen", icon: UserRound },
+  { href: "/app/personal/movimientos", label: "Mis movimientos", icon: CircleDollarSign },
+  { href: "/app/personal/cuentas", label: "Mis cuentas", icon: CreditCard },
+] as const;
 const generalNav = [
   { href: "/app/asistente", label: "Asistente", icon: Bot },
   { href: "/app/ajustes", label: "Ajustes", icon: Settings },
 ] as const;
-const mobileNav = [
-  ...householdNav,
-  { href: "/app/personal", label: "Personal", icon: UserRound } as const,
-  ...generalNav,
-];
+const mobileNav = [...householdNav, ...personalMobileNav, ...generalNav];
 
 export function AppShell({
   children,
