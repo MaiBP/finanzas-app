@@ -44,9 +44,8 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-white text-(--ink) md:grid md:grid-cols-[260px_1fr]">
       <aside className="hidden border-r border-(--ink)/25 bg-white p-5 text-(--ink) md:flex md:flex-col">
-        <Link href="/app" className="flex items-center gap-2 text-lg font-black uppercase">
-          <Image src="/logo-mitimiti.png" alt="" width={40} height={40} className="size-10 object-contain" />
-          Miti-Miti
+        <Link href="/app" className="flex items-center">
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={64} height={64} className="size-16 object-contain" />
         </Link>
 
         <div className="mt-8 rounded-2xl border border-(--ink)/15 p-3">
@@ -102,12 +101,11 @@ export function AppShell({
 
       <SectionSurface>
         <header className="section-header sticky top-0 z-10 flex items-center justify-between border-b border-(--ink)/30 px-5 py-4 backdrop-blur md:px-8">
-          <Link href="/app" className="flex items-center gap-2 font-black uppercase md:hidden">
-            <Image src="/logo-mitimiti.png" alt="" width={28} height={28} className="size-7 object-contain" />
-            Miti-Miti
+          <Link href="/app" className="flex items-center md:hidden">
+            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={44} height={44} className="size-11 object-contain" />
           </Link>
           <AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName} />
-          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={36} height={36} className="size-9 object-contain" />
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={44} height={44} className="size-11 object-contain" />
         </header>
         <main className="mx-auto max-w-7xl p-5 md:p-8">{children}</main>
       </SectionSurface>

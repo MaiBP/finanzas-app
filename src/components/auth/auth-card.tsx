@@ -45,9 +45,8 @@ export function AuthCard({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <Link href="/" className="mb-7 flex items-center justify-center gap-3 text-lg font-black">
-          <Image src="/logo-mitimiti.png" alt="" width={40} height={40} className="size-10 object-contain" />
-          <span className="bg-(--highlight) px-1">Miti-Miti</span>
+        <Link href="/" className="mb-7 flex items-center justify-center">
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={72} height={72} className="size-18 object-contain" />
         </Link>
 
         <section className="card overflow-hidden">

@@ -27,7 +27,7 @@ export default async function Onboarding({
         <div className="relative z-10 mx-auto max-w-xl">
           <StepIndicator step={1} total={6} label="Términos" />
           <FadeIn className="text-center">
-            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={48} height={48} className="mx-auto size-12 object-contain" />
+            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={72} height={72} className="mx-auto size-18 object-contain" />
             <p className="mx-auto mt-5 w-fit bg-(--highlight) px-2 text-xs font-black uppercase tracking-wider">
               Antes de empezar
             </p>
@@ -64,7 +64,7 @@ export default async function Onboarding({
       <div className="relative z-10 mx-auto max-w-5xl">
         <StepIndicator step={2} total={6} label="Hogar" />
         <FadeIn className="text-center">
-          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={48} height={48} className="mx-auto size-12 object-contain" />
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={72} height={72} className="mx-auto size-18 object-contain" />
           <p className="mx-auto mt-5 w-fit bg-(--highlight) px-2 text-xs font-black uppercase tracking-wider">
             Bienvenidos a Miti-Miti
           </p>
