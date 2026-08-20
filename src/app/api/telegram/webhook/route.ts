@@ -77,15 +77,28 @@ async function handlePendingImportAccountSelection(db:ReturnType<typeof createAd
   return formatImportResult(result);
 }
 
+// Gated on _awaiting_edit (set by the "edit:" callback below) rather than on account_name being
+// set — Editar can now appear before an account is chosen too (see importDecisionKeyboard), and
+// account_name being null there used to make handlePendingAccountSelection swallow the correction
+// text as a failed account-name match instead of ever reaching this function. _awaiting_edit isn't
+// part of statementImportPayloadSchema, so it survives on the raw payload without a migration —
+// read it before parsing (parse would silently strip it) and let a successful correction's
+// re-saved payload (schema-clean, no _awaiting_edit key) implicitly clear it again.
 async function handlePendingImportEdit(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,text:string){
   const {data}=await db.from("pending_actions").select("id,payload").eq("user_id",userId).eq("household_id",householdId).eq("action_type","import_statement").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
-  const parsed=statementImportPayloadSchema.safeParse(data?.payload);if(!data||!parsed.success||!parsed.data.account_name)return null;
+  const rawPayload=data?.payload as (Record<string,unknown>&{_awaiting_edit?:boolean})|undefined;
+  if(!data||!rawPayload?._awaiting_edit)return null;
+  const parsed=statementImportPayloadSchema.safeParse(rawPayload);if(!parsed.success)return null;
   const {data:categories,error:categoryError}=await db.from("categories").select("name,kind").or(`household_id.eq.${householdId},household_id.is.null`);if(categoryError)throw categoryError;
   const transactions=await reviseStatementImport(parsed.data.transactions,text,categories??[]);
   if(!transactions.length)throw new Error("IMPORT_USER:No encontré movimientos después de esa corrección. Probá de nuevo o cancelá con “no”.");
   const payload=statementImportPayloadSchema.parse({...parsed.data,transactions});
   const {error}=await db.from("pending_actions").update({payload}).eq("id",data.id);if(error)throw error;
-  return {text:statementPreview(payload),keyboard:importReviewKeyboard()};
+  // Re-shows the account picker if one's still needed instead of assuming importReviewKeyboard —
+  // Editar can now happen before an account was ever chosen.
+  const accounts=await getImportAccounts(db,userId,householdId,payload.scope);
+  const keyboard=accounts.length>1&&!payload.account_name?importDecisionKeyboard(accounts,payload.account_name):importReviewKeyboard();
+  return {text:statementPreview(payload),keyboard};
 }
 
 async function handleStatementAttachment(db:ReturnType<typeof createAdminClient>,message:NonNullable<z.infer<typeof updateSchema>["message"]>,userId:string,householdId:string){
@@ -128,11 +141,16 @@ function formatImportResult(result:{created:number;duplicates:number;failed:numb
   return {text:`⚠️ No pude registrar nada en ${result.accountName}.${failuresNote}`,confirmed:false};
 }
 
-// Checked before answering an "edit"/stale-looking tap so it can name the real cause (too much time
-// passed, or the user moved on to something newer) instead of a vague "no longer available".
-async function hasFreshPendingAction(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,actionType:string){
-  const {data}=await db.from("pending_actions").select("id").eq("user_id",userId).eq("household_id",householdId).eq("action_type",actionType).gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
-  return Boolean(data);
+// Stamps _awaiting_edit on the pending action so the very next text/voice reply is routed to
+// handlePendingImportEdit instead of being tried as an account selection first (see there) — also
+// doubles as the freshness check an "edit" tap needs, naming the real cause (too much time passed,
+// or the user moved on to something newer) instead of a vague "no longer available".
+async function markAwaitingEdit(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,actionType:string){
+  const {data}=await db.from("pending_actions").select("id,payload").eq("user_id",userId).eq("household_id",householdId).eq("action_type",actionType).gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if(!data)return false;
+  const {error}=await db.from("pending_actions").update({payload:{...(data.payload as object),_awaiting_edit:true}}).eq("id",data.id);
+  if(error)throw error;
+  return true;
 }
 
 async function confirmPending(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string):Promise<{text:string;confirmed:boolean}>{
@@ -201,7 +219,7 @@ async function handleCallbackQuery(callbackQuery:z.infer<typeof callbackQuerySch
     }
     else if(data.startsWith("edit:")){
       const actionType=data.slice("edit:".length);
-      reply=(await hasFreshPendingAction(db,link.user_id,membership.household_id,actionType))?"✍️ Contame qué querés corregir (por ejemplo: “el segundo producto son 30€, no 25€” o “la fecha es el 3 de agosto”).":STALE_ACTION_MESSAGE;
+      reply=(await markAwaitingEdit(db,link.user_id,membership.household_id,actionType))?"✍️ Contame qué querés corregir (por ejemplo: “el segundo producto son 30€, no 25€” o “la fecha es el 3 de agosto”).":STALE_ACTION_MESSAGE;
     }
     else return;
   }catch(error){reply=error instanceof Error?error.message:"⚠️ No he podido completar eso. Inténtalo de nuevo.";}
@@ -251,8 +269,11 @@ export async function POST(request:Request){
     }
     const importReply=await handleStatementAttachment(db,message,link.user_id,membership.household_id);if(importReply){await sendTelegramMessage(chat.id,escapeTelegramHtml(importReply.text),importReply.keyboard);return NextResponse.json({ok:true});}
     if(text==="/cancelar"||no.test(text)){await db.from("pending_actions").delete().eq("user_id",link.user_id);await sendTelegramMessage(chat.id,"❌ ¡Listo! No registré nada.");return NextResponse.json({ok:true});}
-    const importAccountReply=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,text);if(importAccountReply){await sendTelegramMessage(chat.id,importAccountReply.confirmed?withTelegramWebSuggestion(importAccountReply.text):escapeTelegramHtml(importAccountReply.text),importAccountReply.keyboard);return NextResponse.json({ok:true});}
+    // Tried before handlePendingImportAccountSelection: once "edit:" stamped _awaiting_edit, any
+    // text/voice reply here is meant as a correction, not an account name — asking it the other
+    // way round used to make a failed account-name match swallow the correction silently.
     const importEditReply=await handlePendingImportEdit(db,link.user_id,membership.household_id,text);if(importEditReply){await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:importEditReply.text});await sendTelegramMessage(chat.id,escapeTelegramHtml(importEditReply.text),importEditReply.keyboard);return NextResponse.json({ok:true});}
+    const importAccountReply=await handlePendingImportAccountSelection(db,link.user_id,membership.household_id,text);if(importAccountReply){await sendTelegramMessage(chat.id,importAccountReply.confirmed?withTelegramWebSuggestion(importAccountReply.text):escapeTelegramHtml(importAccountReply.text),importAccountReply.keyboard);return NextResponse.json({ok:true});}
     const accountSelectionReply=await handlePendingAccountSelection(db,link.user_id,membership.household_id,text);if(accountSelectionReply){await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"user",content:text});await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:accountSelectionReply.text});await sendTelegramMessage(chat.id,accountSelectionReply.confirmed?withTelegramWebSuggestion(accountSelectionReply.text):escapeTelegramHtml(accountSelectionReply.text));return NextResponse.json({ok:true});}
     if(yes.test(text)){const result=await confirmPending(db,link.user_id,membership.household_id);await sendTelegramMessage(chat.id,result.confirmed?withTelegramWebSuggestion(result.text):escapeTelegramHtml(result.text));return NextResponse.json({ok:true});}
     if(text==="/resumen"){await sendTelegramMessage(chat.id,escapeTelegramHtml(await getMonthSummary(db,membership.household_id,link.user_id)));return NextResponse.json({ok:true});}
