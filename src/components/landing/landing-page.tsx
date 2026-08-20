@@ -223,9 +223,8 @@ export function LandingPage() {
       <ScrollBackground />
 
       <nav className="relative z-10 mx-auto flex max-w-6xl items-center justify-between border-b border-(--ink)/40 px-5 py-6 uppercase">
-        <Link href="/" className="flex items-center gap-2 text-lg font-black">
-          <span className="grid size-10 place-items-center rounded-full bg-(--highlight) text-xl">½</span>
-          Miti-Miti
+        <Link href="/" className="flex items-center">
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={56} height={56} className="size-14 object-contain" />
         </Link>
         <LinkButton href="/login" variant="outline" size="sm">
           Entrar
@@ -540,9 +539,8 @@ export function LandingPage() {
 
       <footer className="relative z-1 border-t border-(--ink)/15 px-5 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm font-semibold uppercase sm:flex-row">
-          <div className="flex items-center gap-2 text-base font-black">
-            <span className="grid size-8 place-items-center rounded-full bg-(--highlight)">½</span>
-            Miti-Miti
+          <div className="flex items-center">
+            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={44} height={44} className="size-11 object-contain" />
           </div>
           <p className="text-(--ink)/70">Finanzas en pareja, sin complicaciones.</p>
           <div className="flex items-center gap-5">

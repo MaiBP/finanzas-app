@@ -20,6 +20,7 @@ type QueryRow = {
   transaction_date: string;
   created_by: string | null;
   scope: "shared" | "personal";
+  account_id: string | null;
   categories: { name: string } | null;
   accounts: { name: string } | null;
 };
@@ -168,7 +169,7 @@ async function fetchQueryRows(
   const scope = filters.scope ?? "combined";
   let query = db
     .from("transactions")
-    .select("id,type,amount_cents,description,transaction_date,created_by,scope,categories(name),accounts(name)")
+    .select("id,type,amount_cents,description,transaction_date,created_by,scope,account_id,categories(name),accounts(name)")
     .eq("household_id", householdId)
     .eq("status", "confirmed")
     .order("transaction_date", { ascending: false })
@@ -226,6 +227,26 @@ async function fetchQueryRows(
     }
   }
   return { rows, names, scope };
+}
+
+// "joint" is a placeholder pseudo-account never offered for real movements (see accounts UI/actions
+// everywhere else in the app), and archived accounts are excluded by default so household_balance
+// and account_summary answer "what do I have right now", matching the web dashboard's own balance
+// widgets — only include_deleted_accounts opts back into counting a since-archived account's history.
+async function fetchActiveAccountIds(db: DbClient, householdId: string, userId: string, scope: FinanceScope) {
+  let query = db.from("accounts").select("id").eq("household_id", householdId).neq("type", "joint").is("archived_at", null);
+  query = scope === "shared"
+    ? query.eq("is_shared", true)
+    : scope === "personal"
+      ? query.eq("is_shared", false).eq("owner_user_id", userId)
+      : query.or(`is_shared.eq.true,and(is_shared.eq.false,owner_user_id.eq.${userId})`);
+  const { data, error } = await query;
+  if (error) throw error;
+  return new Set((data ?? []).map((row) => (row as { id: string }).id));
+}
+
+function filterToActiveAccounts(rows: QueryRow[], activeIds: Set<string>) {
+  return rows.filter((row) => row.account_id !== null && activeIds.has(row.account_id));
 }
 
 async function fetchItemRows(db: DbClient, transactionIds: string[]): Promise<ItemRow[]> {
@@ -325,14 +346,15 @@ export async function computeFinanceQueryFacts(
   if (!rows.length) return { kind: "no_data", scope, rangeLabel: range.label };
 
   if (data.query_type === "household_balance") {
-    const totals = calculateTransactionTotals(rows);
+    const balanceRows = filters.include_deleted_accounts ? rows : filterToActiveAccounts(rows, await fetchActiveAccountIds(db, householdId, userId, scope));
+    const totals = calculateTransactionTotals(balanceRows);
     if (scope === "combined") {
       return {
         kind: "household_balance",
         scope,
         totals,
-        shared: calculateTransactionTotals(rows.filter((row) => row.scope === "shared")),
-        personal: calculateTransactionTotals(rows.filter((row) => row.scope === "personal")),
+        shared: calculateTransactionTotals(balanceRows.filter((row) => row.scope === "shared")),
+        personal: calculateTransactionTotals(balanceRows.filter((row) => row.scope === "personal")),
       };
     }
     return { kind: "household_balance", scope, totals };
@@ -383,8 +405,9 @@ export async function computeFinanceQueryFacts(
     return { kind: "user_contributions", rangeLabel: range.label, members };
   }
   if (data.query_type === "account_summary") {
+    const summaryRows = filters.include_deleted_accounts ? rows : filterToActiveAccounts(rows, await fetchActiveAccountIds(db, householdId, userId, scope));
     const totals = new Map<string, QueryRow[]>();
-    for (const row of rows) {
+    for (const row of summaryRows) {
       const account = row.accounts?.name ?? "Sin cuenta";
       totals.set(account, [...(totals.get(account) ?? []), row]);
     }
@@ -494,7 +517,7 @@ export function formatFinanceReply(facts: FinanceQueryFacts): string {
       return `📊 En ${scopeLabel(facts.scope)}, durante ${facts.rangeLabel}: 💰 ${formatMoney(facts.totals.income)} de ingresos y 💸 ${formatMoney(facts.totals.expenses)} de gastos. El resultado es ${formatMoney(facts.totals.result)}.`;
     }
     case "average_daily_spend":
-      return `📆 Durante ${facts.rangeLabel} (${facts.daysLabel} días), gastaron ${formatMoney(facts.totalExpenses)} en total, un promedio de ${formatMoney(facts.dailyAverage)} por día.`;
+      return `📆 Durante ${facts.rangeLabel} (${facts.daysLabel} días), ${facts.scope === "personal" ? "gastaste" : "gastaron"} ${formatMoney(facts.totalExpenses)} en total, un promedio de ${formatMoney(facts.dailyAverage)} por día.`;
     case "spending_ratio":
       if (facts.empty) return `🤷 No tengo suficientes movimientos de "${facts.labelA}" o "${facts.labelB}" durante ${facts.rangeLabel} para calcular esa equivalencia.`;
       return `🧮 Con lo gastado en "${facts.labelA}" (${formatMoney(facts.amountA)}) durante ${facts.rangeLabel}, cubrirían unas ${facts.countLabel} veces el gasto promedio en "${facts.labelB}" (${formatMoney(facts.avgB)} cada uno).`;
@@ -534,20 +557,20 @@ export async function executeFinanceQuery(
 export async function getRecordedBalance(db: DbClient, householdId: string, userId: string, scope: FinanceScope = "combined") {
   return executeFinanceQuery(db, householdId, userId, {
     query_type: "household_balance",
-    filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit: null, scope },
+    filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit: null, scope, include_deleted_accounts: false },
   });
 }
 
 export async function getMonthSummary(db: DbClient, householdId: string, userId: string, now = new Date(), scope: FinanceScope = "combined") {
   return executeFinanceQuery(db, householdId, userId, {
     query_type: "month_summary",
-    filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope },
+    filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope, include_deleted_accounts: false },
   }, now);
 }
 
 export async function getRecentTransactions(db: DbClient, householdId: string, userId: string, limit = 5, scope: FinanceScope = "combined") {
   return executeFinanceQuery(db, householdId, userId, {
     query_type: "recent_transactions",
-    filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit, scope },
+    filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "all_time", movement_type: "both", limit, scope, include_deleted_accounts: false },
   });
 }

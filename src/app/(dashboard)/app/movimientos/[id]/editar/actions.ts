@@ -42,5 +42,5 @@ export async function editTransaction(formData:FormData){
     if(insertItemsError)throw new Error(insertItemsError.message);
   }
 
-  redirect(transaction.scope==="personal"?"/app/personal":"/app/movimientos");
+  redirect(transaction.scope==="personal"?"/app/personal/movimientos":"/app/movimientos");
 }

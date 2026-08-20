@@ -23,8 +23,29 @@ const normalize = (value: string) => value
   .replace(/[^a-z0-9]+/g, " ")
   .trim();
 
+// Determines whether the parser's chosen scope leaves more than one candidate account — if so, the
+// app must ask instead of guessing (see accountOptionsForSelection below for what's actually shown).
+// Deliberately narrow (never mixes in the other scope's accounts) so a household with exactly one
+// shared account still auto-assigns it instead of asking a question just because the user also
+// happens to have a personal account.
 export function accountsForAction(action: CreateTransactionAction, accounts: AccountOption[]) {
   return accounts.filter(account => account.is_shared === (action.data.scope === "shared"));
+}
+
+// Once accountsForAction (above) has already decided a question is needed, this widens the actual
+// button list: "shared" is the parser's default whenever a message doesn't name a space, so this is
+// the one rescue point where a misclassified personal expense can still be redirected without
+// retyping the whole message. "personal" only ever comes from an explicit mention (the parser never
+// defaults to it), so there's no equivalent need to also offer shared accounts there.
+export function accountOptionsForSelection(action: CreateTransactionAction, accounts: AccountOption[]) {
+  return action.data.scope === "personal" ? accounts.filter(account => !account.is_shared) : accounts;
+}
+
+// Personal accounts get a lock prefix whenever they might appear alongside shared ones (see
+// accountOptionsForSelection above), so it's obvious at a glance which button keeps a movement private.
+export function accountButtonLabel(account: AccountOption, isSelected: boolean) {
+  if (isSelected) return `✅ ${account.name}`;
+  return `${account.is_shared ? "" : "🔒"}${accountEmoji(account.type)} ${account.name}`;
 }
 
 export function assignOnlyAccount(action: CreateTransactionAction, accounts: AccountOption[]) {
@@ -57,10 +78,11 @@ export function describeCreateTransaction(action: CreateTransactionAction) {
   return `Para crear una cuenta ${scopeWord} deberás ingresar a la web con tu usuario.\n\n${detail}`;
 }
 
-export function accountSelectionQuestion(action: CreateTransactionAction, accounts: AccountOption[]) {
-  const accountList = accounts.map((account, index) => `${index + 1}. ${accountEmoji(account.type)} ${account.name}`).join("\n");
+// No text list of accounts here — the options are already the inline keyboard buttons
+// (accountOptionsForSelection + accountButtonLabel), so repeating them as text would be redundant.
+export function accountSelectionQuestion(action: CreateTransactionAction) {
   const question = action.data.wants_new_account
     ? "¿Deseas registrarlo de todos modos en una cuenta existente?"
     : action.data.type === "expense" ? "🤔 ¿De qué cuenta sale el dinero?" : "🤔 ¿En qué cuenta entra el dinero?";
-  return `${describeCreateTransaction(action)}\n\n${question}\n${accountList}`;
+  return `${describeCreateTransaction(action)}\n\n${question}`;
 }

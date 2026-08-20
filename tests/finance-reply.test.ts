@@ -15,6 +15,7 @@ type Row = {
   transaction_date: string;
   created_by: string | null;
   scope: "shared" | "personal";
+  account_id: string;
   categories: { name: string } | null;
   accounts: { name: string } | null;
 };
@@ -34,15 +35,18 @@ function createDb(rows: Row[], members: { user_id: string; profiles: { display_n
     from(table: string) {
       if (table === "transactions") return chainable({ data: rows, error: null });
       if (table === "household_members") return chainable({ data: members, error: null });
+      // Every account referenced by the fixture rows is "active" — household_balance/account_summary
+      // now exclude archived accounts by default, and these tests aren't exercising that filter.
+      if (table === "accounts") return chainable({ data: [{ id: "acc-banco" }, { id: "acc-efectivo" }], error: null });
       throw new Error(`unexpected table ${table}`);
     },
   } as Parameters<typeof computeFinanceQueryFacts>[0];
 }
 
 const rows: Row[] = [
-  { type: "income", amount_cents: 100_000, description: "Sueldo", transaction_date: "2026-08-01", created_by: "user-1", scope: "shared", categories: { name: "Salario" }, accounts: { name: "Banco" } },
-  { type: "expense", amount_cents: 30_000, description: "Super", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" } },
-  { type: "expense", amount_cents: 5_000, description: "Café", transaction_date: "2026-08-03", created_by: "user-2", scope: "shared", categories: { name: "Ocio" }, accounts: { name: "Efectivo" } },
+  { type: "income", amount_cents: 100_000, description: "Sueldo", transaction_date: "2026-08-01", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Salario" }, accounts: { name: "Banco" } },
+  { type: "expense", amount_cents: 30_000, description: "Super", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Supermercado" }, accounts: { name: "Banco" } },
+  { type: "expense", amount_cents: 5_000, description: "Café", transaction_date: "2026-08-03", created_by: "user-2", scope: "shared", account_id: "acc-efectivo", categories: { name: "Ocio" }, accounts: { name: "Efectivo" } },
 ];
 const members = [
   { user_id: "user-1", profiles: { display_name: "Maira" } },
@@ -64,6 +68,7 @@ const baseFilters: FinanceQuery["filters"] = {
   movement_type: "both",
   limit: null,
   scope: "shared",
+  include_deleted_accounts: false,
 };
 
 describe("computeFinanceQueryFacts", () => {
@@ -80,9 +85,31 @@ describe("computeFinanceQueryFacts", () => {
     });
   });
 
+  it("excludes a since-archived account's transactions from the current balance by default", async () => {
+    const rowsWithArchived: Row[] = [...rows, { type: "income", amount_cents: 20_000, description: "Cuenta vieja", transaction_date: "2026-08-01", created_by: "user-1", scope: "shared", account_id: "acc-archivada", categories: { name: "Salario" }, accounts: { name: "Cuenta vieja" } }];
+    const db = createDb(rowsWithArchived, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", { query_type: "household_balance", filters: baseFilters });
+    expect(facts).toEqual({ kind: "household_balance", scope: "shared", totals: { income: 100_000, expenses: 35_000, result: 65_000 } });
+  });
+
+  it("includes a since-archived account's transactions when the user explicitly asks for historical/deleted-account data", async () => {
+    const rowsWithArchived: Row[] = [...rows, { type: "income", amount_cents: 20_000, description: "Cuenta vieja", transaction_date: "2026-08-01", created_by: "user-1", scope: "shared", account_id: "acc-archivada", categories: { name: "Salario" }, accounts: { name: "Cuenta vieja" } }];
+    const db = createDb(rowsWithArchived, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", { query_type: "household_balance", filters: { ...baseFilters, include_deleted_accounts: true } });
+    expect(facts).toEqual({ kind: "household_balance", scope: "shared", totals: { income: 120_000, expenses: 35_000, result: 85_000 } });
+  });
+
+  it("excludes a since-archived account from the per-account breakdown by default", async () => {
+    const rowsWithArchived: Row[] = [...rows, { type: "income", amount_cents: 20_000, description: "Cuenta vieja", transaction_date: "2026-08-01", created_by: "user-1", scope: "shared", account_id: "acc-archivada", categories: { name: "Salario" }, accounts: { name: "Cuenta vieja" } }];
+    const db = createDb(rowsWithArchived, members);
+    const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", { query_type: "account_summary", filters: baseFilters });
+    if (facts.kind !== "account_summary") throw new Error("expected account_summary facts");
+    expect(facts.accounts.map((account) => account.name)).not.toContain("Cuenta vieja");
+  });
+
   it("groups item amounts by subcategory, sorted descending", async () => {
     const itemizedRows: Row[] = [
-      { type: "expense", amount_cents: 8400, description: "Mercadona", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" } },
+      { type: "expense", amount_cents: 8400, description: "Mercadona", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Supermercado" }, accounts: { name: "Banco" } },
     ];
     const items = [
       { transaction_id: "t1", amount_cents: 2000, subcategory: "Snacks y dulces" },
@@ -222,7 +249,7 @@ describe("user_contributions labels a departed member's anonymized rows", () => 
   it("shows 'Miembro eliminado' for a null created_by", async () => {
     const rowsWithDeparted: Row[] = [
       ...rows,
-      { type: "expense", amount_cents: 1_200, description: "Gasto viejo", transaction_date: "2026-08-04", created_by: null, scope: "shared", categories: { name: "Ocio" }, accounts: { name: "Efectivo" } },
+      { type: "expense", amount_cents: 1_200, description: "Gasto viejo", transaction_date: "2026-08-04", created_by: null, scope: "shared", account_id: "acc-efectivo", categories: { name: "Ocio" }, accounts: { name: "Efectivo" } },
     ];
     const db = createDb(rowsWithDeparted, members);
     const facts = await computeFinanceQueryFacts(db, "household-1", "user-1", {

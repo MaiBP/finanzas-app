@@ -91,7 +91,7 @@ Reglas obligatorias:
 - Si el contexto del usuario indica un mes o período, incluye únicamente movimientos de ese período; si no indica ninguno, usa todo el período del extracto.
 - Usa únicamente uno de estos nombres exactos de categoría, respetando el tipo: ${JSON.stringify(availableCategories)}.
 - Si ninguna categoría específica corresponde, usa "Otros" para expense u "Otros ingresos" para income.
-- Descripciones breves, reconocibles y sin números completos de tarjeta o cuenta. Si el documento es un ticket de un comercio identificable, usa el nombre exacto del comercio como aparece impreso (por ejemplo "Mercadona"), nunca una frase genérica como "Compra supermercado".
+- Descripciones breves, reconocibles y sin números completos de tarjeta o cuenta. Si el documento es un ticket de un comercio identificable, usa el nombre exacto del comercio como aparece impreso (por ejemplo "Mercadona"), nunca una frase genérica como "Compra supermercado" ni antepongas "Compra en", "Pago en" o similares.
 - Si el documento es un ticket o recibo que lista productos individuales (por ejemplo la foto de un ticket de supermercado), agrega en esa transacción un array "items" con cada producto: description (nombre breve del producto) y amount_cents (céntimos, entero positivo). Usa únicamente una de estas subcategorías exactas para cada item: ${JSON.stringify(ITEM_SUBCATEGORIES)}.
 - Si el documento es un extracto bancario, resumen de tarjeta o listado de movimientos sin líneas de producto individuales, deja "items" como null.
 - La suma de los items no tiene por qué coincidir exactamente con el total de la transacción si hay descuentos o redondeos.
@@ -171,7 +171,7 @@ function euros(cents: number) {
   return (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
 }
 
-export function statementPreview(payload: StatementImportPayload, accounts: { name: string }[]) {
+export function statementPreview(payload: StatementImportPayload) {
   const totalItems = payload.transactions.reduce((sum, item) => sum + (item.items?.length ?? 0), 0);
   const movementWord = payload.transactions.length === 1 ? "movimiento" : "movimientos";
   const itemsSuffix = totalItems ? ` con ${totalItems} ${totalItems === 1 ? "producto" : "productos"}` : "";
@@ -193,10 +193,10 @@ export function statementPreview(payload: StatementImportPayload, accounts: { na
   const omitted = payload.omitted_rows ? `\nOmití ${payload.omitted_rows} filas que no eran movimientos o no se leían con seguridad.` : "";
   // Once an account is set, the confirm/cancel/edit inline buttons carry the call to action, so
   // the text stays a plain statement rather than repeating "Responde sí/no". Same for the account
-  // picker below — its options come as buttons too.
+  // picker below — its options come as buttons too, so no text list is repeated here.
   const accountQuestion = payload.account_name
     ? `\nSe registra en cuenta: ${payload.account_name}.`
-    : `\n¿En qué cuenta los registro?\n${accounts.map((account, index) => `${index + 1}. ${account.name}`).join("\n")}`;
+    : "\n¿En qué cuenta los registro?";
   return `${header}${aggregateLine}${omitted}\n\n${examples}${payload.transactions.length > 6 ? "\n…" : ""}${accountQuestion}`;
 }
 

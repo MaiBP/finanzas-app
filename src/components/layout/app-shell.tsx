@@ -5,6 +5,8 @@ import { logout } from "@/app/(auth)/actions";
 import { AppContextLabel } from "@/components/layout/app-context-label";
 import { SectionSurface } from "@/components/layout/section-surface";
 import { NavLink } from "@/components/layout/nav-link";
+import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
+import { PageTransition } from "@/components/layout/page-transition";
 
 const householdNav = [
   { href: "/app", label: "Resumen", icon: Home },
@@ -13,16 +15,23 @@ const householdNav = [
   { href: "/app/balance", label: "Balance", icon: BarChart3 },
 ] as const;
 
-const personalNav = [{ href: "/app/personal", label: "Resumen personal", icon: UserRound }] as const;
+const personalNav = [
+  { href: "/app/personal", label: "Resumen", icon: UserRound },
+  { href: "/app/personal/movimientos", label: "Movimientos", icon: CircleDollarSign },
+  { href: "/app/personal/cuentas", label: "Cuentas", icon: CreditCard },
+] as const;
+// Distinct labels from personalNav's: the mobile bar flattens household + personal into one row
+// with no group headers, so "Movimientos" appearing twice (household vs. personal) would be
+// ambiguous the way it isn't in the sidebar, where the "Personal" box header disambiguates it.
+const personalMobileNav = [
+  { href: "/app/personal", label: "Mi resumen", icon: UserRound },
+  { href: "/app/personal/movimientos", label: "Mis movimientos", icon: CircleDollarSign },
+  { href: "/app/personal/cuentas", label: "Mis cuentas", icon: CreditCard },
+] as const;
 const generalNav = [
   { href: "/app/asistente", label: "Asistente", icon: Bot },
   { href: "/app/ajustes", label: "Ajustes", icon: Settings },
 ] as const;
-const mobileNav = [
-  ...householdNav,
-  { href: "/app/personal", label: "Personal", icon: UserRound } as const,
-  ...generalNav,
-];
 
 export function AppShell({
   children,
@@ -36,9 +45,8 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-white text-(--ink) md:grid md:grid-cols-[260px_1fr]">
       <aside className="hidden border-r border-(--ink)/25 bg-white p-5 text-(--ink) md:flex md:flex-col">
-        <Link href="/app" className="flex items-center gap-2 text-lg font-black uppercase">
-          <span className="grid size-10 place-items-center rounded-full bg-(--highlight) text-xl">½</span>
-          Miti-Miti
+        <Link href="/app" className="flex items-center">
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={64} height={64} className="size-16 object-contain" />
         </Link>
 
         <div className="mt-8 rounded-2xl border border-(--ink)/15 p-3">
@@ -93,30 +101,29 @@ export function AppShell({
       </aside>
 
       <SectionSurface>
-        <header className="section-header sticky top-0 z-10 flex items-center justify-between border-b border-(--ink)/30 px-5 py-4 backdrop-blur md:px-8">
-          <Link href="/app" className="font-black uppercase md:hidden">
-            Miti-Miti
+        <header className="section-header sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-(--ink)/30 px-5 py-4 backdrop-blur md:px-8">
+          <div className="flex items-center gap-3">
+            <MobileNavDrawer
+              householdNav={householdNav.map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={19} /> }))}
+              personalNav={personalMobileNav.map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={19} /> }))}
+              generalNav={generalNav.map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={19} /> }))}
+              householdName={householdName}
+              personalSpaceName={personalSpaceName}
+              logout={logout}
+            />
+            <AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName} />
+          </div>
+          <Link href="/app" className="hidden items-center justify-self-center md:flex">
+            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={56} height={56} className="size-14 object-contain" />
           </Link>
-          <AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName} />
-          <div className="grid size-9 place-items-center rounded-full bg-white text-sm font-black">½</div>
+          <Link href="/app" className="flex items-center justify-self-end md:hidden">
+            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={36} height={36} className="size-9 object-contain" />
+          </Link>
         </header>
-        <main className="mx-auto max-w-7xl p-5 md:p-8">{children}</main>
+        <main className="mx-auto max-w-7xl p-5 md:p-8">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </SectionSurface>
-
-      <nav className="fixed inset-x-3 bottom-3 z-20 flex overflow-x-auto rounded-full border border-(--ink)/20 bg-white px-2 py-2 text-(--ink) shadow-2xl md:hidden">
-        {mobileNav.map((item) => (
-          <NavLink key={item.href} href={item.href} label={item.label} icon={<item.icon size={19} />} variant="mobile" />
-        ))}
-        <form action={logout} className="contents">
-          <button
-            type="submit"
-            className="flex min-w-16 flex-1 flex-col items-center gap-1 rounded-full p-2 text-[10px] text-(--ink) hover:bg-(--highlight)"
-          >
-            <LogOut size={19} />
-            Salir
-          </button>
-        </form>
-      </nav>
     </div>
   );
 }

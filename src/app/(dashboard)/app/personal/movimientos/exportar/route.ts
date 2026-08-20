@@ -1,6 +1,5 @@
 import { getCurrentHousehold } from "@/lib/household";
 import { decryptField } from "@/lib/security/field-encryption";
-import { getHouseholdRoster } from "@/services/household-roster";
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLocaleLowerCase("es").trim();
@@ -12,7 +11,6 @@ type ExportRow = {
   amount_cents: number;
   description: string;
   transaction_date: string;
-  created_by: string | null;
   categories: { name: string } | null;
   accounts: { name: string } | null;
   transaction_items: ExportItem[] | null;
@@ -29,7 +27,7 @@ function csvCell(value: string) {
 }
 
 export async function GET(request: Request) {
-  const { supabase, household } = await getCurrentHousehold();
+  const { supabase, user, household } = await getCurrentHousehold();
   if (!household) return new Response("No se encontró el hogar", { status: 404 });
 
   const params = new URL(request.url).searchParams;
@@ -42,9 +40,10 @@ export async function GET(request: Request) {
   for (let offset = 0; ; offset += CHUNK_SIZE) {
     let query = supabase
       .from("transactions")
-      .select("type,amount_cents,description,transaction_date,created_by,categories(name),accounts(name),transaction_items(description,amount_cents,subcategory)")
+      .select("type,amount_cents,description,transaction_date,categories(name),accounts(name),transaction_items(description,amount_cents,subcategory)")
       .eq("household_id", household.id)
-      .eq("scope", "shared")
+      .eq("created_by", user.id)
+      .eq("scope", "personal")
       .eq("status", "confirmed")
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false })
@@ -65,25 +64,20 @@ export async function GET(request: Request) {
   // Description is encrypted, so the search term is matched in JS after decrypting above.
   const matchedRows = search ? rows.filter((row) => normalize(row.description).includes(normalize(search))) : rows;
 
-  const roster = await getHouseholdRoster(supabase, household.id);
-  const memberNames = new Map(roster.map((member) => [member.userId, member.displayName]));
-
-  // Every row shares the transaction-level columns (Fecha..Registrado por) so the sheet stays
-  // filterable either way; product rows leave Importe (EUR) blank and use Importe producto (EUR)
-  // instead, since item amounts don't have to add up to the transaction total and would otherwise
-  // silently double-count a naive sum of one shared amount column.
-  const header = ["Fecha", "Tipo", "Descripción", "Categoría", "Cuenta", "Registrado por", "Importe (EUR)", "Producto", "Subcategoría producto", "Importe producto (EUR)"];
+  // Every row shares the transaction-level columns (Fecha..Cuenta) so the sheet stays filterable
+  // either way; product rows leave Importe (EUR) blank and use Importe producto (EUR) instead,
+  // since item amounts don't have to add up to the transaction total and would otherwise silently
+  // double-count a naive sum of one shared amount column.
+  const header = ["Fecha", "Tipo", "Descripción", "Categoría", "Cuenta", "Importe (EUR)", "Producto", "Subcategoría producto", "Importe producto (EUR)"];
   const lines = ["sep=;", header.map(csvCell).join(";")];
   for (const row of matchedRows) {
     const amount = ((row.type === "income" ? 1 : -1) * row.amount_cents / 100).toFixed(2).replace(".", ",");
-    const registeredBy = row.created_by === null ? "Miembro eliminado" : (memberNames.get(row.created_by) ?? "Miembro eliminado");
     const sharedCells = [
       row.transaction_date,
       row.type === "income" ? "Ingreso" : "Gasto",
       safeText(row.description),
       safeText(row.categories?.name ?? "Sin categoría"),
       safeText(row.accounts?.name ?? "Sin cuenta"),
-      safeText(registeredBy),
     ];
     lines.push([...sharedCells, amount, "", "", ""].map(csvCell).join(";"));
     for (const item of row.transaction_items ?? []) {
@@ -93,10 +87,10 @@ export async function GET(request: Request) {
   }
 
   const dateSuffix = new Date().toISOString().slice(0, 10);
-  return new Response(`\uFEFF${lines.join("\r\n")}`, {
+  return new Response(`﻿${lines.join("\r\n")}`, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="miti-miti-movimientos-${dateSuffix}.csv"`,
+      "Content-Disposition": `attachment; filename="miti-miti-movimientos-personales-${dateSuffix}.csv"`,
       "Cache-Control": "private, no-store",
     },
   });

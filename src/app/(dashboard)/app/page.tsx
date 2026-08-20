@@ -87,7 +87,7 @@ export default async function DashboardPage({
         <div>
           <p className="text-sm font-bold text-(--muted)">Resumen del hogar</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight md:text-4xl">
-            Así están vuestras finanzas
+            Así están nuestras finanzas
           </h1>
         </div>
         <div className="flex gap-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 
 const TONES = {
@@ -44,11 +45,8 @@ export function AuthCard({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <Link href="/" className="mb-7 flex items-center justify-center gap-3 text-lg font-black">
-          <span className="grid size-10 place-items-center rounded-full bg-(--ink) text-xl text-(--highlight)">
-            ½
-          </span>
-          <span className="bg-(--highlight) px-1">Miti-Miti</span>
+        <Link href="/" className="mb-7 flex items-center justify-center">
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={72} height={72} className="size-18 object-contain" />
         </Link>
 
         <section className="card overflow-hidden">

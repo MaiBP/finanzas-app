@@ -1,11 +1,5 @@
 import Image from "next/image";
-import {
-  ArrowRight,
-  CreditCard,
-  PiggyBank,
-  TrendingUp,
-  WalletCards,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
 import {
@@ -18,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button, LinkButton } from "@/components/ui/button";
 import { getHouseholdRoster } from "@/services/household-roster";
 import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
+import { AccountIcon, FLOATING_ACCOUNT_IMAGES } from "@/components/accounts/account-icon";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/finance/account-types";
 
 type AccountRow = {
@@ -35,24 +30,7 @@ type ExpenseMovement = {
   paid_by: string | null;
   amount_cents: number;
 };
-function AccountIcon({ type }: { type: string }) {
-  if (type === "bank") return <Image src="/bank-building.png" alt="" width={32} height={32} className="size-6 object-contain" />;
-  if (type === "cash") return <Image src="/money-cash.png" alt="" width={32} height={32} className="size-6 object-contain" />;
-  if (type === "card") return <CreditCard />;
-  if (type === "savings") return <PiggyBank />;
-  if (type === "investment") return <TrendingUp />;
-  return <WalletCards />;
-}
 const typeNames = ACCOUNT_TYPE_LABELS;
-// Types with dedicated artwork float overflowing the card's corner instead of sitting inside
-// the lime badge (see AccountIcon for the "joint" fallback, the only type without one).
-const FLOATING_ACCOUNT_IMAGES: Partial<Record<string, string>> = {
-  bank: "/bank-building.png",
-  cash: "/money-cash.png",
-  card: "/credit-card.png",
-  savings: "/piggy-bank.png",
-  investment: "/investing.png",
-};
 
 export default async function AccountsPage() {
   const { supabase, household } = await getCurrentHousehold();

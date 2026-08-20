@@ -35,7 +35,7 @@ describe("statement import",()=>{
   });
 
   it("previews totals and states the account to be used",()=>{
-    const preview=statementPreview(payload,[{name:"Banco"}]);
+    const preview=statementPreview(payload);
     expect(preview).toContain("2 movimientos");
     expect(preview).toContain("12,50 €");
     expect(preview).toContain("Se registra en cuenta: Banco");
@@ -43,7 +43,7 @@ describe("statement import",()=>{
 
   it("accepts itemized transactions and lists each product in the preview, without the subcategory",()=>{
     expect(itemizedPayload.transactions[0].items).toHaveLength(2);
-    const preview=statementPreview(itemizedPayload,[{name:"Banco"}]);
+    const preview=statementPreview(itemizedPayload);
     expect(preview).toContain("Patatas fritas");
     expect(preview).toContain("Agua mineral");
     expect(preview).toContain("1 movimiento");

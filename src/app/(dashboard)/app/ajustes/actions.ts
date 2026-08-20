@@ -38,7 +38,7 @@ export async function updateHouseholdName(formData:FormData){
 export async function updatePersonalSpaceName(formData:FormData){
   const {supabase,user}=await getCurrentHousehold(); const personal_space_name=normalizeSpaceName(formData.get("name"),50);
   const {error}=await supabase.from("profiles").update({personal_space_name}).eq("id",user.id); if(error)throw new Error(error.message);
-  revalidatePath("/app","layout"); revalidatePath("/app/personal"); revalidatePath("/app/ajustes");
+  revalidatePath("/app","layout"); revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas"); revalidatePath("/app/ajustes");
 }
 
 export async function leaveHousehold(){

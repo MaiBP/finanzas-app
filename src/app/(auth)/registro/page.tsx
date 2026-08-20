@@ -33,7 +33,7 @@ export default async function SignupPage({
         o crea la cuenta con email
         <span className="h-px flex-1 bg-(--ink)/20" />
       </div>
-      <form action={signup} className="space-y-4">
+      <form action={signup} className="space-y-5">
         <label>
           <span className="label">Cómo te llamas</span>
           <input className="field" required name="displayName" maxLength={60} autoComplete="name" />

@@ -49,9 +49,23 @@ describe("financial conversational defaults", () => {
       requires_confirmation: false,
       data: {
         query_type: "month_summary",
-        filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope: "personal" },
+        filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope: "personal", include_deleted_accounts: false },
       },
     };
     expect(applyFinancialDefaults(query, "¿Cuánto gastamos?")).toBe(query);
+  });
+
+  it("flips include_deleted_accounts to true only when the user explicitly asks for historical/deleted-account data", () => {
+    const query: FinancialAction = {
+      action: "query_finances",
+      confidence: 0.9,
+      requires_confirmation: false,
+      data: {
+        query_type: "account_summary",
+        filters: { category: null, subcategory: null, user_name: null, account_name: null, search_text: null, ratio_category_a: null, ratio_category_b: null, date_from: null, date_to: null, month: null, period: "current_month", movement_type: "both", limit: null, scope: "shared", include_deleted_accounts: false },
+      },
+    };
+    const result = applyFinancialDefaults(query, "Decime el saldo de cada cuenta, incluyendo las cuentas borradas");
+    expect(result.action === "query_finances" && result.data.filters.include_deleted_accounts).toBe(true);
   });
 });

@@ -1,4 +1,5 @@
-import { ArrowRight, Home, ShieldCheck, Users } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -26,9 +27,7 @@ export default async function Onboarding({
         <div className="relative z-10 mx-auto max-w-xl">
           <StepIndicator step={1} total={6} label="Términos" />
           <FadeIn className="text-center">
-            <span className="mx-auto grid size-12 place-items-center rounded-full bg-(--ink) text-2xl font-black text-(--highlight)">
-              ½
-            </span>
+            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={72} height={72} className="mx-auto size-18 object-contain" />
             <p className="mx-auto mt-5 w-fit bg-(--highlight) px-2 text-xs font-black uppercase tracking-wider">
               Antes de empezar
             </p>
@@ -65,15 +64,13 @@ export default async function Onboarding({
       <div className="relative z-10 mx-auto max-w-5xl">
         <StepIndicator step={2} total={6} label="Hogar" />
         <FadeIn className="text-center">
-          <span className="mx-auto grid size-12 place-items-center rounded-full bg-(--ink) text-2xl font-black text-(--highlight)">
-            ½
-          </span>
+          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={72} height={72} className="mx-auto size-18 object-contain" />
           <p className="mx-auto mt-5 w-fit bg-(--highlight) px-2 text-xs font-black uppercase tracking-wider">
             Bienvenidos a Miti-Miti
           </p>
           <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">¿Dónde organizamos las cuentas?</h1>
           <p className="mx-auto mt-3 max-w-xl text-(--ink)/75">
-            Crea un hogar para empezar desde cero o entra al espacio que vuestra pareja ya preparó.
+            Crea un hogar para empezar desde cero o entra al espacio que tu pareja ya preparó.
           </p>
         </FadeIn>
 
@@ -82,11 +79,17 @@ export default async function Onboarding({
         </div>
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">
-          <FadeIn delay={0.05} className="card overflow-hidden bg-(--blue)">
+          <div className="relative">
+            <Image
+              src="/home.png"
+              alt=""
+              width={112}
+              height={112}
+              className="absolute -top-6 -left-5 z-1 size-16 -rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)] sm:-top-7 sm:-left-6 sm:size-20"
+            />
+            <FadeIn delay={0.05} className="card overflow-hidden bg-(--blue)">
             <div className="flex items-center justify-between border-b border-(--ink)/20 p-6">
-              <span className="grid size-12 place-items-center rounded-full bg-(--highlight)">
-                <Home size={22} />
-              </span>
+              <span className="size-12" />
               <span className="text-5xl font-black text-(--ink)/20">01</span>
             </div>
             <div className="p-7">
@@ -95,7 +98,7 @@ export default async function Onboarding({
               <p className="mt-2 min-h-12 text-sm text-(--ink)/75">
                 Serás la persona propietaria y podrás invitar a quien quieras.
               </p>
-              <form action={createHousehold} className="mt-6 space-y-4">
+              <form action={createHousehold} className="mt-6 space-y-5">
                 <label>
                   <span className="label text-(--ink)!">Nombre del hogar</span>
                   <input
@@ -104,19 +107,26 @@ export default async function Onboarding({
                     required
                     minLength={2}
                     maxLength={80}
-                    placeholder="Casa de Maira y Pablo"
+                    placeholder="Casa de Maira y Cristian"
                   />
                 </label>
                 <SubmitButton>Crear hogar</SubmitButton>
               </form>
             </div>
-          </FadeIn>
+            </FadeIn>
+          </div>
 
-          <FadeIn delay={0.15} className="card overflow-hidden bg-(--lilac)">
+          <div className="relative">
+            <Image
+              src="/hand-shake.png"
+              alt=""
+              width={112}
+              height={112}
+              className="absolute -top-6 -right-5 z-1 size-16 rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)] sm:-top-7 sm:-right-6 sm:size-20"
+            />
+            <FadeIn delay={0.15} className="card overflow-hidden bg-(--lilac)">
             <div className="flex items-center justify-between border-b border-(--ink)/20 p-6">
-              <span className="grid size-12 place-items-center rounded-full bg-(--highlight)">
-                <Users size={22} />
-              </span>
+              <span className="size-12" />
               <span className="text-5xl font-black text-(--ink)/20">02</span>
             </div>
             <div className="p-7">
@@ -125,7 +135,7 @@ export default async function Onboarding({
               <p className="mt-2 min-h-12 text-sm text-(--ink)/75">
                 Escribe el código de ocho caracteres que te han compartido.
               </p>
-              <form action={joinHousehold} className="mt-6 space-y-4">
+              <form action={joinHousehold} className="mt-6 space-y-5">
                 <label>
                   <span className="label text-(--ink)!">Código de invitación</span>
                   <input
@@ -142,7 +152,8 @@ export default async function Onboarding({
                 </SubmitButton>
               </form>
             </div>
-          </FadeIn>
+            </FadeIn>
+          </div>
         </div>
 
         <p className="mx-auto mt-8 w-fit bg-(--lime) px-3 py-1 text-center text-xs font-bold">
