@@ -47,6 +47,14 @@ export type FinanceQueryFacts =
   | { kind: "largest_transactions"; movementType: "expense" | "income"; rangeLabel: string; empty: true }
   | { kind: "largest_transactions"; movementType: "expense" | "income"; rangeLabel: string; empty?: false; items: { description: string; amount_cents: number; date: string }[] }
   | { kind: "monthly_trend"; scope: FinanceScope; months: { month: string; income: number; expenses: number; result: number }[] }
+  // Reuses the same category/search_text filtering as category_spending (see fetchQueryRows), just
+  // broken down by month instead of collapsed into one total — "how has X evolved" instead of
+  // "how much did I spend on X this period".
+  | { kind: "category_trend"; scope: FinanceScope; categoryLabel: string; months: { month: string; amount_cents: number }[] }
+  // Always compares targetMonth against the month right before it, regardless of any period filter —
+  // "where can I cut" is inherently a month-over-month question, not a fixed-range one.
+  | { kind: "savings_opportunities"; scope: FinanceScope; targetMonth: string; previousMonth: string; empty: true }
+  | { kind: "savings_opportunities"; scope: FinanceScope; targetMonth: string; previousMonth: string; empty?: false; risingCategories: { name: string; current: number; previous: number; increase: number }[] }
   | { kind: "compare_months"; targetMonth: string; previousMonth: string; current: Totals; previous: Totals; expenseDifference: number }
   | { kind: "summary"; scope: FinanceScope; rangeLabel: string; movementType: "both"; totals: Totals; shared?: Totals; personal?: Totals }
   | { kind: "summary"; scope: FinanceScope; rangeLabel: string; movementType: "expense" | "income"; amount: number; sharedAmount?: number; personalAmount?: number }
@@ -331,10 +339,10 @@ export async function computeFinanceQueryFacts(
   if (data.query_type === "account_summary" && !filters.period && !filters.month && !filters.date_from && !filters.date_to) {
     range = { from: null, to: null, label: "todo el historial" };
   }
-  if (data.query_type === "monthly_trend" && !filters.period && !filters.month && !filters.date_from && !filters.date_to) {
+  if ((data.query_type === "monthly_trend" || data.query_type === "category_trend") && !filters.period && !filters.month && !filters.date_from && !filters.date_to) {
     range = resolveFinancePeriod({ ...filters, period: "current_year" }, now);
   }
-  if (data.query_type === "compare_months") {
+  if (data.query_type === "compare_months" || data.query_type === "savings_opportunities") {
     const targetMonth = filters.month ?? today.slice(0, 7);
     const previousMonth = shiftMonth(targetMonth, -1);
     range = { from: `${previousMonth}-01`, to: targetMonth === today.slice(0, 7) ? today : monthEnd(targetMonth), label: "la comparación solicitada" };
@@ -436,12 +444,43 @@ export async function computeFinanceQueryFacts(
     });
     return { kind: "monthly_trend", scope, months };
   }
+  if (data.query_type === "category_trend") {
+    // filters.category/search_text already narrowed rows down in fetchQueryRows — this only needs
+    // to bucket what's left by month.
+    const monthsMap = new Map<string, number>();
+    for (const row of rows.filter((row) => row.type === "expense")) {
+      const month = row.transaction_date.slice(0, 7);
+      monthsMap.set(month, (monthsMap.get(month) ?? 0) + row.amount_cents);
+    }
+    const months = [...monthsMap].sort(([a], [b]) => a.localeCompare(b)).map(([month, amount_cents]) => ({ month, amount_cents }));
+    const categoryLabel = filters.category ?? filters.search_text ?? "esa categoría";
+    return { kind: "category_trend", scope, categoryLabel, months };
+  }
   if (data.query_type === "compare_months") {
     const targetMonth = filters.month ?? today.slice(0, 7);
     const previousMonth = shiftMonth(targetMonth, -1);
     const current = calculateTransactionTotals(rows.filter((row) => row.transaction_date.startsWith(targetMonth)));
     const previous = calculateTransactionTotals(rows.filter((row) => row.transaction_date.startsWith(previousMonth)));
     return { kind: "compare_months", targetMonth, previousMonth, current, previous, expenseDifference: current.expenses - previous.expenses };
+  }
+  if (data.query_type === "savings_opportunities") {
+    const targetMonth = filters.month ?? today.slice(0, 7);
+    const previousMonth = shiftMonth(targetMonth, -1);
+    const currentByCategory = new Map<string, number>();
+    const previousByCategory = new Map<string, number>();
+    for (const row of rows.filter((row) => row.type === "expense")) {
+      const name = row.categories?.name ?? "Otros";
+      if (row.transaction_date.startsWith(targetMonth)) currentByCategory.set(name, (currentByCategory.get(name) ?? 0) + row.amount_cents);
+      else if (row.transaction_date.startsWith(previousMonth)) previousByCategory.set(name, (previousByCategory.get(name) ?? 0) + row.amount_cents);
+    }
+    const risingCategories = [...currentByCategory.entries()]
+      .map(([name, current]) => ({ name, current, previous: previousByCategory.get(name) ?? 0 }))
+      .map((entry) => ({ ...entry, increase: entry.current - entry.previous }))
+      .filter((entry) => entry.increase > 0)
+      .sort((a, b) => b.increase - a.increase)
+      .slice(0, 5);
+    if (!risingCategories.length) return { kind: "savings_opportunities", scope, targetMonth, previousMonth, empty: true };
+    return { kind: "savings_opportunities", scope, targetMonth, previousMonth, risingCategories };
   }
   if (data.query_type === "average_daily_spend") {
     const totalExpenses = calculateTransactionTotals(rows).expenses;
@@ -498,10 +537,16 @@ export function formatFinanceReply(facts: FinanceQueryFacts): string {
       return `🏆 ${facts.items.map((item, index) => `${MEDALS[index] ?? `${index + 1}.`} ${item.description}: ${formatMoney(item.amount_cents)} (${item.date})`).join("\n")}`;
     case "monthly_trend":
       return `📈 Evolución mensual de ${scopeLabel(facts.scope)}:\n${facts.months.map((m) => `${m.month}: ingresos ${formatMoney(m.income)}, gastos ${formatMoney(m.expenses)}, resultado ${formatMoney(m.result)}`).join("\n")}`;
+    case "category_trend":
+      if (!facts.months.length) return `🤷 No hay gastos confirmados en "${facts.categoryLabel}" en ${scopeLabel(facts.scope)} para ese período.`;
+      return `📈 Evolución de "${facts.categoryLabel}" en ${scopeLabel(facts.scope)}:\n${facts.months.map((m) => `${m.month}: ${formatMoney(m.amount_cents)}`).join("\n")}`;
     case "compare_months": {
       const trend = facts.expenseDifference >= 0 ? "🔺" : "🔻";
       return `📊 ${facts.targetMonth}: ingresos ${formatMoney(facts.current.income)}, gastos ${formatMoney(facts.current.expenses)}. ${facts.previousMonth}: ingresos ${formatMoney(facts.previous.income)}, gastos ${formatMoney(facts.previous.expenses)}. ${trend} La diferencia de gastos es ${facts.expenseDifference >= 0 ? "+" : ""}${formatMoney(facts.expenseDifference)}.`;
     }
+    case "savings_opportunities":
+      if (facts.empty) return `👍 No detecté categorías con aumento de gasto entre ${facts.previousMonth} y ${facts.targetMonth} en ${scopeLabel(facts.scope)}.`;
+      return `✂️ Categorías donde más aumentó el gasto (${facts.previousMonth} → ${facts.targetMonth}) en ${scopeLabel(facts.scope)}: ${facts.risingCategories.map((c) => `${c.name}: ${formatMoney(c.previous)} → ${formatMoney(c.current)} (+${formatMoney(c.increase)})`).join("; ")}. Ahí hay margen para recortar.`;
     case "summary": {
       if (facts.movementType !== "both") {
         const emoji = facts.movementType === "expense" ? "💸" : "💰";
