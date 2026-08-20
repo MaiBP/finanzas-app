@@ -6,6 +6,7 @@ import { AppContextLabel } from "@/components/layout/app-context-label";
 import { SectionSurface } from "@/components/layout/section-surface";
 import { NavLink } from "@/components/layout/nav-link";
 import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
+import { PageTransition } from "@/components/layout/page-transition";
 
 const householdNav = [
   { href: "/app", label: "Resumen", icon: Home },
@@ -100,8 +101,8 @@ export function AppShell({
       </aside>
 
       <SectionSurface>
-        <header className="section-header sticky top-0 z-10 flex items-center justify-between border-b border-(--ink)/30 px-5 py-4 backdrop-blur md:px-8">
-          <div className="flex items-center gap-3 md:hidden">
+        <header className="section-header sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-(--ink)/30 px-5 py-4 backdrop-blur md:px-8">
+          <div className="flex items-center gap-3">
             <MobileNavDrawer
               householdNav={householdNav.map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={19} /> }))}
               personalNav={personalMobileNav.map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={19} /> }))}
@@ -110,14 +111,18 @@ export function AppShell({
               personalSpaceName={personalSpaceName}
               logout={logout}
             />
-            <Link href="/app" className="flex items-center">
-              <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={36} height={36} className="size-9 object-contain" />
-            </Link>
+            <AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName} />
           </div>
-          <AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName} />
-          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={44} height={44} className="hidden size-11 object-contain md:block" />
+          <Link href="/app" className="hidden items-center justify-self-center md:flex">
+            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={56} height={56} className="size-14 object-contain" />
+          </Link>
+          <Link href="/app" className="flex items-center justify-self-end md:hidden">
+            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={36} height={36} className="size-9 object-contain" />
+          </Link>
         </header>
-        <main className="mx-auto max-w-7xl p-5 md:p-8">{children}</main>
+        <main className="mx-auto max-w-7xl p-5 md:p-8">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </SectionSurface>
     </div>
   );
