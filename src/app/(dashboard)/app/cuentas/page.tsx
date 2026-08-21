@@ -79,16 +79,20 @@ export default async function AccountsPage() {
   const generalAccount = accounts.find((account) => account.type === "joint");
   const balanceMovements = (balanceData ?? []) as BalanceMovement[];
   const expenseMovements = (expenseData ?? []) as ExpenseMovement[];
-  const totalBalance = fundingAccounts.reduce(
+  // Same rule as the household summary: the top total only ever mixes accounts in the base
+  // currency — an account in another currency is still listed below (in its own currency), just
+  // not folded into this sum, since adding cents across currencies would be meaningless.
+  const baseFundingAccounts = fundingAccounts.filter((account) => account.currency === household.baseCurrency);
+  const baseAccountIds = new Set(baseFundingAccounts.map((account) => account.id));
+  const totalBalance = baseFundingAccounts.reduce(
     (total, account) =>
       total +
       calculateAccountBalance(account.id, balanceMovements),
     0,
   );
-  const totalExpenses = expenseMovements.reduce(
-    (total, movement) => total + movement.amount_cents,
-    0,
-  );
+  const totalExpenses = expenseMovements
+    .filter((movement) => baseAccountIds.has(movement.account_id))
+    .reduce((total, movement) => total + movement.amount_cents, 0);
   const totalBalanceLabel =
     totalBalance > 0
       ? "Saldo positivo"
@@ -117,19 +121,19 @@ export default async function AccountsPage() {
               className={`mt-3 text-5xl font-black ${totalBalance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}
             >
               {totalBalance > 0 ? "+" : ""}
-              {formatMoney(totalBalance)}
+              {formatMoney(totalBalance, household.baseCurrency)}
             </p>
             <p className="mt-2 text-xs font-bold uppercase tracking-wide text-(--muted)">
-              {totalBalanceLabel} · {fundingAccounts.length}{" "}
-              {fundingAccounts.length === 1
+              {totalBalanceLabel} · {baseFundingAccounts.length}{" "}
+              {baseFundingAccounts.length === 1
                 ? "cuenta operativa activa"
-                : "cuentas operativas activas"}
+                : "cuentas operativas activas"} en {household.baseCurrency}
             </p>
           </div>
           <StatTile
             label={`Gasto conjunto · ${monthName}`}
-            value={formatMoney(totalExpenses)}
-            detail="Acumulado entre todas las cuentas operativas."
+            value={formatMoney(totalExpenses, household.baseCurrency)}
+            detail={`Acumulado entre las cuentas operativas en ${household.baseCurrency}.`}
             tone="coral"
           />
         </div>
@@ -162,6 +166,7 @@ export default async function AccountsPage() {
                   ? "Saldo negativo"
                   : "En equilibrio";
             const floatingImage = FLOATING_ACCOUNT_IMAGES[account.type];
+            const hasMovements = accountMovements.length > 0;
             return (
               <div className="relative" key={account.id}>
                 {floatingImage && (
@@ -200,13 +205,13 @@ export default async function AccountsPage() {
                     className={`mt-1 text-4xl font-black ${balance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}
                   >
                     {balance > 0 ? "+" : ""}
-                    {formatMoney(balance)}
+                    {formatMoney(balance, account.currency)}
                   </p>
                   <p className="mt-1 text-xs font-bold uppercase tracking-wide text-(--muted)">
                     {balanceLabel} actual
                   </p>
                   <p className="mt-3 text-xs text-(--muted)">
-                    Ingresos registrados {formatMoney(allIncome)} − gastos registrados {formatMoney(allExpenses)}
+                    Ingresos registrados {formatMoney(allIncome, account.currency)} − gastos registrados {formatMoney(allExpenses, account.currency)}
                   </p>
                 </div>
                 <div className="border-t border-(--ink)/15 bg-(--highlight) p-5">
@@ -223,7 +228,7 @@ export default async function AccountsPage() {
                           {member.displayName}
                         </span>
                         <span className="text-sm font-black">
-                          {formatMoney(expenses.get(member.userId) ?? 0)}
+                          {formatMoney(expenses.get(member.userId) ?? 0, account.currency)}
                         </span>
                       </div>
                     ))}
@@ -249,12 +254,21 @@ export default async function AccountsPage() {
                     </label>
                     <label>
                       <span className="label">Moneda</span>
-                      <select className="field" name="currency" defaultValue={account.currency}>
-                        {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
-                      </select>
+                      {hasMovements ? (
+                        <>
+                          <select className="field" disabled defaultValue={account.currency}>
+                            {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+                          </select>
+                          <input type="hidden" name="currency" value={account.currency} />
+                        </>
+                      ) : (
+                        <select className="field" name="currency" defaultValue={account.currency}>
+                          {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+                        </select>
+                      )}
                     </label>
                     <Button type="submit" size="sm" className="self-end">Guardar cambios</Button>
-                    <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez. La moneda no se puede cambiar una vez que la cuenta tiene movimientos.</p>
+                    <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez. {hasMovements ? "La moneda quedó bloqueada porque esta cuenta ya tiene movimientos — para cambiarla hay que eliminar la cuenta y crearla de nuevo." : "La moneda no se puede cambiar una vez que la cuenta tenga movimientos."}</p>
                   </form>
                 </details>
                 <details className="border-t border-(--ink)/15 bg-white p-5">
