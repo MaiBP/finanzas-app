@@ -49,6 +49,7 @@ export default async function PersonalTransactionsPage({
     to?: string;
     page?: string;
     error?: string;
+    currency?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -63,9 +64,21 @@ export default async function PersonalTransactionsPage({
   const from = /^\d{4}-\d{2}-\d{2}$/.test(params.from ?? "") ? params.from : undefined;
   const to = /^\d{4}-\d{2}-\d{2}$/.test(params.to ?? "") ? params.to : undefined;
 
+  const [{ data: currencyRows }, { data: profile }] = await Promise.all([
+    supabase.from("accounts").select("id,currency").eq("household_id", household.id).eq("owner_user_id", user.id).eq("is_shared", false).is("archived_at", null),
+    supabase.from("profiles").select("personal_base_currency").eq("id", user.id).maybeSingle(),
+  ]);
+  const baseCurrency = profile?.personal_base_currency ?? "EUR";
+  const accountsByCurrency = (currencyRows ?? []) as { id: string; currency: string }[];
+  const availableCurrencies = [...new Set(accountsByCurrency.map((account) => account.currency))].sort((a, b) => a === baseCurrency ? -1 : b === baseCurrency ? 1 : a.localeCompare(b));
+  const currency = params.currency && availableCurrencies.includes(params.currency) ? params.currency : baseCurrency;
+  const currencyAccountIds = accountsByCurrency.filter((account) => account.currency === currency).map((account) => account.id);
+
   let rows: Row[];
   let total: number;
-  if (search) {
+  if (!currencyAccountIds.length) {
+    rows = []; total = 0;
+  } else if (search) {
     // Description is encrypted, so the search term can't be matched in SQL: fetch a bounded
     // window with the other filters applied, decrypt, then filter and paginate in JS.
     let searchQuery = supabase
@@ -75,6 +88,7 @@ export default async function PersonalTransactionsPage({
       .eq("created_by", user.id)
       .eq("scope", "personal")
       .eq("status", "confirmed")
+      .in("account_id", currencyAccountIds)
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(SEARCH_FETCH_LIMIT);
@@ -98,6 +112,7 @@ export default async function PersonalTransactionsPage({
       .eq("created_by", user.id)
       .eq("scope", "personal")
       .eq("status", "confirmed")
+      .in("account_id", currencyAccountIds)
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1);
@@ -143,6 +158,7 @@ export default async function PersonalTransactionsPage({
   if (type) exportParams.set("type", type);
   if (from) exportParams.set("from", from);
   if (to) exportParams.set("to", to);
+  if (currency !== baseCurrency) exportParams.set("currency", currency);
   const exportQuery = exportParams.toString();
   const exportHref = `/app/personal/movimientos/exportar${exportQuery ? `?${exportQuery}` : ""}`;
   const paginationHref = (targetPage: number) => {
@@ -151,7 +167,18 @@ export default async function PersonalTransactionsPage({
     if (type) next.set("type", type);
     if (from) next.set("from", from);
     if (to) next.set("to", to);
+    if (currency !== baseCurrency) next.set("currency", currency);
     if (targetPage > 1) next.set("page", String(targetPage));
+    const queryString = next.toString();
+    return `/app/personal/movimientos${queryString ? `?${queryString}` : ""}`;
+  };
+  const currencyHref = (targetCurrency: string) => {
+    const next = new URLSearchParams();
+    if (search) next.set("q", search);
+    if (type) next.set("type", type);
+    if (from) next.set("from", from);
+    if (to) next.set("to", to);
+    if (targetCurrency !== baseCurrency) next.set("currency", targetCurrency);
     const queryString = next.toString();
     return `/app/personal/movimientos${queryString ? `?${queryString}` : ""}`;
   };
@@ -173,7 +200,21 @@ export default async function PersonalTransactionsPage({
         </div>
       </div>
       <Banner kind="error">{params.error}</Banner>
-      <form className="card mt-6 p-5">
+      {availableCurrencies.length > 1 && (
+        <nav className="mt-5 flex flex-wrap gap-2" aria-label="Moneda">
+          {availableCurrencies.map((code) => (
+            <Link
+              key={code}
+              href={currencyHref(code)}
+              className={`rounded-full border px-4 py-2 text-sm font-bold ${code === currency ? "border-(--ink) bg-(--ink) text-(--highlight)" : "border-(--ink)/25 text-(--ink) hover:border-(--ink)"}`}
+            >
+              {code}{code === baseCurrency ? " · base" : ""}
+            </Link>
+          ))}
+        </nav>
+      )}
+      <form className="card mt-5 p-5">
+        <input type="hidden" name="currency" value={currency} />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_160px_160px_160px_auto] xl:items-end">
           <label>
             <span className="label">Buscar movimiento</span>
@@ -257,7 +298,7 @@ export default async function PersonalTransactionsPage({
                     <ul className="mt-1 space-y-0.5 text-xs text-(--muted)">
                       {items.map((item, index) => (
                         <li key={index} className="truncate">
-                          {item.description} · {item.subcategory} · {formatMoney(item.amount_cents)}
+                          {item.description} · {item.subcategory} · {formatMoney(item.amount_cents, currency)}
                         </li>
                       ))}
                     </ul>
@@ -268,7 +309,7 @@ export default async function PersonalTransactionsPage({
               <span className="hidden truncate text-sm xl:block">{row.categories?.name ?? "Sin categoría"}</span>
               <span className="hidden text-sm text-(--muted) xl:block">{row.transaction_date}</span>
               <b className={`self-start text-right xl:self-auto ${row.type === "income" ? "text-(--ink)" : ""}`}>
-                {row.type === "expense" ? "−" : "+"}{formatMoney(row.amount_cents)}
+                {row.type === "expense" ? "−" : "+"}{formatMoney(row.amount_cents, currency)}
               </b>
               {row.categories?.name !== SYNTHETIC_BALANCE_CATEGORY ? (
                 <div className="col-start-2 flex justify-end xl:col-auto">

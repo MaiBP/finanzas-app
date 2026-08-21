@@ -14,11 +14,13 @@ import { getHouseholdRoster } from "@/services/household-roster";
 import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
 import { AccountIcon, FLOATING_ACCOUNT_IMAGES } from "@/components/accounts/account-icon";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/finance/account-types";
+import { SUPPORTED_CURRENCIES } from "@/lib/finance/currencies";
 
 type AccountRow = {
   id: string;
   name: string;
   type: string;
+  currency: string;
 };
 type BalanceMovement = {
   account_id: string;
@@ -48,7 +50,7 @@ export default async function AccountsPage() {
   ] = await Promise.all([
     supabase
       .from("accounts")
-      .select("id,name,type")
+      .select("id,name,type,currency")
       .eq("household_id", household.id)
       .eq("is_shared", true)
       .is("archived_at", null)
@@ -185,6 +187,9 @@ export default async function AccountsPage() {
                       <span className="rounded-full bg-(--lilac) px-2.5 py-1 text-xs font-bold">
                         {typeNames[account.type] ?? "Conjunta"}
                       </span>
+                      {account.currency !== household.baseCurrency && (
+                        <span className="rounded-full bg-(--blue) px-2.5 py-1 text-xs font-bold">{account.currency}</span>
+                      )}
                       {fundingAccounts.length > 1 && (
                         <DeleteAccountButton id={account.id} name={account.name} action={archiveSharedAccount} />
                       )}
@@ -242,8 +247,14 @@ export default async function AccountsPage() {
                         <option value="investment">Inversión</option>
                       </select>
                     </label>
+                    <label>
+                      <span className="label">Moneda</span>
+                      <select className="field" name="currency" defaultValue={account.currency}>
+                        {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+                      </select>
+                    </label>
                     <Button type="submit" size="sm" className="self-end">Guardar cambios</Button>
-                    <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez.</p>
+                    <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez. La moneda no se puede cambiar una vez que la cuenta tiene movimientos.</p>
                   </form>
                 </details>
                 <details className="border-t border-(--ink)/15 bg-white p-5">
@@ -312,12 +323,21 @@ export default async function AccountsPage() {
             </select>
           </label>
           <label>
+            <span className="label">Moneda</span>
+            <select className="field" name="currency" defaultValue={household.baseCurrency}>
+              {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+            </select>
+          </label>
+          <label>
             <span className="label">Saldo inicial (opcional)</span>
             <input className="field" name="initialBalance" inputMode="decimal" placeholder="0,00" />
           </label>
           <Button type="submit" className="self-start sm:self-end">
             Crear cuenta conjunta
           </Button>
+          <p className="text-xs text-(--muted) sm:col-span-2">
+            Si la moneda no es {household.baseCurrency}, esta cuenta quedará aparte del resumen general (se muestra en su propia moneda, sin convertir).
+          </p>
         </form>
       </section>
       <section className="card mt-7 flex max-w-2xl flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">

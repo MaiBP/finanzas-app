@@ -28,10 +28,11 @@ export async function GET(request: Request) {
   let sent = 0; let skipped = 0; let failed = 0;
 
   for (const link of (links ?? []) as TelegramLink[]) {
-    const { data: membership, error: membershipError } = await db.from("household_members").select("household_id").eq("user_id", link.user_id).maybeSingle();
+    const { data: membership, error: membershipError } = await db.from("household_members").select("household_id,households(base_currency)").eq("user_id", link.user_id).maybeSingle();
     if (membershipError || !membership) { failed++; continue; }
+    const baseCurrency = (membership.households as unknown as { base_currency: string } | null)?.base_currency ?? "EUR";
 
-    if (!insights.has(membership.household_id)) insights.set(membership.household_id, getHouseholdFinancialInsight(db, membership.household_id, month, today));
+    if (!insights.has(membership.household_id)) insights.set(membership.household_id, getHouseholdFinancialInsight(db, membership.household_id, month, baseCurrency, today));
     let insight;
     try { insight = await insights.get(membership.household_id)!; }
     catch (error) { console.error("Financial insight analysis failed", { householdId: membership.household_id, error }); failed++; continue; }

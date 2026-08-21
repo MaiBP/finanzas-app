@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
 import { AccountIcon, FLOATING_ACCOUNT_IMAGES } from "@/components/accounts/account-icon";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/finance/account-types";
+import { SUPPORTED_CURRENCIES } from "@/lib/finance/currencies";
 
-type AccountRow = { id: string; name: string; type: string };
+type AccountRow = { id: string; name: string; type: string; currency: string };
 type BalanceMovement = { account_id: string; type: "expense" | "income"; amount_cents: number };
 type MonthExpenseRow = { account_id: string; amount_cents: number };
 
@@ -20,10 +21,10 @@ export default async function PersonalAccountsPage() {
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   const nextMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1)).toISOString().slice(0, 10);
-  const [{ data: accountsData }, { data: balanceData }, { data: monthExpenseData }] = await Promise.all([
+  const [{ data: accountsData }, { data: balanceData }, { data: monthExpenseData }, { data: profile }] = await Promise.all([
     supabase
       .from("accounts")
-      .select("id,name,type")
+      .select("id,name,type,currency")
       .eq("household_id", household.id)
       .eq("owner_user_id", user.id)
       .eq("is_shared", false)
@@ -46,8 +47,10 @@ export default async function PersonalAccountsPage() {
       .eq("status", "confirmed")
       .gte("transaction_date", monthStart)
       .lt("transaction_date", nextMonth),
+    supabase.from("profiles").select("personal_base_currency").eq("id", user.id).maybeSingle(),
   ]);
   const accounts = (accountsData ?? []) as AccountRow[];
+  const baseCurrency = profile?.personal_base_currency ?? "EUR";
   const balanceMovements = (balanceData ?? []) as BalanceMovement[];
   const monthExpenseByAccount = new Map<string, number>();
   for (const row of (monthExpenseData ?? []) as MonthExpenseRow[]) {
@@ -134,6 +137,9 @@ export default async function PersonalAccountsPage() {
                         <span className="rounded-full bg-(--lilac) px-2.5 py-1 text-xs font-bold">
                           {ACCOUNT_TYPE_LABELS[account.type] ?? "Personal"}
                         </span>
+                        {account.currency !== baseCurrency && (
+                          <span className="rounded-full bg-(--blue) px-2.5 py-1 text-xs font-bold">{account.currency}</span>
+                        )}
                         <DeleteAccountButton id={account.id} name={account.name} action={archiveAccount} />
                       </div>
                     </div>
@@ -171,8 +177,14 @@ export default async function PersonalAccountsPage() {
                           <option value="investment">Inversión</option>
                         </select>
                       </label>
+                      <label>
+                        <span className="label">Moneda</span>
+                        <select className="field" name="currency" defaultValue={account.currency}>
+                          {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+                        </select>
+                      </label>
                       <Button type="submit" size="sm" className="self-end">Guardar cambios</Button>
-                      <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez.</p>
+                      <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez. La moneda no se puede cambiar una vez que la cuenta tiene movimientos.</p>
                     </form>
                   </details>
                   <details className="border-t border-(--ink)/15 bg-white p-5">
@@ -232,12 +244,21 @@ export default async function PersonalAccountsPage() {
             </select>
           </label>
           <label>
+            <span className="label">Moneda</span>
+            <select className="field" name="currency" defaultValue={baseCurrency}>
+              {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+            </select>
+          </label>
+          <label>
             <span className="label">Saldo inicial (opcional)</span>
             <input className="field" name="initialBalance" inputMode="decimal" placeholder="0,00" />
           </label>
           <Button type="submit" className="self-start sm:self-end">
             Crear cuenta
           </Button>
+          <p className="text-xs text-(--muted) sm:col-span-2">
+            Si la moneda no es {baseCurrency}, esta cuenta quedará aparte de tu resumen personal (se muestra en su propia moneda, sin convertir).
+          </p>
         </form>
       </section>
     </>

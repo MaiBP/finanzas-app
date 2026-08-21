@@ -20,7 +20,7 @@ type PersonalRow = {
   account_id: string;
   categories: { name: string } | null;
 };
-type PersonalAccount = { id: string; name: string; type: string };
+type PersonalAccount = { id: string; name: string; type: string; currency: string };
 
 export default async function PersonalSummaryPage({
   searchParams,
@@ -34,7 +34,7 @@ export default async function PersonalSummaryPage({
   const today = `${currentMonth}-${String(now.getDate()).padStart(2, "0")}`;
   const { supabase, user, household } = await getCurrentHousehold();
   if (!household) return null;
-  const [{ data }, { data: accountsData }, { data: profile }, insight] = await Promise.all([
+  const [{ data }, { data: accountsData }, { data: profile }] = await Promise.all([
     supabase
       .from("transactions")
       .select("id,type,amount_cents,description,transaction_date,account_id,categories(name)")
@@ -44,12 +44,24 @@ export default async function PersonalSummaryPage({
       .eq("status", "confirmed")
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase.from("accounts").select("id,name,type").eq("household_id", household.id).eq("owner_user_id", user.id).eq("is_shared", false).is("archived_at", null).order("created_at"),
-    supabase.from("profiles").select("personal_space_name").eq("id", user.id).maybeSingle(),
-    getPersonalFinancialInsight(supabase, user.id, household.id, currentMonth),
+    supabase.from("accounts").select("id,name,type,currency").eq("household_id", household.id).eq("owner_user_id", user.id).eq("is_shared", false).is("archived_at", null).order("created_at"),
+    supabase.from("profiles").select("personal_space_name, personal_base_currency").eq("id", user.id).maybeSingle(),
   ]);
-  const rows = ((data ?? []) as unknown as PersonalRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
-  const accounts = (accountsData ?? []) as PersonalAccount[];
+  const personalBaseCurrency = profile?.personal_base_currency ?? "EUR";
+  const insight = await getPersonalFinancialInsight(supabase, user.id, household.id, currentMonth, personalBaseCurrency);
+  const allRows = ((data ?? []) as unknown as PersonalRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+  const allAccounts = (accountsData ?? []) as PersonalAccount[];
+  // Same idea as the household summary: only accounts in the personal base currency feed these
+  // totals — an account in another currency shows up in its own "Otras cuentas" card instead.
+  const accounts = allAccounts.filter((account) => account.currency === personalBaseCurrency);
+  const otherAccounts = allAccounts.filter((account) => account.currency !== personalBaseCurrency);
+  const baseAccountIds = new Set(accounts.map((account) => account.id));
+  const rows = allRows.filter((row) => baseAccountIds.has(row.account_id));
+  const otherAccountBalances = otherAccounts.map((account) => ({
+    name: account.name,
+    currency: account.currency,
+    balance: calculateAccountBalance(account.id, allRows),
+  }));
   const personalSpaceName = profile?.personal_space_name ?? "Mi espacio";
   const currentRows = rows.filter((row) => row.transaction_date.startsWith(currentMonth));
   const currentYearRows = rows.filter(
@@ -70,7 +82,7 @@ export default async function PersonalSummaryPage({
   const currentBalance = accounts.reduce((total, account) => total + calculateAccountBalance(account.id, rows), 0);
   const accountBalances = accounts.map((account) => ({
     label: account.name,
-    value: formatMoney(calculateAccountBalance(account.id, rows)),
+    value: formatMoney(calculateAccountBalance(account.id, rows), personalBaseCurrency),
   }));
   const byCategory = new Map<string, number>();
   currentRows
@@ -110,7 +122,7 @@ export default async function PersonalSummaryPage({
         <div className="col-span-2 lg:col-span-1">
           <StatTile
             label="Saldo actual"
-            value={formatMoney(currentBalance)}
+            value={formatMoney(currentBalance, personalBaseCurrency)}
             tone="plain"
             detail="Según movimientos registrados"
             image="/piggy-bank.png"
@@ -119,16 +131,16 @@ export default async function PersonalSummaryPage({
         </div>
         <StatTile
           label="Ingresos del mes"
-          value={formatMoney(income)}
+          value={formatMoney(income, personalBaseCurrency)}
           tone="green"
-          detail={`Acumulado ${currentYear}: ${formatMoney(annualIncome)}`}
+          detail={`Acumulado ${currentYear}: ${formatMoney(annualIncome, personalBaseCurrency)}`}
           image="/incoming-bag.png"
         />
         <StatTile
           label="Gastos del mes"
-          value={formatMoney(expenses)}
+          value={formatMoney(expenses, personalBaseCurrency)}
           tone="coral"
-          detail={`Acumulado ${currentYear}: ${formatMoney(annualExpenses)}`}
+          detail={`Acumulado ${currentYear}: ${formatMoney(annualExpenses, personalBaseCurrency)}`}
           image="/money-wings.png"
         />
         <div className="col-span-2 lg:col-span-1">
@@ -192,7 +204,7 @@ export default async function PersonalSummaryPage({
                 </div>
                 <b className="text-sm">
                   {row.type === "expense" ? "−" : "+"}
-                  {formatMoney(row.amount_cents)}
+                  {formatMoney(row.amount_cents, personalBaseCurrency)}
                 </b>
               </div>
             ))}
@@ -207,6 +219,24 @@ export default async function PersonalSummaryPage({
           </div>
         </article>
       </section>
+      {otherAccountBalances.length > 0 && (
+        <section className="card mt-6 p-5 md:p-7">
+          <h2 className="text-lg font-black">Otras cuentas</h2>
+          <p className="text-sm text-(--muted)">
+            En otra moneda — no suman a tu resumen personal, cada una se muestra en la suya.
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {otherAccountBalances.map((account) => (
+              <div key={account.name} className="rounded-xl border border-(--ink)/15 p-4">
+                <p className="truncate text-sm font-bold">{account.name}</p>
+                <p className={`mt-1 text-xl font-black ${account.balance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}>
+                  {formatMoney(account.balance, account.currency)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }

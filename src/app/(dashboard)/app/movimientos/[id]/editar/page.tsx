@@ -17,7 +17,7 @@ export default async function EditPage({ params }: { params: Promise<{ id: strin
   const { data } = await supabase.from("transactions").select("id,description,amount_cents,type,scope,privacy,transaction_date,account_id,category_id").eq("id", id).eq("created_by", user.id).eq("status", "confirmed").maybeSingle();
   if (!data) notFound();
   const row = { ...(data as Row), description: decryptField((data as Row).description) };
-  let accountsQuery = supabase.from("accounts").select("id,name").eq("household_id", household.id).is("archived_at", null);
+  let accountsQuery = supabase.from("accounts").select("id,name,currency").eq("household_id", household.id).is("archived_at", null);
   accountsQuery = row.scope === "shared" ? accountsQuery.eq("is_shared", true) : accountsQuery.eq("is_shared", false).eq("owner_user_id", user.id);
   const [{ data: accounts }, { data: categories }, { data: itemRows }] = await Promise.all([
     accountsQuery.order("name"),
@@ -55,7 +55,7 @@ export default async function EditPage({ params }: { params: Promise<{ id: strin
             <label>
               <span className="label">Cuenta</span>
               <select className="field" name="accountId" defaultValue={row.account_id}>
-                {(accounts ?? []).map((account) => <option value={account.id} key={account.id}>{account.name}</option>)}
+                {(accounts ?? []).map((account) => <option value={account.id} key={account.id}>{account.name} ({account.currency})</option>)}
               </select>
             </label>
             <label>

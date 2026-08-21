@@ -1,10 +1,11 @@
 import Image from "next/image";
 import { AlertTriangle, Check, Copy } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
-import { deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, unlinkTelegram, updateHouseholdName, updatePersonalSpaceName } from "./actions";
+import { deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, unlinkTelegram, updateHouseholdBaseCurrency, updateHouseholdName, updatePersonalBaseCurrency, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
 import { getHouseholdRoster } from "@/services/household-roster";
 import { TypeToConfirm } from "@/components/settings/type-to-confirm";
+import { SUPPORTED_CURRENCIES } from "@/lib/finance/currencies";
 
 export default async function SettingsPage() {
   const { supabase, user, household } = await getCurrentHousehold();
@@ -31,10 +32,11 @@ export default async function SettingsPage() {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from("profiles").select("personal_space_name").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("personal_space_name, personal_base_currency").eq("id", user.id).maybeSingle(),
     getHouseholdRoster(supabase, household.id),
   ]);
   const personalSpaceName = profile?.personal_space_name ?? "Mi espacio";
+  const personalBaseCurrency = profile?.personal_base_currency ?? "EUR";
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "Finzy_AssistantBot";
   const partner = roster.find((member) => member.userId !== user.id);
   const partnerName = partner?.displayName ?? "tu pareja";
@@ -60,17 +62,36 @@ export default async function SettingsPage() {
             </div>
           </div>
           {household.role === "owner" ? (
-            <form action={updateHouseholdName} className="mt-5">
-              <label>
-                <span className="label">Nombre del hogar</span>
-                <input className="field" name="name" defaultValue={household.name} required minLength={2} maxLength={80} />
-              </label>
-              <Button type="submit" size="sm" className="mt-3">
-                Guardar nombre
-              </Button>
-            </form>
+            <>
+              <form action={updateHouseholdName} className="mt-5">
+                <label>
+                  <span className="label">Nombre del hogar</span>
+                  <input className="field" name="name" defaultValue={household.name} required minLength={2} maxLength={80} />
+                </label>
+                <Button type="submit" size="sm" className="mt-3">
+                  Guardar nombre
+                </Button>
+              </form>
+              <form action={updateHouseholdBaseCurrency} className="mt-5">
+                <label>
+                  <span className="label">Moneda base del hogar</span>
+                  <select className="field" name="currency" defaultValue={household.baseCurrency}>
+                    {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+                  </select>
+                </label>
+                <p className="mt-2 text-xs text-(--muted)">
+                  El resumen del hogar solo suma las cuentas en esta moneda; las demás quedan aparte.
+                </p>
+                <Button type="submit" size="sm" className="mt-3">
+                  Guardar moneda
+                </Button>
+              </form>
+            </>
           ) : (
-            <p className="mt-5 text-sm text-(--muted)">Solo la persona propietaria puede cambiar el nombre del hogar.</p>
+            <>
+              <p className="mt-5 text-sm text-(--muted)">Solo la persona propietaria puede cambiar el nombre del hogar.</p>
+              <p className="mt-2 text-sm text-(--muted)">Moneda base del hogar: <b>{household.baseCurrency}</b>.</p>
+            </>
           )}
           <div className="mt-6 border-t border-black/10 pt-5">
             <h3 className="font-black">Invitar al hogar</h3>
@@ -145,6 +166,20 @@ export default async function SettingsPage() {
             Este nombre solo organiza tu experiencia. Las cuentas y movimientos personales continúan siendo privados
             para ti.
           </p>
+          <form action={updatePersonalBaseCurrency} className="mt-5">
+            <label>
+              <span className="label">Moneda base personal</span>
+              <select className="field" name="currency" defaultValue={personalBaseCurrency}>
+                {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+              </select>
+            </label>
+            <p className="mt-2 text-xs text-(--muted)">
+              Tu resumen personal solo suma las cuentas en esta moneda; las demás quedan aparte.
+            </p>
+            <Button type="submit" size="sm" className="mt-3">
+              Guardar moneda
+            </Button>
+          </form>
         </section>
 
         <section className="card p-6 lg:col-span-2">

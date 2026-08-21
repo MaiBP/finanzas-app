@@ -22,6 +22,7 @@ export interface Account {
   type: "bank" | "card" | "cash" | "joint" | "savings" | "investment";
   current_balance_cents: number;
   is_shared: boolean;
+  currency: string;
 }
 
 export interface TransactionView {

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { Account, Category } from "@/types/database";
 
 const initialState: ActionState = {};
-export function TransactionForm({ accounts, categories, mode = "shared" }: { accounts: Pick<Account,"id"|"name">[]; categories: Category[]; mode?: "shared"|"personal" }) {
+export function TransactionForm({ accounts, categories, mode = "shared" }: { accounts: Pick<Account,"id"|"name"|"currency">[]; categories: Category[]; mode?: "shared"|"personal" }) {
   const [state, action, pending] = useActionState(mode === "personal" ? createPersonalTransaction : createTransaction, initialState);
   const [type, setType] = useState<"expense"|"income">("expense");
   const today = new Date().toISOString().slice(0,10);
@@ -21,7 +21,7 @@ export function TransactionForm({ accounts, categories, mode = "shared" }: { acc
       {/* Keyed on type so switching Tipo remounts this select back to its placeholder — the
           previously selected option can belong to the other kind once the list is refiltered. */}
       <label><span className="label">Categoría</span><select key={type} className="field" name="categoryId" required defaultValue=""><option value="" disabled>Elige una</option>{visibleCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-      <label><span className="label">Cuenta</span><select className="field" name="accountId" required defaultValue=""><option value="" disabled>Elige una</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
+      <label><span className="label">Cuenta</span><select className="field" name="accountId" required defaultValue=""><option value="" disabled>Elige una</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name} ({account.currency})</option>)}</select></label>
     </div>
     <label className="block max-w-56"><span className="label">Fecha</span><input className="field" name="transactionDate" type="date" defaultValue={today} required/></label>
     <Button type="submit" disabled={pending || !accounts.length} className="w-full">{pending ? "Guardando…" : mode === "shared" ? "Guardar en conjunto" : "Guardar en mi espacio"}</Button>

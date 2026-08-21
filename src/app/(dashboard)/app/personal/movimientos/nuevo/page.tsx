@@ -9,7 +9,7 @@ export default async function NewPersonalTransactionPage() {
   const { supabase, user, household } = await getCurrentHousehold();
   if (!household) return null;
   const [{ data: accounts }, { data: categories }] = await Promise.all([
-    supabase.from("accounts").select("id,name").eq("household_id", household.id).eq("owner_user_id", user.id).eq("is_shared", false).is("archived_at", null).order("name"),
+    supabase.from("accounts").select("id,name,currency").eq("household_id", household.id).eq("owner_user_id", user.id).eq("is_shared", false).is("archived_at", null).order("name"),
     supabase.from("categories").select("id,name,kind,icon,color").or(`household_id.eq.${household.id},household_id.is.null`).order("name"),
   ]);
   return (
@@ -30,7 +30,7 @@ export default async function NewPersonalTransactionPage() {
         <section className="card p-6 md:p-8">
           <TransactionForm
             mode="personal"
-            accounts={(accounts ?? []) as Pick<Account, "id" | "name">[]}
+            accounts={(accounts ?? []) as Pick<Account, "id" | "name" | "currency">[]}
             categories={(categories ?? []) as Category[]}
           />
         </section>

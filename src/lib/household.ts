@@ -10,8 +10,8 @@ export async function requireUser() {
 
 export async function getCurrentHousehold() {
   const { supabase, user } = await requireUser();
-  const { data } = await supabase.from("household_members").select("household_id, role, households(id, name)").eq("user_id", user.id).maybeSingle();
+  const { data } = await supabase.from("household_members").select("household_id, role, households(id, name, base_currency)").eq("user_id", user.id).maybeSingle();
   if (!data) return { supabase, user, household: null };
-  const relation = data.households as unknown as { id: string; name: string };
-  return { supabase, user, household: { id: relation.id, name: relation.name, role: data.role as "owner" | "member" } };
+  const relation = data.households as unknown as { id: string; name: string; base_currency: string };
+  return { supabase, user, household: { id: relation.id, name: relation.name, role: data.role as "owner" | "member", baseCurrency: relation.base_currency } };
 }

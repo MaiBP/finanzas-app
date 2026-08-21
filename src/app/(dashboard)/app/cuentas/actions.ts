@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentHousehold } from "@/lib/household";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
 import { eurosToCentsSigned, formatMoney } from "@/lib/finance/money";
+import { parseCurrency } from "@/lib/finance/currencies";
 import { notifyOtherMembers } from "@/services/telegram-notify";
 import { decryptField, encryptField } from "@/lib/security/field-encryption";
 import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
@@ -17,14 +18,14 @@ const accountTypes=["bank","card","cash","savings","investment"] as const;
 function parseAccount(formData:FormData){
   const name=String(formData.get("name")??"").trim(); const type=String(formData.get("type"));
   if(name.length<1||name.length>80||!accountTypes.includes(type as typeof accountTypes[number]))throw new Error("Datos de cuenta no válidos");
-  return {name,type};
+  return {name,type,currency:parseCurrency(formData.get("currency"))};
 }
 
 export async function createAccount(formData:FormData){
-  const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("Sin hogar"); const {name,type}=parseAccount(formData);
+  const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("Sin hogar"); const {name,type,currency}=parseAccount(formData);
   const initialBalanceText=String(formData.get("initialBalance")??"").trim();
   const initialCents=initialBalanceText?eurosToCentsSigned(initialBalanceText):0;
-  const {data:account,error}=await supabase.from("accounts").insert({household_id:household.id,owner_user_id:user.id,name,type,currency:"EUR",current_balance_cents:0,is_shared:false}).select("id").single();
+  const {data:account,error}=await supabase.from("accounts").insert({household_id:household.id,owner_user_id:user.id,name,type,currency,current_balance_cents:0,is_shared:false}).select("id").single();
   if(error)throw new Error(error.message);
   if(initialCents!==0){
     const txType=initialCents>0?"income":"expense";
@@ -56,10 +57,16 @@ export async function updateAccount(formData:FormData){
   if(!id||name.length<1||name.length>80||!accountTypes.includes(type as typeof accountTypes[number])){
     throw new Error("Datos de cuenta no válidos");
   }
-  const {data:account,error:accountError}=await supabase.from("accounts").select("id").eq("id",id).eq("owner_user_id",user.id).eq("is_shared",false).is("archived_at",null).maybeSingle();
+  const currency=parseCurrency(formData.get("currency"));
+  const {data:account,error:accountError}=await supabase.from("accounts").select("id,currency").eq("id",id).eq("owner_user_id",user.id).eq("is_shared",false).is("archived_at",null).maybeSingle();
   if(accountError)throw new Error(accountError.message);
   if(!account)throw new Error("Cuenta no encontrada");
-  const {error}=await supabase.from("accounts").update({name,type,current_balance_cents:0}).eq("id",id).eq("owner_user_id",user.id);
+  if(currency!==account.currency){
+    const {count,error:countError}=await supabase.from("transactions").select("id",{count:"exact",head:true}).eq("account_id",id).eq("status","confirmed");
+    if(countError)throw new Error(countError.message);
+    if((count??0)>0)throw new Error("No se puede cambiar la moneda de una cuenta que ya tiene movimientos registrados.");
+  }
+  const {error}=await supabase.from("accounts").update({name,type,currency,current_balance_cents:0}).eq("id",id).eq("owner_user_id",user.id);
   if(error)throw new Error(error.message);
   revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
 }
@@ -102,10 +109,10 @@ export async function adjustAccountBalance(formData:FormData){
 }
 
 export async function createSharedAccount(formData:FormData){
-  const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("Sin hogar"); const {name,type}=parseAccount(formData);
+  const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("Sin hogar"); const {name,type,currency}=parseAccount(formData);
   const initialBalanceText=String(formData.get("initialBalance")??"").trim();
   const initialCents=initialBalanceText?eurosToCentsSigned(initialBalanceText):0;
-  const {data:account,error}=await supabase.from("accounts").insert({household_id:household.id,owner_user_id:null,name,type,currency:"EUR",current_balance_cents:0,is_shared:true}).select("id").single();
+  const {data:account,error}=await supabase.from("accounts").insert({household_id:household.id,owner_user_id:null,name,type,currency,current_balance_cents:0,is_shared:true}).select("id").single();
   if(error)throw new Error(error.message);
   if(initialCents!==0){
     const txType=initialCents>0?"income":"expense";
@@ -127,7 +134,7 @@ export async function createSharedAccount(formData:FormData){
     if(txError)throw new Error(txError.message);
   }
   const actor=await actorName(supabase,user.id);
-  const balanceNote=initialCents!==0?` (saldo inicial ${formatMoney(Math.abs(initialCents))})`:"";
+  const balanceNote=initialCents!==0?` (saldo inicial ${formatMoney(Math.abs(initialCents),currency)})`:"";
   await notifyOtherMembers(household.id,user.id,`🏦 ${actor} creó una cuenta nueva: ${name}${balanceNote}.`);
   revalidatePath("/app"); revalidatePath("/app/cuentas"); revalidatePath("/app/movimientos"); revalidatePath("/app/movimientos/nuevo");
 }
@@ -141,10 +148,16 @@ export async function updateSharedAccount(formData: FormData) {
   if (!id || name.length < 1 || name.length > 80 || !accountTypes.includes(type as typeof accountTypes[number])) {
     throw new Error("Datos de cuenta no válidos");
   }
-  const { data: account, error: accountError } = await supabase.from("accounts").select("id").eq("id", id).eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).maybeSingle();
+  const currency = parseCurrency(formData.get("currency"));
+  const { data: account, error: accountError } = await supabase.from("accounts").select("id,currency").eq("id", id).eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).maybeSingle();
   if (accountError) throw new Error(accountError.message);
   if (!account) throw new Error("Cuenta no encontrada");
-  const { error } = await supabase.from("accounts").update({ name, type, current_balance_cents: 0 }).eq("id", id).eq("household_id", household.id).eq("is_shared", true);
+  if (currency !== account.currency) {
+    const { count, error: countError } = await supabase.from("transactions").select("id", { count: "exact", head: true }).eq("account_id", id).eq("status", "confirmed");
+    if (countError) throw new Error(countError.message);
+    if ((count ?? 0) > 0) throw new Error("No se puede cambiar la moneda de una cuenta que ya tiene movimientos registrados.");
+  }
+  const { error } = await supabase.from("accounts").update({ name, type, currency, current_balance_cents: 0 }).eq("id", id).eq("household_id", household.id).eq("is_shared", true);
   if (error) throw new Error(error.message);
   revalidatePath("/app");
   revalidatePath("/app/cuentas");
@@ -161,7 +174,7 @@ export async function adjustSharedAccountBalance(formData: FormData) {
   if (!household) throw new Error("Sin hogar");
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("Cuenta no válida");
-  const { data: account, error: accountError } = await supabase.from("accounts").select("id,name").eq("id", id).eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).maybeSingle();
+  const { data: account, error: accountError } = await supabase.from("accounts").select("id,name,currency").eq("id", id).eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).maybeSingle();
   if (accountError) throw new Error(accountError.message);
   if (!account) throw new Error("Cuenta no encontrada");
 
@@ -192,7 +205,7 @@ export async function adjustSharedAccountBalance(formData: FormData) {
   });
   if (error) throw new Error(error.message);
   const actor = await actorName(supabase, user.id);
-  await notifyOtherMembers(household.id, user.id, `⚖️ ${actor} ajustó el saldo de ${account.name} a ${formatMoney(targetCents)}.`);
+  await notifyOtherMembers(household.id, user.id, `⚖️ ${actor} ajustó el saldo de ${account.name} a ${formatMoney(targetCents, account.currency)}.`);
   revalidatePath("/app");
   revalidatePath("/app/cuentas");
   revalidatePath("/app/movimientos");
