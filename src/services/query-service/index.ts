@@ -213,6 +213,13 @@ async function fetchQueryRows(
   const realNames = new Map(members.map((member) => [member.user_id, member.profiles?.display_name ? decryptField(member.profiles.display_name) : null]));
   const names = new Map(members.map((member) => [member.user_id, member.user_id === userId ? "Tú" : "Tu pareja"]));
   let rows = ((data ?? []) as unknown as QueryRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+  // Matches the web app: an archived account's past activity (e.g. the "Ajuste de saldo" income
+  // from its initial balance) drops out of every aggregate everywhere else in the app, so it
+  // shouldn't keep counting here either — include_deleted_accounts is the explicit opt-out.
+  if (!filters.include_deleted_accounts) {
+    const activeIds = await fetchActiveAccountIds(db, householdId, userId, scope);
+    rows = filterToActiveAccounts(rows, activeIds);
+  }
   if (filters.category) {
     const category = normalize(filters.category);
     rows = rows.filter((row) => normalize(row.categories?.name ?? "").includes(category));
@@ -243,9 +250,9 @@ async function fetchQueryRows(
 }
 
 // "joint" is a placeholder pseudo-account never offered for real movements (see accounts UI/actions
-// everywhere else in the app), and archived accounts are excluded by default so household_balance
-// and account_summary answer "what do I have right now", matching the web dashboard's own balance
-// widgets — only include_deleted_accounts opts back into counting a since-archived account's history.
+// everywhere else in the app), and archived accounts are excluded by default from every bot query
+// (see fetchQueryRows), matching the web dashboard's own totals — only include_deleted_accounts
+// opts back into counting a since-archived account's history.
 async function fetchActiveAccountIds(db: DbClient, householdId: string, userId: string, scope: FinanceScope) {
   let query = db.from("accounts").select("id").eq("household_id", householdId).neq("type", "joint").is("archived_at", null);
   query = scope === "shared"
@@ -359,15 +366,14 @@ export async function computeFinanceQueryFacts(
   if (!rows.length) return { kind: "no_data", scope, rangeLabel: range.label };
 
   if (data.query_type === "household_balance") {
-    const balanceRows = filters.include_deleted_accounts ? rows : filterToActiveAccounts(rows, await fetchActiveAccountIds(db, householdId, userId, scope));
-    const totals = calculateTransactionTotals(balanceRows);
+    const totals = calculateTransactionTotals(rows);
     if (scope === "combined") {
       return {
         kind: "household_balance",
         scope,
         totals,
-        shared: calculateTransactionTotals(balanceRows.filter((row) => row.scope === "shared")),
-        personal: calculateTransactionTotals(balanceRows.filter((row) => row.scope === "personal")),
+        shared: calculateTransactionTotals(rows.filter((row) => row.scope === "shared")),
+        personal: calculateTransactionTotals(rows.filter((row) => row.scope === "personal")),
       };
     }
     return { kind: "household_balance", scope, totals };
@@ -418,9 +424,8 @@ export async function computeFinanceQueryFacts(
     return { kind: "user_contributions", rangeLabel: range.label, members };
   }
   if (data.query_type === "account_summary") {
-    const summaryRows = filters.include_deleted_accounts ? rows : filterToActiveAccounts(rows, await fetchActiveAccountIds(db, householdId, userId, scope));
     const totals = new Map<string, QueryRow[]>();
-    for (const row of summaryRows) {
+    for (const row of rows) {
       const account = row.accounts?.name ?? "Sin cuenta";
       totals.set(account, [...(totals.get(account) ?? []), row]);
     }

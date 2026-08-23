@@ -5,6 +5,11 @@ function normalize(value: string) {
   return value.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLocaleLowerCase("es").trim();
 }
 
+function monthEnd(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+}
+
 type ExportItem = { description: string; amount_cents: number; subcategory: string };
 type ExportRow = {
   type: "expense" | "income";
@@ -33,8 +38,9 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const search = params.get("q")?.trim();
   const type = params.get("type");
-  const from = /^\d{4}-\d{2}-\d{2}$/.test(params.get("from") ?? "") ? params.get("from") : null;
-  const to = /^\d{4}-\d{2}-\d{2}$/.test(params.get("to") ?? "") ? params.get("to") : null;
+  const month = /^\d{4}-\d{2}$/.test(params.get("month") ?? "") ? params.get("month") : null;
+  const from = month ? `${month}-01` : /^\d{4}-\d{2}-\d{2}$/.test(params.get("from") ?? "") ? params.get("from") : null;
+  const to = month ? monthEnd(month) : /^\d{4}-\d{2}-\d{2}$/.test(params.get("to") ?? "") ? params.get("to") : null;
 
   // Same rule as the personal Movimientos page: never mix currencies in one export — resolve the
   // requested (or base) currency to its account ids first, since transactions don't carry it inline.

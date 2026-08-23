@@ -63,7 +63,7 @@ export function analyzeFinancialBehavior(transactions: InsightTransaction[], mon
     if (recurring) return {
       key: `${month}:recurring:${recurring.key}`,
       label: "Recordatorio",
-      message: scope === "personal" ? `¡No te olvides de pagar ${lowerFirst(recurring.description)}!` : `¡No os olvidéis de pagar ${lowerFirst(recurring.description)}!`,
+      message: scope === "personal" ? `¡No te olvides de pagar ${lowerFirst(recurring.description)}!` : `¡No se olviden de pagar ${lowerFirst(recurring.description)}!`,
       detail: `Suele registrarse cerca del día ${recurring.expectedDay}.`,
       notifiable: true,
     };
@@ -118,21 +118,28 @@ export function analyzeFinancialBehavior(transactions: InsightTransaction[], mon
     key: `${month}:insufficient-data`,
     label: "Recordatorio",
     message: "Todavía no hay suficientes datos para detectar patrones.",
-    detail: scope === "personal" ? "Sigue registrando movimientos y aquí aparecerán recomendaciones." : "Seguid registrando movimientos y aquí aparecerán recomendaciones.",
+    detail: scope === "personal" ? "Sigue registrando movimientos y aquí aparecerán recomendaciones." : "Sigan registrando movimientos y aquí aparecerán recomendaciones.",
     notifiable: false,
   };
 }
 
-type InsightRow = InsightTransaction & { accounts: { currency: string } | null };
+type InsightRow = InsightTransaction & { accounts: { currency: string; archived_at: string | null } | null };
+
+// Once an account is archived its past activity (e.g. the "Ajuste de saldo" income from its
+// initial balance) drops out of every total elsewhere in the app — the insight must match, or a
+// closed account's old numbers would keep skewing the savings-rate/trend analysis forever.
+function excludeArchivedAccounts(rows: InsightRow[]) {
+  return rows.filter((row) => !row.accounts?.archived_at);
+}
 
 export async function getHouseholdFinancialInsight(db: SupabaseClient, householdId: string, month: string, baseCurrency = "EUR", today = new Date().toISOString().slice(0, 10)) {
   const historyStart = `${monthAtOffset(month, -3)}-01`;
   const historyEnd = `${monthAtOffset(month, 1)}-01`;
-  const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name),accounts(currency)").eq("household_id", householdId).eq("scope", "shared").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
+  const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name),accounts(currency,archived_at)").eq("household_id", householdId).eq("scope", "shared").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
   if (error) throw error;
   // Mixing another currency's cents into these sums would be meaningless, so only the accounts
   // that make up the household's own summary (see /app/page.tsx) feed the insight too.
-  const transactions = ((data ?? []) as unknown as InsightRow[])
+  const transactions = excludeArchivedAccounts((data ?? []) as unknown as InsightRow[])
     .filter((row) => (row.accounts?.currency ?? "EUR") === baseCurrency)
     .map((row) => ({ ...row, description: decryptField(row.description) }));
   return analyzeFinancialBehavior(transactions, month, today, "shared");
@@ -141,9 +148,9 @@ export async function getHouseholdFinancialInsight(db: SupabaseClient, household
 export async function getPersonalFinancialInsight(db: SupabaseClient, userId: string, householdId: string, month: string, baseCurrency = "EUR", today = new Date().toISOString().slice(0, 10)) {
   const historyStart = `${monthAtOffset(month, -3)}-01`;
   const historyEnd = `${monthAtOffset(month, 1)}-01`;
-  const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name),accounts(currency)").eq("household_id", householdId).eq("created_by", userId).eq("scope", "personal").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
+  const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name),accounts(currency,archived_at)").eq("household_id", householdId).eq("created_by", userId).eq("scope", "personal").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
   if (error) throw error;
-  const transactions = ((data ?? []) as unknown as InsightRow[])
+  const transactions = excludeArchivedAccounts((data ?? []) as unknown as InsightRow[])
     .filter((row) => (row.accounts?.currency ?? "EUR") === baseCurrency)
     .map((row) => ({ ...row, description: decryptField(row.description) }));
   return analyzeFinancialBehavior(transactions, month, today, "personal");

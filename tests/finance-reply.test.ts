@@ -122,6 +122,7 @@ describe("computeFinanceQueryFacts", () => {
         if (table === "transactions") return chainable({ data: rowsWithId, error: null });
         if (table === "household_members") return chainable({ data: members, error: null });
         if (table === "transaction_items") return chainable({ data: items, error: null });
+        if (table === "accounts") return chainable({ data: [{ id: "acc-banco" }], error: null });
         throw new Error(`unexpected table ${table}`);
       },
     } as Parameters<typeof computeFinanceQueryFacts>[0];
@@ -139,7 +140,7 @@ describe("computeFinanceQueryFacts", () => {
   });
 
   it("filters item_spending by subcategory", async () => {
-    const rowsWithId = [{ type: "expense", amount_cents: 8400, description: "Mercadona", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t1" }];
+    const rowsWithId = [{ type: "expense", amount_cents: 8400, description: "Mercadona", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t1" }];
     const items = [
       { transaction_id: "t1", amount_cents: 2000, subcategory: "Snacks y dulces" },
       { transaction_id: "t1", amount_cents: 1500, subcategory: "Bebidas" },
@@ -149,6 +150,7 @@ describe("computeFinanceQueryFacts", () => {
         if (table === "transactions") return chainable({ data: rowsWithId, error: null });
         if (table === "household_members") return chainable({ data: members, error: null });
         if (table === "transaction_items") return chainable({ data: items, error: null });
+        if (table === "accounts") return chainable({ data: [{ id: "acc-banco" }], error: null });
         throw new Error(`unexpected table ${table}`);
       },
     } as Parameters<typeof computeFinanceQueryFacts>[0];
@@ -161,12 +163,13 @@ describe("computeFinanceQueryFacts", () => {
   });
 
   it("returns empty item_spending facts when there are no items", async () => {
-    const rowsWithId = [{ type: "expense", amount_cents: 8400, description: "Mercadona", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t1" }];
+    const rowsWithId = [{ type: "expense", amount_cents: 8400, description: "Mercadona", transaction_date: "2026-08-02", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t1" }];
     const db = {
       from(table: string) {
         if (table === "transactions") return chainable({ data: rowsWithId, error: null });
         if (table === "household_members") return chainable({ data: members, error: null });
         if (table === "transaction_items") return chainable({ data: [], error: null });
+        if (table === "accounts") return chainable({ data: [{ id: "acc-banco" }], error: null });
         throw new Error(`unexpected table ${table}`);
       },
     } as Parameters<typeof computeFinanceQueryFacts>[0];
@@ -371,8 +374,8 @@ describe("category_trend", () => {
 
 describe("subcategory_trend", () => {
   const itemRows = [
-    { type: "expense", amount_cents: 5_000, description: "Super", transaction_date: "2026-07-15", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t1" },
-    { type: "expense", amount_cents: 6_000, description: "Super", transaction_date: "2026-08-05", created_by: "user-1", scope: "shared", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t2" },
+    { type: "expense", amount_cents: 5_000, description: "Super", transaction_date: "2026-07-15", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t1" },
+    { type: "expense", amount_cents: 6_000, description: "Super", transaction_date: "2026-08-05", created_by: "user-1", scope: "shared", account_id: "acc-banco", categories: { name: "Supermercado" }, accounts: { name: "Banco" }, id: "t2" },
   ];
   const items = [
     { transaction_id: "t1", amount_cents: 2_000, subcategory: "Snacks y dulces" },
@@ -386,6 +389,7 @@ describe("subcategory_trend", () => {
         if (table === "transactions") return chainable({ data: itemRows, error: null });
         if (table === "household_members") return chainable({ data: members, error: null });
         if (table === "transaction_items") return chainable({ data: items, error: null });
+        if (table === "accounts") return chainable({ data: [{ id: "acc-banco" }], error: null });
         throw new Error(`unexpected table ${table}`);
       },
     } as Parameters<typeof computeFinanceQueryFacts>[0];
@@ -407,6 +411,7 @@ describe("subcategory_trend", () => {
         if (table === "transactions") return chainable({ data: itemRows, error: null });
         if (table === "household_members") return chainable({ data: members, error: null });
         if (table === "transaction_items") return chainable({ data: items, error: null });
+        if (table === "accounts") return chainable({ data: [{ id: "acc-banco" }], error: null });
         throw new Error(`unexpected table ${table}`);
       },
     } as Parameters<typeof computeFinanceQueryFacts>[0];
