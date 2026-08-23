@@ -18,17 +18,25 @@ export default async function BalancePage() {
   const start = `${month}-01`;
   const end = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1)).toISOString().slice(0, 10);
   const monthName = new Intl.DateTimeFormat("es-ES", { month: "long" }).format(now);
-  const [members, { data: movementData }] = await Promise.all([
+  // An archived account's past activity drops out of every other total in the app (see the
+  // dashboards and the bot's query-service) — this page must match, or a deleted account's
+  // income/expenses would keep showing up in "Ingresos del mes"/"Gastos del mes" forever.
+  const [members, { data: accountsData }] = await Promise.all([
     getHouseholdRoster(supabase, household.id),
-    supabase
-      .from("transactions")
-      .select("created_by,type,amount_cents")
-      .eq("household_id", household.id)
-      .eq("scope", "shared")
-      .eq("status", "confirmed")
-      .gte("transaction_date", start)
-      .lt("transaction_date", end),
+    supabase.from("accounts").select("id").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null),
   ]);
+  const activeAccountIds = (accountsData ?? []).map((account) => (account as { id: string }).id);
+  const { data: movementData } = activeAccountIds.length
+    ? await supabase
+        .from("transactions")
+        .select("created_by,type,amount_cents")
+        .eq("household_id", household.id)
+        .eq("scope", "shared")
+        .eq("status", "confirmed")
+        .in("account_id", activeAccountIds)
+        .gte("transaction_date", start)
+        .lt("transaction_date", end)
+    : { data: [] as MemberMovement[] };
   const movements = (movementData ?? []) as MemberMovement[];
   const totals = calculateMemberSummary(movements);
   const totalExpenses = movements

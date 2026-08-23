@@ -63,7 +63,7 @@ export function analyzeFinancialBehavior(transactions: InsightTransaction[], mon
     if (recurring) return {
       key: `${month}:recurring:${recurring.key}`,
       label: "Recordatorio",
-      message: scope === "personal" ? `¡No te olvides de pagar ${lowerFirst(recurring.description)}!` : `¡No os olvidéis de pagar ${lowerFirst(recurring.description)}!`,
+      message: scope === "personal" ? `¡No te olvides de pagar ${lowerFirst(recurring.description)}!` : `¡No se olviden de pagar ${lowerFirst(recurring.description)}!`,
       detail: `Suele registrarse cerca del día ${recurring.expectedDay}.`,
       notifiable: true,
     };
@@ -118,7 +118,7 @@ export function analyzeFinancialBehavior(transactions: InsightTransaction[], mon
     key: `${month}:insufficient-data`,
     label: "Recordatorio",
     message: "Todavía no hay suficientes datos para detectar patrones.",
-    detail: scope === "personal" ? "Sigue registrando movimientos y aquí aparecerán recomendaciones." : "Seguid registrando movimientos y aquí aparecerán recomendaciones.",
+    detail: scope === "personal" ? "Sigue registrando movimientos y aquí aparecerán recomendaciones." : "Sigan registrando movimientos y aquí aparecerán recomendaciones.",
     notifiable: false,
   };
 }

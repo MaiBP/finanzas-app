@@ -274,7 +274,6 @@ export default async function PersonalTransactionsPage({
           </div>
         </div>
       </form>
-      <DeletedAccountsPanel accounts={deletedAccounts} />
       <section className="card mt-5 overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,1.3fr)_140px_130px_100px_130px_76px] gap-3 border-b border-black/10 px-6 py-3 text-xs font-bold uppercase tracking-wide text-(--muted) xl:grid">
           <span>Descripción</span><span>Cuenta</span>
@@ -362,6 +361,7 @@ export default async function PersonalTransactionsPage({
           </nav>
         )}
       </section>
+      <DeletedAccountsPanel accounts={deletedAccounts} />
     </>
   );
 }
