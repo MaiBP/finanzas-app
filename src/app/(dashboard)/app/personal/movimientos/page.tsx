@@ -14,6 +14,7 @@ import { Button, LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Banner } from "@/components/ui/banner";
 import { DeleteTransactionButton } from "@/components/transactions/delete-transaction-button";
+import { DeletedAccountsPanel } from "@/components/transactions/deleted-accounts-panel";
 import { decryptField } from "@/lib/security/field-encryption";
 import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
 
@@ -39,6 +40,11 @@ function normalize(value: string) {
   return value.normalize("NFD").replace(DIACRITICS_PATTERN, "").toLocaleLowerCase("es").trim();
 }
 
+function monthEnd(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+}
+
 export default async function PersonalTransactionsPage({
   searchParams,
 }: {
@@ -50,6 +56,7 @@ export default async function PersonalTransactionsPage({
     page?: string;
     error?: string;
     currency?: string;
+    month?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -61,8 +68,11 @@ export default async function PersonalTransactionsPage({
   const offset = (page - 1) * PAGE_SIZE;
   const search = params.q?.trim();
   const type = params.type === "expense" || params.type === "income" ? params.type : undefined;
-  const from = /^\d{4}-\d{2}-\d{2}$/.test(params.from ?? "") ? params.from : undefined;
-  const to = /^\d{4}-\d{2}-\d{2}$/.test(params.to ?? "") ? params.to : undefined;
+  const month = /^\d{4}-\d{2}$/.test(params.month ?? "") ? params.month : undefined;
+  // A picked month is a shortcut for a from/to range, and wins over manually typed dates so the
+  // two filters never silently disagree with each other.
+  const from = month ? `${month}-01` : /^\d{4}-\d{2}-\d{2}$/.test(params.from ?? "") ? params.from : undefined;
+  const to = month ? monthEnd(month) : /^\d{4}-\d{2}-\d{2}$/.test(params.to ?? "") ? params.to : undefined;
 
   const [{ data: currencyRows }, { data: profile }] = await Promise.all([
     supabase.from("accounts").select("id,currency").eq("household_id", household.id).eq("owner_user_id", user.id).eq("is_shared", false).is("archived_at", null),
@@ -156,8 +166,8 @@ export default async function PersonalTransactionsPage({
   const exportParams = new URLSearchParams();
   if (search) exportParams.set("q", search);
   if (type) exportParams.set("type", type);
-  if (from) exportParams.set("from", from);
-  if (to) exportParams.set("to", to);
+  if (month) exportParams.set("month", month);
+  else { if (from) exportParams.set("from", from); if (to) exportParams.set("to", to); }
   if (currency !== baseCurrency) exportParams.set("currency", currency);
   const exportQuery = exportParams.toString();
   const exportHref = `/app/personal/movimientos/exportar${exportQuery ? `?${exportQuery}` : ""}`;
@@ -165,8 +175,8 @@ export default async function PersonalTransactionsPage({
     const next = new URLSearchParams();
     if (search) next.set("q", search);
     if (type) next.set("type", type);
-    if (from) next.set("from", from);
-    if (to) next.set("to", to);
+    if (month) next.set("month", month);
+    else { if (from) next.set("from", from); if (to) next.set("to", to); }
     if (currency !== baseCurrency) next.set("currency", currency);
     if (targetPage > 1) next.set("page", String(targetPage));
     const queryString = next.toString();
@@ -176,8 +186,8 @@ export default async function PersonalTransactionsPage({
     const next = new URLSearchParams();
     if (search) next.set("q", search);
     if (type) next.set("type", type);
-    if (from) next.set("from", from);
-    if (to) next.set("to", to);
+    if (month) next.set("month", month);
+    else { if (from) next.set("from", from); if (to) next.set("to", to); }
     if (targetCurrency !== baseCurrency) next.set("currency", targetCurrency);
     const queryString = next.toString();
     return `/app/personal/movimientos${queryString ? `?${queryString}` : ""}`;
@@ -215,7 +225,7 @@ export default async function PersonalTransactionsPage({
       )}
       <form className="card mt-5 p-5">
         <input type="hidden" name="currency" value={currency} />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_160px_160px_160px_auto] xl:items-end">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(200px,1fr)_130px_140px_140px_140px_auto] xl:items-end">
           <label>
             <span className="label">Buscar movimiento</span>
             <div className="relative">
@@ -241,12 +251,16 @@ export default async function PersonalTransactionsPage({
             </select>
           </label>
           <label>
+            <span className="label">Mes</span>
+            <input className="field" type="month" name="month" defaultValue={month} />
+          </label>
+          <label>
             <span className="label">Desde</span>
-            <input className="field" type="date" name="from" defaultValue={from} />
+            <input className="field" type="date" name="from" defaultValue={month ? undefined : from} />
           </label>
           <label>
             <span className="label">Hasta</span>
-            <input className="field" type="date" name="to" defaultValue={to} />
+            <input className="field" type="date" name="to" defaultValue={month ? undefined : to} />
           </label>
           <div className="flex gap-2 md:col-span-2 xl:col-span-1">
             <Button type="submit" className="min-h-12 flex-1 xl:flex-none">
@@ -260,18 +274,7 @@ export default async function PersonalTransactionsPage({
           </div>
         </div>
       </form>
-      {deletedAccounts.length > 0 && (
-        <section className="card mt-5 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-(--muted)">Cuentas eliminadas recientemente</p>
-          <ul className="mt-2 space-y-1 text-sm text-(--muted)">
-            {deletedAccounts.map((account) => (
-              <li key={account.id}>
-                🗑️ {account.name} · {account.date.slice(0, 10)}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <DeletedAccountsPanel accounts={deletedAccounts} />
       <section className="card mt-5 overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,1.3fr)_140px_130px_100px_130px_76px] gap-3 border-b border-black/10 px-6 py-3 text-xs font-bold uppercase tracking-wide text-(--muted) xl:grid">
           <span>Descripción</span><span>Cuenta</span>
