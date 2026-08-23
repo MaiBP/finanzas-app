@@ -123,20 +123,28 @@ export function analyzeFinancialBehavior(transactions: InsightTransaction[], mon
   };
 }
 
-export async function getHouseholdFinancialInsight(db: SupabaseClient, householdId: string, month: string, today = new Date().toISOString().slice(0, 10)) {
+type InsightRow = InsightTransaction & { accounts: { currency: string } | null };
+
+export async function getHouseholdFinancialInsight(db: SupabaseClient, householdId: string, month: string, baseCurrency = "EUR", today = new Date().toISOString().slice(0, 10)) {
   const historyStart = `${monthAtOffset(month, -3)}-01`;
   const historyEnd = `${monthAtOffset(month, 1)}-01`;
-  const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name)").eq("household_id", householdId).eq("scope", "shared").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
+  const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name),accounts(currency)").eq("household_id", householdId).eq("scope", "shared").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
   if (error) throw error;
-  const transactions = ((data ?? []) as unknown as InsightTransaction[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+  // Mixing another currency's cents into these sums would be meaningless, so only the accounts
+  // that make up the household's own summary (see /app/page.tsx) feed the insight too.
+  const transactions = ((data ?? []) as unknown as InsightRow[])
+    .filter((row) => (row.accounts?.currency ?? "EUR") === baseCurrency)
+    .map((row) => ({ ...row, description: decryptField(row.description) }));
   return analyzeFinancialBehavior(transactions, month, today, "shared");
 }
 
-export async function getPersonalFinancialInsight(db: SupabaseClient, userId: string, householdId: string, month: string, today = new Date().toISOString().slice(0, 10)) {
+export async function getPersonalFinancialInsight(db: SupabaseClient, userId: string, householdId: string, month: string, baseCurrency = "EUR", today = new Date().toISOString().slice(0, 10)) {
   const historyStart = `${monthAtOffset(month, -3)}-01`;
   const historyEnd = `${monthAtOffset(month, 1)}-01`;
-  const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name)").eq("household_id", householdId).eq("created_by", userId).eq("scope", "personal").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
+  const { data, error } = await db.from("transactions").select("type,amount_cents,description,transaction_date,categories(name),accounts(currency)").eq("household_id", householdId).eq("created_by", userId).eq("scope", "personal").eq("status", "confirmed").gte("transaction_date", historyStart).lt("transaction_date", historyEnd);
   if (error) throw error;
-  const transactions = ((data ?? []) as unknown as InsightTransaction[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+  const transactions = ((data ?? []) as unknown as InsightRow[])
+    .filter((row) => (row.accounts?.currency ?? "EUR") === baseCurrency)
+    .map((row) => ({ ...row, description: decryptField(row.description) }));
   return analyzeFinancialBehavior(transactions, month, today, "personal");
 }

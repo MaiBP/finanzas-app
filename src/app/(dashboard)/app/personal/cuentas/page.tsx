@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
 import { AccountIcon, FLOATING_ACCOUNT_IMAGES } from "@/components/accounts/account-icon";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/finance/account-types";
+import { SUPPORTED_CURRENCIES } from "@/lib/finance/currencies";
 
-type AccountRow = { id: string; name: string; type: string };
+type AccountRow = { id: string; name: string; type: string; currency: string };
 type BalanceMovement = { account_id: string; type: "expense" | "income"; amount_cents: number };
 type MonthExpenseRow = { account_id: string; amount_cents: number };
 
@@ -20,10 +21,10 @@ export default async function PersonalAccountsPage() {
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   const nextMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1)).toISOString().slice(0, 10);
-  const [{ data: accountsData }, { data: balanceData }, { data: monthExpenseData }] = await Promise.all([
+  const [{ data: accountsData }, { data: balanceData }, { data: monthExpenseData }, { data: profile }] = await Promise.all([
     supabase
       .from("accounts")
-      .select("id,name,type")
+      .select("id,name,type,currency")
       .eq("household_id", household.id)
       .eq("owner_user_id", user.id)
       .eq("is_shared", false)
@@ -46,15 +47,21 @@ export default async function PersonalAccountsPage() {
       .eq("status", "confirmed")
       .gte("transaction_date", monthStart)
       .lt("transaction_date", nextMonth),
+    supabase.from("profiles").select("personal_base_currency").eq("id", user.id).maybeSingle(),
   ]);
   const accounts = (accountsData ?? []) as AccountRow[];
+  const baseCurrency = profile?.personal_base_currency ?? "EUR";
   const balanceMovements = (balanceData ?? []) as BalanceMovement[];
   const monthExpenseByAccount = new Map<string, number>();
   for (const row of (monthExpenseData ?? []) as MonthExpenseRow[]) {
     monthExpenseByAccount.set(row.account_id, (monthExpenseByAccount.get(row.account_id) ?? 0) + row.amount_cents);
   }
-  const totalBalance = accounts.reduce((total, account) => total + calculateAccountBalance(account.id, balanceMovements), 0);
-  const totalExpenses = [...monthExpenseByAccount.values()].reduce((sum, value) => sum + value, 0);
+  const baseAccounts = accounts.filter((account) => account.currency === baseCurrency);
+  const baseAccountIds = new Set(baseAccounts.map((account) => account.id));
+  const totalBalance = baseAccounts.reduce((total, account) => total + calculateAccountBalance(account.id, balanceMovements), 0);
+  const totalExpenses = [...monthExpenseByAccount.entries()]
+    .filter(([accountId]) => baseAccountIds.has(accountId))
+    .reduce((sum, [, value]) => sum + value, 0);
   const totalBalanceLabel = totalBalance > 0 ? "Saldo positivo" : totalBalance < 0 ? "Saldo negativo" : "En equilibrio";
   const monthName = new Intl.DateTimeFormat("es-ES", { month: "long" }).format(now);
 
@@ -76,16 +83,16 @@ export default async function PersonalAccountsPage() {
             </p>
             <p className={`mt-3 text-5xl font-black ${totalBalance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}>
               {totalBalance > 0 ? "+" : ""}
-              {formatMoney(totalBalance)}
+              {formatMoney(totalBalance, baseCurrency)}
             </p>
             <p className="mt-2 text-xs font-bold uppercase tracking-wide text-(--muted)">
-              {totalBalanceLabel} · {accounts.length} {accounts.length === 1 ? "cuenta activa" : "cuentas activas"}
+              {totalBalanceLabel} · {baseAccounts.length} {baseAccounts.length === 1 ? "cuenta activa" : "cuentas activas"} en {baseCurrency}
             </p>
           </div>
           <StatTile
             label={`Gasto personal · ${monthName}`}
-            value={formatMoney(totalExpenses)}
-            detail="Acumulado entre todas tus cuentas personales."
+            value={formatMoney(totalExpenses, baseCurrency)}
+            detail={`Acumulado entre tus cuentas personales en ${baseCurrency}.`}
             tone="coral"
             image="/money-wings.png"
           />
@@ -109,6 +116,7 @@ export default async function PersonalAccountsPage() {
             const balanceLabel = balance > 0 ? "Saldo positivo" : balance < 0 ? "Saldo negativo" : "En equilibrio";
             const monthExpense = monthExpenseByAccount.get(account.id) ?? 0;
             const floatingImage = FLOATING_ACCOUNT_IMAGES[account.type];
+            const hasMovements = accountMovements.length > 0;
             return (
               <div className="relative" key={account.id}>
                 {floatingImage && (
@@ -134,24 +142,27 @@ export default async function PersonalAccountsPage() {
                         <span className="rounded-full bg-(--lilac) px-2.5 py-1 text-xs font-bold">
                           {ACCOUNT_TYPE_LABELS[account.type] ?? "Personal"}
                         </span>
+                        {account.currency !== baseCurrency && (
+                          <span className="rounded-full bg-(--blue) px-2.5 py-1 text-xs font-bold">{account.currency}</span>
+                        )}
                         <DeleteAccountButton id={account.id} name={account.name} action={archiveAccount} />
                       </div>
                     </div>
                     <h3 className="mt-5 text-lg font-black">{account.name}</h3>
                     <p className={`mt-1 text-4xl font-black ${balance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}>
                       {balance > 0 ? "+" : ""}
-                      {formatMoney(balance)}
+                      {formatMoney(balance, account.currency)}
                     </p>
                     <p className="mt-1 text-xs font-bold uppercase tracking-wide text-(--muted)">
                       {balanceLabel} actual
                     </p>
                     <p className="mt-3 text-xs text-(--muted)">
-                      Ingresos registrados {formatMoney(allIncome)} − gastos registrados {formatMoney(allExpenses)}
+                      Ingresos registrados {formatMoney(allIncome, account.currency)} − gastos registrados {formatMoney(allExpenses, account.currency)}
                     </p>
                   </div>
                   <div className="border-t border-(--ink)/15 bg-(--highlight) p-5">
                     <p className="text-xs font-black uppercase tracking-wide">Gasto del mes · {monthName}</p>
-                    <p className="mt-1 text-lg font-black">{formatMoney(monthExpense)}</p>
+                    <p className="mt-1 text-lg font-black">{formatMoney(monthExpense, account.currency)}</p>
                   </div>
                   <details className="border-t border-(--ink)/15 bg-white p-5">
                     <summary className="cursor-pointer text-sm font-black">Editar cuenta</summary>
@@ -171,8 +182,23 @@ export default async function PersonalAccountsPage() {
                           <option value="investment">Inversión</option>
                         </select>
                       </label>
+                      <label>
+                        <span className="label">Moneda</span>
+                        {hasMovements ? (
+                          <>
+                            <select className="field" disabled defaultValue={account.currency}>
+                              {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+                            </select>
+                            <input type="hidden" name="currency" value={account.currency} />
+                          </>
+                        ) : (
+                          <select className="field" name="currency" defaultValue={account.currency}>
+                            {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+                          </select>
+                        )}
+                      </label>
                       <Button type="submit" size="sm" className="self-end">Guardar cambios</Button>
-                      <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez.</p>
+                      <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez. {hasMovements ? "La moneda quedó bloqueada porque esta cuenta ya tiene movimientos — para cambiarla hay que eliminar la cuenta y crearla de nuevo." : "La moneda no se puede cambiar una vez que la cuenta tenga movimientos."}</p>
                     </form>
                   </details>
                   <details className="border-t border-(--ink)/15 bg-white p-5">
@@ -232,12 +258,21 @@ export default async function PersonalAccountsPage() {
             </select>
           </label>
           <label>
+            <span className="label">Moneda</span>
+            <select className="field" name="currency" defaultValue={baseCurrency}>
+              {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+            </select>
+          </label>
+          <label>
             <span className="label">Saldo inicial (opcional)</span>
             <input className="field" name="initialBalance" inputMode="decimal" placeholder="0,00" />
           </label>
           <Button type="submit" className="self-start sm:self-end">
             Crear cuenta
           </Button>
+          <p className="text-xs text-(--muted) sm:col-span-2">
+            Si la moneda no es {baseCurrency}, esta cuenta quedará aparte de tu resumen personal (se muestra en su propia moneda, sin convertir).
+          </p>
         </form>
       </section>
     </>

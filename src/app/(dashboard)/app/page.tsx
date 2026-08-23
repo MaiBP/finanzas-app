@@ -21,7 +21,7 @@ type DashboardRow = {
   account_id: string;
   categories: { name: string } | null;
 };
-type DashboardAccount = { id: string; name: string; type: string };
+type DashboardAccount = { id: string; name: string; type: string; currency: string };
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -45,11 +45,23 @@ export default async function DashboardPage({
       .eq("status", "confirmed")
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false }),
-    supabase.from("accounts").select("id,name,type").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).order("created_at"),
-    getHouseholdFinancialInsight(supabase, household.id, currentMonth),
+    supabase.from("accounts").select("id,name,type,currency").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).order("created_at"),
+    getHouseholdFinancialInsight(supabase, household.id, currentMonth, household.baseCurrency),
   ]);
-  const rows = ((data ?? []) as unknown as DashboardRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
-  const accounts = (accountsData ?? []) as DashboardAccount[];
+  const allRows = ((data ?? []) as unknown as DashboardRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+  const allAccounts = (accountsData ?? []) as DashboardAccount[];
+  // The general summary only ever mixes accounts in the household's base currency — an account in
+  // another currency shows up in its own "Otras cuentas" card instead (see below), never summed
+  // into these totals, since nothing here converts between currencies.
+  const accounts = allAccounts.filter((account) => account.currency === household.baseCurrency);
+  const otherAccounts = allAccounts.filter((account) => account.currency !== household.baseCurrency);
+  const baseAccountIds = new Set(accounts.map((account) => account.id));
+  const rows = allRows.filter((row) => baseAccountIds.has(row.account_id));
+  const otherAccountBalances = otherAccounts.map((account) => ({
+    name: account.name,
+    currency: account.currency,
+    balance: calculateAccountBalance(account.id, allRows),
+  }));
   const currentRows = rows.filter((row) => row.transaction_date.startsWith(currentMonth));
   const currentYearRows = rows.filter(
     (row) => row.transaction_date.startsWith(`${currentYear}-`) && row.transaction_date <= today,
@@ -69,7 +81,7 @@ export default async function DashboardPage({
   const currentBalance = accounts.reduce((total, account) => total + calculateAccountBalance(account.id, rows), 0);
   const accountBalances = accounts.map((account) => ({
     label: account.name,
-    value: formatMoney(calculateAccountBalance(account.id, rows)),
+    value: formatMoney(calculateAccountBalance(account.id, rows), household.baseCurrency),
   }));
   const byCategory = new Map<string, number>();
   currentRows
@@ -109,7 +121,7 @@ export default async function DashboardPage({
         <div className="col-span-2 lg:col-span-1">
           <StatTile
             label="Saldo actual"
-            value={formatMoney(currentBalance)}
+            value={formatMoney(currentBalance, household.baseCurrency)}
             tone="plain"
             detail="Según movimientos registrados"
             image="/piggy-bank.png"
@@ -118,16 +130,16 @@ export default async function DashboardPage({
         </div>
         <StatTile
           label="Ingresos del mes"
-          value={formatMoney(income)}
+          value={formatMoney(income, household.baseCurrency)}
           tone="green"
-          detail={`Acumulado ${currentYear}: ${formatMoney(annualIncome)}`}
+          detail={`Acumulado ${currentYear}: ${formatMoney(annualIncome, household.baseCurrency)}`}
           image="/incoming-bag.png"
         />
         <StatTile
           label="Gastos del mes"
-          value={formatMoney(expenses)}
+          value={formatMoney(expenses, household.baseCurrency)}
           tone="coral"
-          detail={`Acumulado ${currentYear}: ${formatMoney(annualExpenses)}`}
+          detail={`Acumulado ${currentYear}: ${formatMoney(annualExpenses, household.baseCurrency)}`}
           image="/money-wings.png"
         />
         <div className="col-span-2 lg:col-span-1">
@@ -191,7 +203,7 @@ export default async function DashboardPage({
                 </div>
                 <b className="text-sm">
                   {row.type === "expense" ? "−" : "+"}
-                  {formatMoney(row.amount_cents)}
+                  {formatMoney(row.amount_cents, household.baseCurrency)}
                 </b>
               </div>
             ))}
@@ -206,6 +218,24 @@ export default async function DashboardPage({
           </div>
         </article>
       </section>
+      {otherAccountBalances.length > 0 && (
+        <section className="card mt-6 p-5 md:p-7">
+          <h2 className="text-lg font-black">Otras cuentas</h2>
+          <p className="text-sm text-(--muted)">
+            En otra moneda — no suman al resumen general, cada una se muestra en la suya.
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {otherAccountBalances.map((account) => (
+              <div key={account.name} className="rounded-xl border border-(--ink)/15 p-4">
+                <p className="truncate text-sm font-bold">{account.name}</p>
+                <p className={`mt-1 text-xl font-black ${account.balance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}>
+                  {formatMoney(account.balance, account.currency)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }

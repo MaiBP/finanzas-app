@@ -37,15 +37,25 @@ export async function GET(request: Request) {
   const type = params.get("type");
   const from = /^\d{4}-\d{2}-\d{2}$/.test(params.get("from") ?? "") ? params.get("from") : null;
   const to = /^\d{4}-\d{2}-\d{2}$/.test(params.get("to") ?? "") ? params.get("to") : null;
-  const rows: ExportRow[] = [];
 
-  for (let offset = 0; ; offset += CHUNK_SIZE) {
+  // Same rule as the Movimientos page: never mix currencies in one export — resolve the requested
+  // (or base) currency to its account ids first, since transactions don't carry it inline.
+  const { data: currencyRows } = await supabase.from("accounts").select("id,currency").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null);
+  const accountsByCurrency = (currencyRows ?? []) as { id: string; currency: string }[];
+  const availableCurrencies = new Set(accountsByCurrency.map((account) => account.currency));
+  const requestedCurrency = params.get("currency");
+  const currency = requestedCurrency && availableCurrencies.has(requestedCurrency) ? requestedCurrency : household.baseCurrency;
+  const currencyAccountIds = accountsByCurrency.filter((account) => account.currency === currency).map((account) => account.id);
+
+  const rows: ExportRow[] = [];
+  for (let offset = 0; currencyAccountIds.length > 0; offset += CHUNK_SIZE) {
     let query = supabase
       .from("transactions")
       .select("type,amount_cents,description,transaction_date,created_by,categories(name),accounts(name),transaction_items(description,amount_cents,subcategory)")
       .eq("household_id", household.id)
       .eq("scope", "shared")
       .eq("status", "confirmed")
+      .in("account_id", currencyAccountIds)
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false })
       .range(offset, offset + CHUNK_SIZE - 1);
@@ -72,7 +82,7 @@ export async function GET(request: Request) {
   // filterable either way; product rows leave Importe (EUR) blank and use Importe producto (EUR)
   // instead, since item amounts don't have to add up to the transaction total and would otherwise
   // silently double-count a naive sum of one shared amount column.
-  const header = ["Fecha", "Tipo", "Descripción", "Categoría", "Cuenta", "Registrado por", "Importe (EUR)", "Producto", "Subcategoría producto", "Importe producto (EUR)"];
+  const header = ["Fecha", "Tipo", "Descripción", "Categoría", "Cuenta", "Registrado por", `Importe (${currency})`, "Producto", "Subcategoría producto", `Importe producto (${currency})`];
   const lines = ["sep=;", header.map(csvCell).join(";")];
   for (const row of matchedRows) {
     const amount = ((row.type === "income" ? 1 : -1) * row.amount_cents / 100).toFixed(2).replace(".", ",");
@@ -93,10 +103,11 @@ export async function GET(request: Request) {
   }
 
   const dateSuffix = new Date().toISOString().slice(0, 10);
+  const currencySuffix = currency !== household.baseCurrency ? `-${currency.toLowerCase()}` : "";
   return new Response(`\uFEFF${lines.join("\r\n")}`, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="miti-miti-movimientos-${dateSuffix}.csv"`,
+      "Content-Disposition": `attachment; filename="miti-miti-movimientos${currencySuffix}-${dateSuffix}.csv"`,
       "Cache-Control": "private, no-store",
     },
   });
