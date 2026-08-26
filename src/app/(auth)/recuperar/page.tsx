@@ -1,8 +1,15 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { requestPasswordReset } from "../actions";
 import { AuthCard } from "@/components/auth/auth-card";
 import { Banner } from "@/components/ui/banner";
 import { SubmitButton } from "@/components/ui/submit-button";
+
+export const metadata: Metadata = {
+  title: "Recuperar contraseña",
+  description: "Recupera el acceso a tu cuenta de Miti-Miti si olvidaste tu contraseña.",
+  alternates: { canonical: "/recuperar" },
+};
 
 export default async function ResetPage({
   searchParams,

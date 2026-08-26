@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Términos y privacidad",
+  description: "Términos de uso y política de privacidad de Miti-Miti: qué datos guardamos, cómo los protegemos y tus derechos sobre ellos.",
   robots: { index: false, follow: false },
 };
 

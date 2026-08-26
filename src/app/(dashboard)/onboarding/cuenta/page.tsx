@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ArrowRight, Wallet } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
@@ -6,6 +7,11 @@ import { Button } from "@/components/ui/button";
 import { FadeIn, FloatBlob } from "@/components/ui/motion";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
 import { createFirstAccount } from "./actions";
+
+export const metadata: Metadata = {
+  title: "Crea tu primera cuenta",
+  robots: { index: false, follow: false },
+};
 
 export default async function OnboardingAccountPage() {
   const { household } = await getCurrentHousehold();

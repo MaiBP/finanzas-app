@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Heart } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
@@ -6,6 +7,11 @@ import { FadeIn, FloatBlob } from "@/components/ui/motion";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
 import { CopyCodeButton } from "@/components/onboarding/copy-code-button";
 import { finishOnboarding, regenerateInvite } from "./actions";
+
+export const metadata: Metadata = {
+  title: "Invita a tu pareja",
+  robots: { index: false, follow: false },
+};
 
 export default async function OnboardingInvitePage() {
   const { supabase, household } = await getCurrentHousehold();

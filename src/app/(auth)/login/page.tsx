@@ -1,10 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { login } from "../actions";
 import { AuthCard } from "@/components/auth/auth-card";
 import { Banner } from "@/components/ui/banner";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { PasswordInput } from "@/components/auth/password-input";
+
+export const metadata: Metadata = {
+  title: "Entrar",
+  description: "Accede a tu cuenta de Miti-Miti para ver el resumen de gastos e ingresos de tu hogar.",
+  alternates: { canonical: "/login" },
+};
 
 export default async function LoginPage({
   searchParams,

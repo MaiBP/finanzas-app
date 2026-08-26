@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Check, Send } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
@@ -6,6 +7,11 @@ import { FadeIn, FloatBlob } from "@/components/ui/motion";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
 import { TelegramDownloadLink } from "@/components/onboarding/telegram-download-link";
 import { continueFromTelegram, generateAndShowCode } from "./actions";
+
+export const metadata: Metadata = {
+  title: "Vincula tu Telegram",
+  robots: { index: false, follow: false },
+};
 
 export default async function OnboardingTelegramPage() {
   const { supabase, user, household } = await getCurrentHousehold();
