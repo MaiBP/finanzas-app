@@ -550,6 +550,9 @@ export function LandingPage() {
             <Link href="/registro" className="hover:underline">
               Crear hogar
             </Link>
+            <Link href="/terminos" className="hover:underline">
+              Términos y privacidad
+            </Link>
             <span className="flex items-center gap-3 border-l border-(--ink)/20 pl-5 normal-case">
               <span className="flex items-center gap-2 text-(--ink)/50" title="Muy pronto en redes sociales">
                 <Instagram size={18} />
