@@ -6,6 +6,7 @@ import { executeFinanceQuery } from "@/services/query-service";
 import { fetchRecentMessages, recordMessage } from "@/services/conversation-history";
 import { redactHouseholdNames, redactRecentMessages, HOUSEHOLD_NAME_PRIVACY_NOTE, type HouseholdMember } from "@/services/privacy/redact-household-names";
 import { decryptField } from "@/lib/security/field-encryption";
+import { getHouseholdTrialStatus } from "@/lib/trial/status";
 
 export type AssistantState = { reply?: string; error?: string };
 
@@ -14,6 +15,9 @@ export async function askAssistant(_state: AssistantState, formData: FormData): 
   if (text.length < 2) return { error: "Escribe una pregunta un poco más concreta." };
   const { supabase, user, household } = await getCurrentHousehold();
   if (!household) return { error: "No tienes un hogar activo." };
+  if (!getHouseholdTrialStatus(household).isWritable) {
+    return { error: "Tu prueba de 30 días terminó. Activa tu suscripción en Ajustes para seguir usando a Finzy." };
+  }
 
   try {
     const [{ data: categories }, { data: accounts }, recentMessages, { data: membersData }] = await Promise.all([

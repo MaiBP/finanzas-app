@@ -2,12 +2,24 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
+import { getHouseholdTrialStatus } from "@/lib/trial/status";
 import { TransactionForm } from "@/components/transactions/transaction-form";
+import { ReadOnlyNotice } from "@/components/trial/read-only-notice";
 import type { Account, Category } from "@/types/database";
 
 export default async function NewPersonalTransactionPage() {
   const { supabase, user, household } = await getCurrentHousehold();
   if (!household) return null;
+  if (!getHouseholdTrialStatus(household).isWritable) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <Link href="/app/personal/movimientos" className="mb-5 flex items-center gap-2 text-sm font-bold text-[#6c7f7a]">
+          <ArrowLeft size={17} />Movimientos personales
+        </Link>
+        <ReadOnlyNotice action="registrar nuevos movimientos" />
+      </div>
+    );
+  }
   const [{ data: accounts }, { data: categories }] = await Promise.all([
     supabase.from("accounts").select("id,name,currency").eq("household_id", household.id).eq("owner_user_id", user.id).eq("is_shared", false).is("archived_at", null).order("name"),
     supabase.from("categories").select("id,name,kind,icon,color").or(`household_id.eq.${household.id},household_id.is.null`).order("name"),

@@ -5,6 +5,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { decryptField, encryptField } from "@/lib/security/field-encryption";
 import { ITEM_SUBCATEGORIES, normalizeItemSubcategory } from "@/lib/finance/item-subcategories";
+import { friendlyRpcError } from "@/lib/trial/errors";
 
 const MAX_IMPORTED_TRANSACTIONS = 60;
 const MAX_ITEMS_PER_TRANSACTION = 60;
@@ -230,7 +231,7 @@ export async function executeStatementImport(db: SupabaseClient, userId: string,
       // own error and still report the whole row as a success even when the items never saved.
       const products = item.items?.length ? item.items.map(product => ({ description: encryptField(product.description), amount_cents: product.amount_cents, subcategory: product.subcategory })) : null;
       const { data: transactionId, error } = await db.rpc("create_financial_transaction_as_user", { p_actor_user_id: userId, p_household_id: householdId, p_account_id: account.id, p_type: item.type, p_amount_cents: item.amount_cents, p_description: encryptField(item.description), p_category_id: categoryId, p_scope: payload.scope, p_privacy: payload.scope === "shared" ? "visible" : "private", p_transaction_date: item.transaction_date, p_paid_by: userId, p_source: "telegram", p_items: products });
-      if (error) { console.error("Failed to create imported transaction", error); failureReasons.add(error.message); return false; }
+      if (error) { console.error("Failed to create imported transaction", error); failureReasons.add(friendlyRpcError(error.message)); return false; }
       if (!transactionId) { failureReasons.add("el servidor no confirmó el movimiento creado"); return false; }
       return true;
     }));

@@ -7,6 +7,7 @@ import { parseCurrency } from "@/lib/finance/currencies";
 import { notifyOtherMembers } from "@/services/telegram-notify";
 import { decryptField, encryptField } from "@/lib/security/field-encryption";
 import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
+import { friendlyRpcError } from "@/lib/trial/errors";
 
 async function actorName(supabase: Awaited<ReturnType<typeof getCurrentHousehold>>["supabase"], userId: string) {
   const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
@@ -44,7 +45,7 @@ export async function createAccount(formData:FormData){
       p_transaction_date:new Date().toISOString().slice(0,10),
       p_paid_by:user.id,
     });
-    if(txError)throw new Error(txError.message);
+    if(txError)throw new Error(friendlyRpcError(txError.message));
   }
   revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
 }
@@ -104,7 +105,7 @@ export async function adjustAccountBalance(formData:FormData){
     p_transaction_date:new Date().toISOString().slice(0,10),
     p_paid_by:user.id,
   });
-  if(error)throw new Error(error.message);
+  if(error)throw new Error(friendlyRpcError(error.message));
   revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
 }
 
@@ -131,7 +132,7 @@ export async function createSharedAccount(formData:FormData){
       p_transaction_date:new Date().toISOString().slice(0,10),
       p_paid_by:user.id,
     });
-    if(txError)throw new Error(txError.message);
+    if(txError)throw new Error(friendlyRpcError(txError.message));
   }
   const actor=await actorName(supabase,user.id);
   const balanceNote=initialCents!==0?` (saldo inicial ${formatMoney(Math.abs(initialCents),currency)})`:"";
@@ -203,7 +204,7 @@ export async function adjustSharedAccountBalance(formData: FormData) {
     p_transaction_date: new Date().toISOString().slice(0, 10),
     p_paid_by: user.id,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(friendlyRpcError(error.message));
   const actor = await actorName(supabase, user.id);
   await notifyOtherMembers(household.id, user.id, `⚖️ ${actor} ajustó el saldo de ${account.name} a ${formatMoney(targetCents, account.currency)}.`);
   revalidatePath("/app");

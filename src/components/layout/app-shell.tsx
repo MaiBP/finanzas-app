@@ -7,6 +7,7 @@ import { SectionSurface } from "@/components/layout/section-surface";
 import { NavLink } from "@/components/layout/nav-link";
 import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
 import { PageTransition } from "@/components/layout/page-transition";
+import { TrialBanner } from "@/components/layout/trial-banner";
 
 const householdNav = [
   { href: "/app", label: "Resumen", icon: Home },
@@ -37,10 +38,12 @@ export function AppShell({
   children,
   householdName,
   personalSpaceName,
+  trialNotification,
 }: {
   children: React.ReactNode;
   householdName: string;
   personalSpaceName: string;
+  trialNotification?: { id: string; notificationKey: string } | null;
 }) {
   return (
     <div className="min-h-screen bg-white text-(--ink) md:grid md:grid-cols-[260px_1fr]">
@@ -101,6 +104,7 @@ export function AppShell({
       </aside>
 
       <SectionSurface>
+        {trialNotification && <TrialBanner id={trialNotification.id} notificationKey={trialNotification.notificationKey} />}
         <header className="section-header sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-(--ink)/30 px-5 py-4 backdrop-blur md:px-8">
           <div className="flex items-center gap-3">
             <MobileNavDrawer

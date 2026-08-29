@@ -1,11 +1,25 @@
 import Image from "next/image";
 import { AssistantForm } from "@/components/assistant/assistant-form";
 import { getCurrentHousehold } from "@/lib/household";
+import { getHouseholdTrialStatus } from "@/lib/trial/status";
+import { ReadOnlyNotice } from "@/components/trial/read-only-notice";
 import { fetchRecentMessages } from "@/services/conversation-history";
 
 export default async function AssistantPage() {
   const { supabase, user, household } = await getCurrentHousehold();
   const initialMessages = household ? await fetchRecentMessages(supabase, user.id, 20) : [];
+
+  if (household && !getHouseholdTrialStatus(household).isWritable) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <p className="text-sm font-bold uppercase">Herramienta general</p>
+        <h1 className="mt-1 text-3xl font-black">Finzy</h1>
+        <div className="mt-7">
+          <ReadOnlyNotice action="seguir usando a Finzy" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl">

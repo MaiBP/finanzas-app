@@ -15,6 +15,7 @@ import { transcribeVoiceMessage } from "@/services/voice-transcription";
 import { fetchRecentMessages, recordMessage } from "@/services/conversation-history";
 import { redactHouseholdNames, redactRecentMessages, HOUSEHOLD_NAME_PRIVACY_NOTE, type HouseholdMember } from "@/services/privacy/redact-household-names";
 import { decryptField } from "@/lib/security/field-encryption";
+import { isReadOnlyTrialError, friendlyRpcError } from "@/lib/trial/errors";
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLocaleLowerCase("es").trim();
@@ -230,7 +231,7 @@ async function handleCallbackQuery(callbackQuery:z.infer<typeof callbackQuerySch
       reply=(await markAwaitingEdit(db,link.user_id,membership.household_id,actionType))?"✍️ Contame qué querés corregir (por ejemplo: “el segundo producto son 30€, no 25€” o “la fecha es el 3 de agosto”).":STALE_ACTION_MESSAGE;
     }
     else return;
-  }catch(error){reply=error instanceof Error?error.message:"⚠️ No he podido completar eso. Inténtalo de nuevo.";}
+  }catch(error){reply=error instanceof Error&&isReadOnlyTrialError(error.message)?`🔒 ${friendlyRpcError(error.message)}`:error instanceof Error?error.message:"⚠️ No he podido completar eso. Inténtalo de nuevo.";}
 
   await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:reply});
   if(editInPlace&&messageId!==undefined){await editMessageText(chatId,messageId,escapeTelegramHtml(reply),keyboard).catch(()=>undefined);return;}
@@ -316,6 +317,6 @@ export async function POST(request:Request){
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"🗑️ He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"📋 Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";keyboard=confirmCancelKeyboard(action.action);}
     if(mentioned)reply=`${reply}\n\n${HOUSEHOLD_NAME_PRIVACY_NOTE}`;
     await recordMessage(db,{userId:link.user_id,householdId:membership.household_id,role:"assistant",content:reply});await sendTelegramMessage(chat.id,confirmed?withTelegramWebSuggestion(reply):escapeTelegramHtml(reply),keyboard);
-  }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("IMPORT_USER:")?`⚠️ ${error.message.slice("IMPORT_USER:".length)}`:error instanceof Error&&error.message.startsWith("VOICE_USER:")?`⚠️ ${error.message.slice("VOICE_USER:".length)}`:error instanceof Error&&error.message.startsWith("Indica qué cuenta")?`⚠️ ${error.message}`:"⚠️ No he podido completar eso. Inténtalo de nuevo.";await sendTelegramMessage(chat.id,escapeTelegramHtml(safeMessage)).catch(()=>undefined);}
+  }catch(error){console.error("Telegram webhook error",error);const safeMessage=error instanceof Error&&error.message.startsWith("IMPORT_USER:")?`⚠️ ${error.message.slice("IMPORT_USER:".length)}`:error instanceof Error&&error.message.startsWith("VOICE_USER:")?`⚠️ ${error.message.slice("VOICE_USER:".length)}`:error instanceof Error&&error.message.startsWith("Indica qué cuenta")?`⚠️ ${error.message}`:error instanceof Error&&isReadOnlyTrialError(error.message)?`🔒 ${friendlyRpcError(error.message)}`:"⚠️ No he podido completar eso. Inténtalo de nuevo.";await sendTelegramMessage(chat.id,escapeTelegramHtml(safeMessage)).catch(()=>undefined);}
   return NextResponse.json({ok:true});
 }
