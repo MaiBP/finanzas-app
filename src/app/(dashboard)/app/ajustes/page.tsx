@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { AlertTriangle, Check, Copy, Lock, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, Copy, CreditCard, Lock, PiggyBank } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { getHouseholdTrialStatus } from "@/lib/trial/status";
 import { createCheckoutSession, deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, openBillingPortal, unlinkTelegram, updateHouseholdBaseCurrency, updateHouseholdName, updatePersonalBaseCurrency, updatePersonalSpaceName } from "./actions";
@@ -186,37 +186,40 @@ export default async function SettingsPage() {
           </form>
         </section>
 
-        <section className="card p-6 lg:col-span-2">
+        <section className="card bg-(--blue)/15 p-6 lg:col-span-2">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-(--blue)">
-              <span className="grid size-8 place-items-center rounded-full bg-white">
-                <Image src="/finzy-mascot.png" alt="Piggy" width={32} height={32} className="size-6 object-contain" />
-              </span>
+            <span className="grid size-11 place-items-center rounded-xl bg-white">
+              <PiggyBank size={22} className="text-(--blue)" />
             </span>
             <div>
               <p className="text-xs font-bold uppercase text-(--muted)">Herramienta general</p>
               <h2 className="font-black">Telegram · Piggy</h2>
-              <p className="text-sm text-(--muted)">{link ? "Vinculado" : "No vinculado"}</p>
             </div>
           </div>
           {link ? (
             <>
-              <div className="mt-5 space-y-3 rounded-xl bg-(--blue)/25 p-4 text-sm">
-                <p>
-                  Piggy puede consultar tus espacios, registrar movimientos por texto o nota de voz, y leer extractos
-                  PDF o imágenes de hasta 12 MB. Los adjuntos y notas de voz no se guardan en Miti-Miti,
-                  solo se procesan.
-                </p>
+              <div className="mt-5 flex items-center gap-3 rounded-xl bg-white p-4">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-(--lime)">
+                  <Check size={18} />
+                </span>
+                <div>
+                  <p className="font-bold">Vinculado</p>
+                  <p className="text-xs text-(--muted)">
+                    Piggy puede consultar tus espacios, registrar movimientos por texto o nota de voz, y leer
+                    extractos PDF o imágenes de hasta 12 MB. Los adjuntos y notas de voz no se guardan en Miti-Miti,
+                    solo se procesan.
+                  </p>
+                </div>
               </div>
               <form action={unlinkTelegram} className="mt-4">
-                <Button type="submit" size="sm" variant="outline">
+                <Button type="submit" size="sm" variant="primary">
                   Desvincular Telegram
                 </Button>
               </form>
             </>
           ) : (
             <>
-              <div className="mt-5 rounded-xl bg-(--blue)/25 p-4 text-sm">
+              <div className="mt-5 rounded-xl bg-white p-4 text-sm">
                 <p className="font-bold">Vincula con el Piggy correcto:</p>
                 <ol className="mt-2 list-decimal space-y-1 pl-5">
                   <li>
@@ -245,10 +248,10 @@ export default async function SettingsPage() {
           )}
         </section>
 
-        <section className="card p-6 lg:col-span-2">
+        <section className="card bg-(--highlight)/15 p-6 lg:col-span-2">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-(--lilac)">
-              {trialStatus.isWritable ? <Sparkles size={20} /> : <Lock size={20} />}
+            <span className="grid size-11 place-items-center rounded-xl bg-(--highlight)">
+              {trialStatus.isWritable ? <CreditCard size={20} /> : <Lock size={20} />}
             </span>
             <div>
               <p className="text-xs font-bold uppercase text-(--muted)">Plan</p>

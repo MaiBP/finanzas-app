@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { PiggyBank } from "lucide-react";
 import { AssistantForm } from "@/components/assistant/assistant-form";
 import { getCurrentHousehold } from "@/lib/household";
 import { getHouseholdTrialStatus } from "@/lib/trial/status";
@@ -31,7 +31,7 @@ export default async function AssistantPage() {
       <section className="card mt-7 p-6">
         <div className="flex gap-3 rounded-2xl bg-(--blue) p-4">
           <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white">
-            <Image src="/finzy-mascot.png" alt="Piggy" width={40} height={40} className="size-7 object-contain" />
+            <PiggyBank size={20} className="text-(--blue)" />
           </span>
           <div>
             <b>¿Qué quieres saber?</b>

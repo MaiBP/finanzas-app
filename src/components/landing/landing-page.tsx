@@ -462,6 +462,7 @@ export function LandingPage() {
               <Link href="/login" className="hover:opacity-70">Entrar</Link>
               <Link href="/registro" className="hover:opacity-70">Crear hogar</Link>
               <Link href="/terminos" className="hover:opacity-70">Términos y privacidad</Link>
+              <Link href="/contacto" className="hover:opacity-70">Contacto</Link>
             </div>
             <div className="flex items-center gap-3 sm:justify-end" title="Muy pronto en redes sociales">
               <span className="grid size-10 place-items-center rounded-full" style={{ background: GOLD, color: COCOA }}>

@@ -1,8 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import Image from "next/image";
-import { Send, UserRound } from "lucide-react";
+import { PiggyBank, Send, UserRound } from "lucide-react";
 import { motion } from "framer-motion";
 import { askAssistant, type AssistantState } from "@/app/(dashboard)/app/asistente/actions";
 import { Button } from "@/components/ui/button";
@@ -49,7 +48,7 @@ export function AssistantForm({ initialMessages }: { initialMessages: Conversati
               {message.role === "user" ? (
                 <UserRound size={16} />
               ) : (
-                <Image src="/finzy-mascot.png" alt="Piggy" width={32} height={32} className="size-6 object-contain" />
+                <PiggyBank size={16} className="text-(--blue)" />
               )}
             </span>
             <div

@@ -54,7 +54,7 @@ export function AppShell({
 
         <div className="mt-8 rounded-2xl border border-(--ink)/15 p-3">
           <div className="flex items-center gap-3 px-2 pb-2">
-            <span className="grid size-9 place-items-center rounded-full bg-(--lilac)">
+            <span className="grid size-9 place-items-center rounded-full">
               <Image src="/home.png" alt="" width={28} height={28} className="size-6 object-contain" />
             </span>
             <div className="min-w-0">
@@ -71,7 +71,7 @@ export function AppShell({
 
         <div className="mt-4 rounded-2xl border border-(--ink)/15 p-3">
           <div className="flex items-center gap-3 px-2 pb-2">
-            <span className="grid size-9 place-items-center rounded-full bg-(--lime)">
+            <span className="grid size-9 place-items-center rounded-full">
               <Image src="/private.png" alt="" width={28} height={28} className="size-6 object-contain" />
             </span>
             <div className="min-w-0">
