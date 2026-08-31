@@ -281,13 +281,13 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        <section className="card border-[#c23b3b]/40 p-6 lg:col-span-2">
+        <section className="card border-(--danger)/40 p-6 lg:col-span-2">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-[#f7d9d9]">
-              <AlertTriangle size={20} className="text-[#c23b3b]" />
+            <span className="grid size-11 place-items-center rounded-xl bg-(--danger)/15">
+              <AlertTriangle size={20} className="text-(--danger)" />
             </span>
             <div>
-              <p className="text-xs font-bold uppercase text-[#c23b3b]">Zona de peligro</p>
+              <p className="text-xs font-bold uppercase text-(--danger)">Zona de peligro</p>
               <h2 className="font-black">Salir del hogar o borrar tu cuenta</h2>
             </div>
           </div>

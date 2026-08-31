@@ -118,7 +118,7 @@ export default async function AccountsPage() {
               {generalAccount?.name ?? "Cuenta conjunta general"}
             </p>
             <p
-              className={`mt-3 text-5xl font-black ${totalBalance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}
+              className={`mt-3 text-5xl font-black ${totalBalance < 0 ? "text-(--danger)" : "text-(--success)"}`}
             >
               {totalBalance > 0 ? "+" : ""}
               {formatMoney(totalBalance, household.baseCurrency)}
@@ -202,7 +202,7 @@ export default async function AccountsPage() {
                   </div>
                   <h3 className="mt-5 text-lg font-black">{account.name}</h3>
                   <p
-                    className={`mt-1 text-4xl font-black ${balance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}
+                    className={`mt-1 text-4xl font-black ${balance < 0 ? "text-(--danger)" : "text-(--success)"}`}
                   >
                     {balance > 0 ? "+" : ""}
                     {formatMoney(balance, account.currency)}

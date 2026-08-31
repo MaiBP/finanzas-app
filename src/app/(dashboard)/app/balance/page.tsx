@@ -89,7 +89,7 @@ export default async function BalancePage() {
                         Ingresos <b className="text-(--ink)">{formatMoney(values.income)}</b>
                       </span>
                       <span>
-                        Gastos <b className="text-[#b34f36]">{formatMoney(values.expenses)}</b>
+                        Gastos <b className="text-(--danger)">{formatMoney(values.expenses)}</b>
                       </span>
                     </div>
                   </div>
