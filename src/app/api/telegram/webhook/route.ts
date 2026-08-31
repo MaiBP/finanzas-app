@@ -34,7 +34,7 @@ const STALE_ACTION_MESSAGE="⏳ Pasó tiempo desde que enviaste ese mensaje. Por
 // Sent as a short back-to-back sequence right after a successful /vincular, instead of one big
 // wall of text — repeats on every re-link (e.g. after a phone change), not just the first time.
 const ONBOARDING_MESSAGES=[
-  "👋 Soy Finzy, tu asistente financiero. Así de simple es registrar algo:\n💬 Escribime o mandame un audio: “Gasté 20 euros en el súper” o “Ingresé 500 de sueldo”.\nPor defecto lo registro como compartido con tu pareja — agregá la palabra “personal” si es solo tuyo.",
+  "👋 Soy Piggy, tu asistente financiero. Así de simple es registrar algo:\n💬 Escribime o mandame un audio: “Gasté 20 euros en el súper” o “Ingresé 500 de sueldo”.\nPor defecto lo registro como compartido con tu pareja — agregá la palabra “personal” si es solo tuyo.",
   "📊 También podés preguntarme por tus finanzas: “¿Cuánto gastamos este mes?”, “¿En qué gasté más?”, “Mostrame los últimos movimientos”. Los números siempre salen de tus datos reales, nunca los invento.",
   "🧾 ¿Tenés un ticket o extracto? Mandame la foto o el PDF y te muestro una vista previa antes de guardar nada — hasta puedo detectar los productos de un ticket de supermercado uno por uno.",
   "Cuando quieras repasar esto de nuevo, escribí /ayuda. 🙌 ¿Querés probar ahora? Contame un gasto real de hoy.",
@@ -254,7 +254,7 @@ export async function POST(request:Request){
       const code=text.split(/\s+/)[1]?.trim().toUpperCase();
       if(!code){
         if(text.startsWith("/vincular")){await sendTelegramMessage(chat.id,"⚠️ Falta el código. Ejemplo: <code>/vincular ABC12345</code>");return NextResponse.json({ok:true});}
-        await sendTelegramMessage(chat.id,"Hola 👋 Soy Finzy, el asistente de <b>Miti-Miti</b>. Vincula tu cuenta desde Ajustes y envíame <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});
+        await sendTelegramMessage(chat.id,"Hola 👋 Soy Piggy, el asistente de <b>Miti-Miti</b>. Vincula tu cuenta desde Ajustes y envíame <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});
       }
       const {data:activeCode,error:codeError}=await db.from("telegram_link_codes").select("user_id").eq("code",code).is("used_at",null).gt("expires_at",new Date().toISOString()).maybeSingle();
       if(codeError)throw codeError;

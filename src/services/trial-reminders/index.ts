@@ -26,7 +26,7 @@ export function buildDay27Message(): string {
 }
 
 export function buildTrialEndedMessage(): string {
-  return "🔒 Tu prueba terminó y tu hogar está en modo solo lectura: podés ver todo tu historial, pero no registrar movimientos nuevos ni usar a Finzy. Activá tu suscripción por 4,99 €/mes para seguir sin restricciones.";
+  return "🔒 Tu prueba terminó y tu hogar está en modo solo lectura: podés ver todo tu historial, pero no registrar movimientos nuevos ni usar a Piggy. Activá tu suscripción por 4,99 €/mes para seguir sin restricciones.";
 }
 
 export function buildReminderMessage(key: NotificationKey, transactionCount: number): string {

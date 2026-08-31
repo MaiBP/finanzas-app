@@ -190,12 +190,12 @@ export default async function SettingsPage() {
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-xl bg-(--blue)">
               <span className="grid size-8 place-items-center rounded-full bg-white">
-                <Image src="/finzy-mascot.png" alt="Finzy" width={32} height={32} className="size-6 object-contain" />
+                <Image src="/finzy-mascot.png" alt="Piggy" width={32} height={32} className="size-6 object-contain" />
               </span>
             </span>
             <div>
               <p className="text-xs font-bold uppercase text-(--muted)">Herramienta general</p>
-              <h2 className="font-black">Telegram · Finzy</h2>
+              <h2 className="font-black">Telegram · Piggy</h2>
               <p className="text-sm text-(--muted)">{link ? "Vinculado" : "No vinculado"}</p>
             </div>
           </div>
@@ -203,7 +203,7 @@ export default async function SettingsPage() {
             <>
               <div className="mt-5 space-y-3 rounded-xl bg-(--blue)/25 p-4 text-sm">
                 <p>
-                  Finzy puede consultar tus espacios, registrar movimientos por texto o nota de voz, y leer extractos
+                  Piggy puede consultar tus espacios, registrar movimientos por texto o nota de voz, y leer extractos
                   PDF o imágenes de hasta 12 MB. Los adjuntos y notas de voz no se guardan en Miti-Miti,
                   solo se procesan.
                 </p>
@@ -217,7 +217,7 @@ export default async function SettingsPage() {
           ) : (
             <>
               <div className="mt-5 rounded-xl bg-(--blue)/25 p-4 text-sm">
-                <p className="font-bold">Vincula con el Finzy correcto:</p>
+                <p className="font-bold">Vincula con el Piggy correcto:</p>
                 <ol className="mt-2 list-decimal space-y-1 pl-5">
                   <li>
                     Abre{" "}

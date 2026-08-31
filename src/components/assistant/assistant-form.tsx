@@ -49,7 +49,7 @@ export function AssistantForm({ initialMessages }: { initialMessages: Conversati
               {message.role === "user" ? (
                 <UserRound size={16} />
               ) : (
-                <Image src="/finzy-mascot.png" alt="Finzy" width={32} height={32} className="size-6 object-contain" />
+                <Image src="/finzy-mascot.png" alt="Piggy" width={32} height={32} className="size-6 object-contain" />
               )}
             </span>
             <div

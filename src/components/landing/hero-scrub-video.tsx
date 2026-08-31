@@ -56,9 +56,19 @@ export function HeroScrubVideo({
 
     const canScrub = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     if (!canScrub) {
-      video.loop = true;
+      // No mouse to scrub with (touch/coarse-pointer) — play forward once and freeze on the
+      // "Piggy looking at the camera" pose (~3s in) instead of looping the whole clip, so the
+      // framing (and where the phone sits in Piggy's hands) stays put for the overlay content.
+      const FREEZE_AT_SECONDS = 3;
+      const onTimeUpdate = () => {
+        if (video.currentTime >= FREEZE_AT_SECONDS) {
+          video.pause();
+          video.removeEventListener("timeupdate", onTimeUpdate);
+        }
+      };
+      video.addEventListener("timeupdate", onTimeUpdate);
       video.play().catch(() => {});
-      return;
+      return () => video.removeEventListener("timeupdate", onTimeUpdate);
     }
 
     let prevX: number | null = null;

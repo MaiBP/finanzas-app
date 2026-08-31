@@ -16,7 +16,7 @@ export async function askAssistant(_state: AssistantState, formData: FormData): 
   const { supabase, user, household } = await getCurrentHousehold();
   if (!household) return { error: "No tienes un hogar activo." };
   if (!getHouseholdTrialStatus(household).isWritable) {
-    return { error: "Tu prueba de 30 días terminó. Activa tu suscripción en Ajustes para seguir usando a Finzy." };
+    return { error: "Tu prueba de 30 días terminó. Activa tu suscripción en Ajustes para seguir usando a Piggy." };
   }
 
   try {
@@ -53,7 +53,7 @@ export async function askAssistant(_state: AssistantState, formData: FormData): 
     } else if (action.action === "request_clarification") {
       reply = action.data.question;
     } else {
-      reply = "He entendido una acción sobre un movimiento. Por ahora, confírmala desde Movimientos o envíasela a Finzy por Telegram.";
+      reply = "He entendido una acción sobre un movimiento. Por ahora, confírmala desde Movimientos o envíasela a Piggy por Telegram.";
     }
     if (mentioned) reply = `${reply}\n\n${HOUSEHOLD_NAME_PRIVACY_NOTE}`;
 

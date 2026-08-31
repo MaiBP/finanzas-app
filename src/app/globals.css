@@ -12,12 +12,18 @@
   --highlight: #ffca50; /* Honeycomb Gold */
   --pink: #ff96be;
   --blue: #6aacc2; /* Cornflower */
-  --lime: #ffe9b3; /* diluted gold — "Personal" tile + income amounts */
+  --lime: #ffe9b3; /* diluted gold — "Personal" tile + income-row highlight */
   --lilac: #a0342a; /* Barn Red — "Hogar" tile + 1st per-member chart color */
   --expense: #c98a3e; /* muted gold-brown — 4th per-member chart color */
   --savings: #d98fa3; /* dusty rose — 5th per-member chart color */
   --danger: #a0342a; /* Barn Red doubling as the destructive/danger accent */
   --success: #2e7d32;
+  /* StatTile card backgrounds (Resumen/Balance) — cream-family pastels, kept distinct from
+     --lime/--lilac/--expense/--savings above (those serve the nav tiles and per-member chart
+     colors) so recoloring one system never silently breaks the other again. */
+  --income: #d9e6c3; /* pastel sage-green — "Ingresos" card */
+  --outflow: #f0d0c6; /* pastel coral — "Gastos"/"Egresos" card */
+  --insight: #d3e6ec; /* pastel sky blue — notification/insight card */
 }
 
 /* @layer base coloca este reset por debajo de @layer utilities (declarado por

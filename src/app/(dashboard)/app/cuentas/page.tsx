@@ -106,7 +106,7 @@ export default async function AccountsPage() {
           <p className="text-sm font-bold uppercase">Fondos compartidos</p>
           <h1 className="mt-1 text-3xl font-black">Cuentas conjuntas</h1>
           <p className="mt-2 max-w-2xl text-(--muted)">
-            Separad efectivo, banco, tarjetas o inversiones y elegid de dónde
+            Separá efectivo, banco, tarjetas o inversiones y elegí de dónde
             entra o sale cada movimiento.
           </p>
         </div>
@@ -189,7 +189,7 @@ export default async function AccountsPage() {
                       </span>
                     )}
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-(--lilac) px-2.5 py-1 text-xs font-bold">
+                      <span className="rounded-full bg-(--pink) px-2.5 py-1 text-xs font-bold">
                         {typeNames[account.type] ?? "Conjunta"}
                       </span>
                       {account.currency !== household.baseCurrency && (

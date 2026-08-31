@@ -18,7 +18,7 @@ export function ChannelChoice() {
           </span>
           <h2 className="mt-4 text-2xl font-black">Telegram</h2>
           <p className="mt-2 min-h-12 text-sm text-(--ink)/75">
-            Registra movimientos y consulta tus finanzas escribiéndole a Finzy.
+            Registra movimientos y consulta tus finanzas escribiéndole a Piggy.
           </p>
           <LinkButton href="/onboarding/telegram" className="mt-5 w-full">
             Usar Telegram

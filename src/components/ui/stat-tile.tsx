@@ -3,10 +3,10 @@ import Image from "next/image";
 import { cn } from "@/lib/cn";
 
 const TONES = {
-  green: "bg-(--lime)",
-  coral: "bg-(--expense)",
-  lilac: "bg-(--lilac)",
-  plain: "bg-(--savings)",
+  green: "bg-(--income)",
+  coral: "bg-(--outflow)",
+  lilac: "bg-(--insight)",
+  plain: "bg-(--lime)",
 } as const;
 
 export type StatTileTone = keyof typeof TONES;

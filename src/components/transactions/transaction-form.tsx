@@ -25,6 +25,6 @@ export function TransactionForm({ accounts, categories, mode = "shared" }: { acc
     </div>
     <label className="block max-w-56"><span className="label">Fecha</span><input className="field" name="transactionDate" type="date" defaultValue={today} required/></label>
     <Button type="submit" disabled={pending || !accounts.length} className="w-full">{pending ? "Guardando…" : mode === "shared" ? "Guardar en conjunto" : "Guardar en mi espacio"}</Button>
-    <p className="text-center text-xs text-[#6c7f7a]">{mode === "shared" ? "Se repartirá automáticamente entre los miembros activos." : "Solo tú podrás ver este movimiento; Finzy podrá incluirlo en tus consultas."}</p>
+    <p className="text-center text-xs text-[#6c7f7a]">{mode === "shared" ? "Se repartirá automáticamente entre los miembros activos." : "Solo tú podrás ver este movimiento; Piggy podrá incluirlo en tus consultas."}</p>
   </form>;
 }

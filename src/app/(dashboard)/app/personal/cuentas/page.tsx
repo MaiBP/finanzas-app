@@ -139,7 +139,7 @@ export default async function PersonalAccountsPage() {
                         </span>
                       )}
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-(--lilac) px-2.5 py-1 text-xs font-bold">
+                        <span className="rounded-full bg-(--pink) px-2.5 py-1 text-xs font-bold">
                           {ACCOUNT_TYPE_LABELS[account.type] ?? "Personal"}
                         </span>
                         {account.currency !== baseCurrency && (
