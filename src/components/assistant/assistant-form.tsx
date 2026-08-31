@@ -61,13 +61,13 @@ export function AssistantForm({ initialMessages }: { initialMessages: Conversati
       </div>
       <form ref={formRef} action={handleSubmit} className="mt-4 flex gap-2">
         <input
-          className="field"
+          className="field min-w-0 flex-1"
           name="message"
           required
           autoComplete="off"
-          placeholder="¿Cuánto gastamos juntos y cuánto gasté yo?"
+          placeholder="Preguntale algo a Piggy…"
         />
-        <Button type="submit" disabled={pending} size="icon" aria-label="Preguntar">
+        <Button type="submit" disabled={pending} size="icon" className="shrink-0" aria-label="Preguntar">
           <Send size={18} />
         </Button>
       </form>

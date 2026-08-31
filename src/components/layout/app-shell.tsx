@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { BarChart3, Bot, CircleDollarSign, CreditCard, Home, LogOut, Settings, UserRound } from "lucide-react";
+import { BarChart3, Bot, CircleDollarSign, CreditCard, Home, LogOut, Mail, Settings, UserRound } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { AppContextLabel } from "@/components/layout/app-context-label";
 import { SectionSurface } from "@/components/layout/section-surface";
@@ -8,6 +8,7 @@ import { NavLink } from "@/components/layout/nav-link";
 import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
 import { PageTransition } from "@/components/layout/page-transition";
 import { TrialBanner } from "@/components/layout/trial-banner";
+import { UserBadge } from "@/components/layout/user-badge";
 
 const householdNav = [
   { href: "/app", label: "Resumen", icon: Home },
@@ -32,6 +33,7 @@ const personalMobileNav = [
 const generalNav = [
   { href: "/app/asistente", label: "Asistente", icon: Bot },
   { href: "/app/ajustes", label: "Ajustes", icon: Settings },
+  { href: "/contacto", label: "Contacto", icon: Mail },
 ] as const;
 
 export function AppShell({
@@ -39,11 +41,15 @@ export function AppShell({
   householdName,
   personalSpaceName,
   trialNotification,
+  userName,
+  userAvatarUrl,
 }: {
   children: React.ReactNode;
   householdName: string;
   personalSpaceName: string;
   trialNotification?: { id: string; notificationKey: string } | null;
+  userName: string;
+  userAvatarUrl: string | null;
 }) {
   return (
     <div className="min-h-screen bg-white text-(--ink) md:grid md:grid-cols-[260px_1fr]">
@@ -95,12 +101,15 @@ export function AppShell({
           </nav>
         </div>
 
-        <form action={logout} className="mt-auto">
-          <button className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-sm text-(--muted) hover:bg-(--highlight) hover:text-(--ink)">
-            <LogOut size={18} />
-            Cerrar sesión
-          </button>
-        </form>
+        <div className="mt-auto border-t border-(--ink)/15 pt-3">
+          <UserBadge name={userName} avatarUrl={userAvatarUrl} />
+          <form action={logout} className="mt-1">
+            <button className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-sm text-(--muted) hover:bg-(--highlight) hover:text-(--ink)">
+              <LogOut size={18} />
+              Cerrar sesión
+            </button>
+          </form>
+        </div>
       </aside>
 
       <SectionSurface>
@@ -113,6 +122,8 @@ export function AppShell({
               generalNav={generalNav.map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={19} /> }))}
               householdName={householdName}
               personalSpaceName={personalSpaceName}
+              userName={userName}
+              userAvatarUrl={userAvatarUrl}
               logout={logout}
             />
             <AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName} />

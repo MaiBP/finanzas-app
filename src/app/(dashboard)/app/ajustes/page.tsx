@@ -57,7 +57,7 @@ export default async function SettingsPage() {
       <div className="mt-7 grid gap-5 lg:grid-cols-2">
         <section className="card p-6">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-(--lilac)">
+            <span className="grid size-11 place-items-center rounded-xl">
               <Image src="/home.png" alt="" width={32} height={32} className="size-7 object-contain" />
             </span>
             <div>
@@ -141,7 +141,7 @@ export default async function SettingsPage() {
 
         <section className="card p-6">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-(--lime)">
+            <span className="grid size-11 place-items-center rounded-xl">
               <Image src="/private.png" alt="" width={32} height={32} className="size-7 object-contain" />
             </span>
             <div>

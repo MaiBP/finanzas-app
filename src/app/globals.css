@@ -102,11 +102,14 @@
 }
 .section-header { background: color-mix(in srgb, var(--section-bg) 90%, transparent); }
 .section-orange { --section-bg: var(--canvas); }
-.section-pink { --section-bg: var(--pink); }
+/* Pink and Lilac get their own light washes instead of the raw --pink/--lilac tokens: those are
+   now saturated accent colors (a badge, a chart dot) — fine in small doses, too intense to read
+   as a full-page background for as long as someone's looking at a list of movements or Balance. */
+.section-pink { --section-bg: #fbe4ec; }
 .section-blue { --section-bg: var(--blue); }
 .section-savings { --section-bg: var(--savings); }
 .section-lime { --section-bg: var(--lime); }
-.section-lilac { --section-bg: var(--lilac); }
+.section-lilac { --section-bg: #f6e2dc; }
 .section-yellow { --section-bg: var(--highlight); }
 
 /* Compatibilidad visual para los flujos existentes. */
