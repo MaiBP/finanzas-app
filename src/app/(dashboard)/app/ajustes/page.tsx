@@ -4,6 +4,7 @@ import { getCurrentHousehold } from "@/lib/household";
 import { getHouseholdTrialStatus } from "@/lib/trial/status";
 import { createCheckoutSession, deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, openBillingPortal, unlinkTelegram, updateHouseholdBaseCurrency, updateHouseholdName, updatePersonalBaseCurrency, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { getHouseholdRoster } from "@/services/household-roster";
 import { TypeToConfirm } from "@/components/settings/type-to-confirm";
 import { SUPPORTED_CURRENCIES } from "@/lib/finance/currencies";
@@ -125,9 +126,9 @@ export default async function SettingsPage() {
                     <div className="mt-4">
                       <p className="text-sm text-(--muted)">Todavía no tienes un código activo.</p>
                       <form action={generateHouseholdInvite}>
-                        <Button type="submit" size="sm" className="mt-3">
+                        <SubmitButton size="sm" fullWidth={false} className="mt-3" pendingText="Generando…">
                           Generar código de invitación
-                        </Button>
+                        </SubmitButton>
                       </form>
                     </div>
                   )

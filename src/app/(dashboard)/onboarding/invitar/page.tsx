@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FadeIn, FloatBlob } from "@/components/ui/motion";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
 import { CopyCodeButton } from "@/components/onboarding/copy-code-button";
+import { RegenerateInviteButton } from "@/components/onboarding/regenerate-invite-button";
 import { finishOnboarding, regenerateInvite } from "./actions";
 
 export const metadata: Metadata = {
@@ -54,9 +55,7 @@ export default async function OnboardingInvitePage() {
             <p className="text-sm text-(--ink)/75">Todavía no tenés un código activo.</p>
           )}
           <form action={regenerateInvite} className="mt-4">
-            <button type="submit" className="text-sm font-bold text-(--ink)/70 underline">
-              Generar uno nuevo
-            </button>
+            <RegenerateInviteButton />
           </form>
           <form action={finishOnboarding} className="mt-6 border-t border-(--ink)/15 pt-6">
             <Button type="submit" className="w-full">Finalizar</Button>

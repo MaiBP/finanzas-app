@@ -19,16 +19,18 @@ const baseAction: FinancialAction = {
     account_name: null,
     split_type: "single",
     wants_new_account: false,
+    scope_explicit: false,
   },
 };
 
 describe("financial conversational defaults", () => {
-  it("makes an unspecified expense shared, visible and equally split", () => {
+  it("makes an unspecified expense shared, visible and equally split, and flags the scope as a guess", () => {
     const result = applyFinancialDefaults(baseAction, "Gasté 42 euros en Mercadona");
     expect(result.action === "create_transaction" && result.data).toMatchObject({
       scope: "shared",
       privacy: "visible",
       split_type: "equal",
+      scope_explicit: false,
     });
   });
 
@@ -39,6 +41,16 @@ describe("financial conversational defaults", () => {
       expect(result.action === "create_transaction" && result.data.scope).toBe("personal");
       expect(result.action === "create_transaction" && result.data.privacy).toBe("private");
       expect(result.action === "create_transaction" && result.data.split_type).toBe("single");
+      expect(result.action === "create_transaction" && result.data.scope_explicit).toBe(true);
+    },
+  );
+
+  it.each(["Es un gasto compartido", "Pagamos en conjunto", "Fue con la cuenta conjunta", "Es de la casa"])(
+    "flags the scope as explicit when the user names the shared space too: %s",
+    (text) => {
+      const result = applyFinancialDefaults(baseAction, text);
+      expect(result.action === "create_transaction" && result.data.scope).toBe("shared");
+      expect(result.action === "create_transaction" && result.data.scope_explicit).toBe(true);
     },
   );
 

@@ -1,6 +1,7 @@
 import type { FinancialAction } from "./schema";
 
 const explicitPersonalIntent = /(?:\bpersonal\b|\bprivad[oa]\b|solo para m[ií]|solo m[ií]o|solo m[ií]a|para m[ií]|no (?:es |sea )?compartid[oa]\b)/i;
+const explicitSharedIntent = /(?:\bcompartid[oa]\b|en conjunto|cuenta conjunta|de la casa|del hogar|en pareja|entre los dos)/i;
 const explicitHistoricalAccountsIntent = /(?:hist[oó]ric[oa]|cuentas?\s+(?:borrad[oa]s?|eliminad[oa]s?)|cuentas?\s+que\s+(?:borr[eé]|elimin[eé]))/i;
 
 function normalize(value: string) {
@@ -36,10 +37,12 @@ export function applyFinancialDefaults(action: FinancialAction, originalText: st
 
   if (action.action !== "create_transaction") return action;
 
+  const scopeExplicit = explicitPersonalIntent.test(originalText) || explicitSharedIntent.test(originalText);
+
   if (explicitPersonalIntent.test(originalText)) {
     return {
       ...action,
-      data: { ...action.data, scope: "personal", privacy: "private", split_type: "single" },
+      data: { ...action.data, scope: "personal", privacy: "private", split_type: "single", scope_explicit: scopeExplicit },
     };
   }
 
@@ -50,6 +53,7 @@ export function applyFinancialDefaults(action: FinancialAction, originalText: st
       scope: "shared",
       privacy: "visible",
       split_type: "equal",
+      scope_explicit: scopeExplicit,
     },
   };
 }

@@ -33,7 +33,7 @@ const personalMobileNav = [
 const generalNav = [
   { href: "/app/asistente", label: "Asistente", icon: Bot },
   { href: "/app/ajustes", label: "Ajustes", icon: Settings },
-  { href: "/contacto", label: "Contacto", icon: Mail },
+  { href: "/app/contacto", label: "Contacto", icon: Mail },
 ] as const;
 
 export function AppShell({
