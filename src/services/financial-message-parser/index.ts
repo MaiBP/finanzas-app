@@ -44,5 +44,5 @@ Categorías: ${JSON.stringify(context.categories)}. Cuentas: ${JSON.stringify(co
   });
   const parsed = financialActionSchema.safeParse(response.output_parsed?.result);
   if (!parsed.success) throw new Error("La respuesta de IA no superó la validación local");
-  return applyFinancialDefaults(parsed.data, context.text, context.categories);
+  return applyFinancialDefaults(parsed.data, context.text, context.categories, context.accounts);
 }

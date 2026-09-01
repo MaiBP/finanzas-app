@@ -54,6 +54,34 @@ describe("financial conversational defaults", () => {
     },
   );
 
+  it("clears a guessed account_name when the space wasn't stated and the household has both a shared and a personal account", () => {
+    const guessed = { ...baseAction, data: { ...baseAction.data, account_name: "Banco común" } };
+    const accounts = [{ name: "Banco común", is_shared: true }, { name: "Mi efectivo", is_shared: false }];
+    const result = applyFinancialDefaults(guessed, "Gasté 42 euros en Mercadona", [], accounts);
+    expect(result.action === "create_transaction" && result.data.account_name).toBeNull();
+  });
+
+  it("keeps account_name when the space wasn't stated but the account itself was named in the message", () => {
+    const guessed = { ...baseAction, data: { ...baseAction.data, account_name: "Banco común" } };
+    const accounts = [{ name: "Banco común", is_shared: true }, { name: "Mi efectivo", is_shared: false }];
+    const result = applyFinancialDefaults(guessed, "Gasté 42 euros en Mercadona con el Banco común", [], accounts);
+    expect(result.action === "create_transaction" && result.data.account_name).toBe("Banco común");
+  });
+
+  it("keeps a guessed account_name when the household only has accounts in one scope", () => {
+    const guessed = { ...baseAction, data: { ...baseAction.data, account_name: "Banco común" } };
+    const accounts = [{ name: "Banco común", is_shared: true }, { name: "Efectivo de casa", is_shared: true }];
+    const result = applyFinancialDefaults(guessed, "Gasté 42 euros en Mercadona", [], accounts);
+    expect(result.action === "create_transaction" && result.data.account_name).toBe("Banco común");
+  });
+
+  it("keeps account_name untouched when the scope was stated explicitly", () => {
+    const guessed = { ...baseAction, data: { ...baseAction.data, account_name: "Mi efectivo", scope: "personal" as const } };
+    const accounts = [{ name: "Banco común", is_shared: true }, { name: "Mi efectivo", is_shared: false }];
+    const result = applyFinancialDefaults(guessed, "Es un gasto personal", [], accounts);
+    expect(result.action === "create_transaction" && result.data.account_name).toBe("Mi efectivo");
+  });
+
   it("does not alter non-create actions", () => {
     const query: FinancialAction = {
       action: "query_finances",
