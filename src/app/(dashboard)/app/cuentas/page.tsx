@@ -106,7 +106,7 @@ export default async function AccountsPage() {
           <p className="text-sm font-bold uppercase">Fondos compartidos</p>
           <h1 className="mt-1 text-3xl font-black">Cuentas conjuntas</h1>
           <p className="mt-2 max-w-2xl text-(--muted)">
-            Separad efectivo, banco, tarjetas o inversiones y elegid de dónde
+            Separá efectivo, banco, tarjetas o inversiones y elegí de dónde
             entra o sale cada movimiento.
           </p>
         </div>
@@ -118,7 +118,7 @@ export default async function AccountsPage() {
               {generalAccount?.name ?? "Cuenta conjunta general"}
             </p>
             <p
-              className={`mt-3 text-5xl font-black ${totalBalance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}
+              className={`mt-3 text-5xl font-black ${totalBalance < 0 ? "text-(--danger)" : "text-(--success)"}`}
             >
               {totalBalance > 0 ? "+" : ""}
               {formatMoney(totalBalance, household.baseCurrency)}
@@ -189,7 +189,7 @@ export default async function AccountsPage() {
                       </span>
                     )}
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-(--lilac) px-2.5 py-1 text-xs font-bold">
+                      <span className="rounded-full bg-(--pink) px-2.5 py-1 text-xs font-bold">
                         {typeNames[account.type] ?? "Conjunta"}
                       </span>
                       {account.currency !== household.baseCurrency && (
@@ -202,7 +202,7 @@ export default async function AccountsPage() {
                   </div>
                   <h3 className="mt-5 text-lg font-black">{account.name}</h3>
                   <p
-                    className={`mt-1 text-4xl font-black ${balance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}
+                    className={`mt-1 text-4xl font-black ${balance < 0 ? "text-(--danger)" : "text-(--success)"}`}
                   >
                     {balance > 0 ? "+" : ""}
                     {formatMoney(balance, account.currency)}

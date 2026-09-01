@@ -185,7 +185,7 @@ export default async function DashboardPage({
             {rows.slice(0, 6).map((row) => (
               <div key={row.id} className="flex items-center gap-3 py-3">
                 <span
-                  className={`grid size-10 shrink-0 place-items-center rounded-xl ${row.type === "expense" ? "bg-(--pink) text-[#b34f36]" : "bg-(--lime) text-(--ink)"}`}
+                  className={`grid size-10 shrink-0 place-items-center rounded-xl ${row.type === "expense" ? "bg-(--pink) text-(--danger)" : "bg-(--lime) text-(--ink)"}`}
                 >
                   {row.type === "expense" ? (
                     <ArrowUpRight size={18} />
@@ -228,7 +228,7 @@ export default async function DashboardPage({
             {otherAccountBalances.map((account) => (
               <div key={account.name} className="rounded-xl border border-(--ink)/15 p-4">
                 <p className="truncate text-sm font-bold">{account.name}</p>
-                <p className={`mt-1 text-xl font-black ${account.balance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}>
+                <p className={`mt-1 text-xl font-black ${account.balance < 0 ? "text-(--danger)" : "text-(--success)"}`}>
                   {formatMoney(account.balance, account.currency)}
                 </p>
               </div>

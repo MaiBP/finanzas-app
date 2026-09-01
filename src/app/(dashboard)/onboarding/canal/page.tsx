@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
 import { FadeIn, FloatBlob } from "@/components/ui/motion";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
 import { ChannelChoice } from "@/components/onboarding/channel-choice";
+
+export const metadata: Metadata = {
+  title: "¿Cómo registrar tus gastos?",
+  robots: { index: false, follow: false },
+};
 
 export default async function OnboardingChannelPage() {
   const { household } = await getCurrentHousehold();

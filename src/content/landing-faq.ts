@@ -27,7 +27,7 @@ export const landingFaq = [
   {
     question: "¿Puedo registrar gastos desde Telegram?",
     answer:
-      "Sí. Miti-Miti tiene a Finzy, tu asistente de Telegram, que registra gastos e ingresos por chat, incluso a partir de fotos de tickets o extractos bancarios.",
+      "Sí. Miti-Miti tiene a Piggy, tu asistente de Telegram, que registra gastos e ingresos por chat, incluso a partir de fotos de tickets o extractos bancarios.",
   },
   {
     question: "¿Los dos miembros de la pareja pueden registrar gastos?",

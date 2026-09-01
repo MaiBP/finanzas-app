@@ -1,12 +1,14 @@
 import Link from "next/link";
 import Image from "next/image";
-import { BarChart3, Bot, CircleDollarSign, CreditCard, Home, LogOut, Settings, UserRound } from "lucide-react";
+import { BarChart3, Bot, CircleDollarSign, CreditCard, Home, LogOut, Mail, Settings, UserRound } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { AppContextLabel } from "@/components/layout/app-context-label";
 import { SectionSurface } from "@/components/layout/section-surface";
 import { NavLink } from "@/components/layout/nav-link";
 import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
 import { PageTransition } from "@/components/layout/page-transition";
+import { TrialBanner } from "@/components/layout/trial-banner";
+import { UserBadge } from "@/components/layout/user-badge";
 
 const householdNav = [
   { href: "/app", label: "Resumen", icon: Home },
@@ -31,16 +33,23 @@ const personalMobileNav = [
 const generalNav = [
   { href: "/app/asistente", label: "Asistente", icon: Bot },
   { href: "/app/ajustes", label: "Ajustes", icon: Settings },
+  { href: "/app/contacto", label: "Contacto", icon: Mail },
 ] as const;
 
 export function AppShell({
   children,
   householdName,
   personalSpaceName,
+  trialNotification,
+  userName,
+  userAvatarUrl,
 }: {
   children: React.ReactNode;
   householdName: string;
   personalSpaceName: string;
+  trialNotification?: { id: string; notificationKey: string } | null;
+  userName: string;
+  userAvatarUrl: string | null;
 }) {
   return (
     <div className="min-h-screen bg-white text-(--ink) md:grid md:grid-cols-[260px_1fr]">
@@ -51,7 +60,7 @@ export function AppShell({
 
         <div className="mt-8 rounded-2xl border border-(--ink)/15 p-3">
           <div className="flex items-center gap-3 px-2 pb-2">
-            <span className="grid size-9 place-items-center rounded-full bg-(--lilac)">
+            <span className="grid size-9 place-items-center rounded-full">
               <Image src="/home.png" alt="" width={28} height={28} className="size-6 object-contain" />
             </span>
             <div className="min-w-0">
@@ -68,7 +77,7 @@ export function AppShell({
 
         <div className="mt-4 rounded-2xl border border-(--ink)/15 p-3">
           <div className="flex items-center gap-3 px-2 pb-2">
-            <span className="grid size-9 place-items-center rounded-full bg-(--lime)">
+            <span className="grid size-9 place-items-center rounded-full">
               <Image src="/private.png" alt="" width={28} height={28} className="size-6 object-contain" />
             </span>
             <div className="min-w-0">
@@ -92,15 +101,19 @@ export function AppShell({
           </nav>
         </div>
 
-        <form action={logout} className="mt-auto">
-          <button className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-sm text-(--muted) hover:bg-(--highlight) hover:text-(--ink)">
-            <LogOut size={18} />
-            Cerrar sesión
-          </button>
-        </form>
+        <div className="mt-auto border-t border-(--ink)/15 pt-3">
+          <UserBadge name={userName} avatarUrl={userAvatarUrl} />
+          <form action={logout} className="mt-1">
+            <button className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-sm text-(--muted) hover:bg-(--highlight) hover:text-(--ink)">
+              <LogOut size={18} />
+              Cerrar sesión
+            </button>
+          </form>
+        </div>
       </aside>
 
       <SectionSurface>
+        {trialNotification && <TrialBanner id={trialNotification.id} notificationKey={trialNotification.notificationKey} />}
         <header className="section-header sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-(--ink)/30 px-5 py-4 backdrop-blur md:px-8">
           <div className="flex items-center gap-3">
             <MobileNavDrawer
@@ -109,6 +122,8 @@ export function AppShell({
               generalNav={generalNav.map((item) => ({ href: item.href, label: item.label, icon: <item.icon size={19} /> }))}
               householdName={householdName}
               personalSpaceName={personalSpaceName}
+              userName={userName}
+              userAvatarUrl={userAvatarUrl}
               logout={logout}
             />
             <AppContextLabel householdName={householdName} personalSpaceName={personalSpaceName} />

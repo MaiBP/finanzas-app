@@ -1,19 +1,29 @@
 @import "tailwindcss";
 
+/* Same "Busy Bee Honey" palette as the landing page (see DESIGN.md and
+   src/components/landing/landing-page.tsx) — Dark Cocoa, Cream Parchment, Honeycomb Gold, Barn
+   Red, Cornflower Blue, Sage Green, and the new saturated Pink, so the dashboard/auth/onboarding
+   pages read as the same product as the marketing site instead of a leftover earlier palette. */
 :root {
-  --ink: #3a3434;
-  --muted: #6e6464;
-  --canvas: #ff9655;
-  --paper: #ffffff;
-  --highlight: #ffff50;
+  --ink: #3b2722; /* Dark Cocoa */
+  --muted: #3b272799; /* Dark Cocoa, translucent */
+  --canvas: #f2ebd0; /* Cream Parchment */
+  --paper: #ffffff; /* small surfaces (cards) stay white against the cream canvas for contrast */
+  --highlight: #ffca50; /* Honeycomb Gold */
   --pink: #ff96be;
-  --blue: #73c8dc;
-  --lime: #87cd64;
-  --lilac: #e19bf5;
-  --expense: #ff6e7d;
-  --savings: #7da0ff;
-  --chart: #d79169;
+  --blue: #6aacc2; /* Cornflower */
+  --lime: #ffe9b3; /* diluted gold — "Personal" tile + income-row highlight */
+  --lilac: #a0342a; /* Barn Red — "Hogar" tile + 1st per-member chart color */
+  --expense: #c98a3e; /* muted gold-brown — 4th per-member chart color */
+  --savings: #d98fa3; /* dusty rose — 5th per-member chart color */
+  --danger: #a0342a; /* Barn Red doubling as the destructive/danger accent */
   --success: #2e7d32;
+  /* StatTile card backgrounds (Resumen/Balance) — cream-family pastels, kept distinct from
+     --lime/--lilac/--expense/--savings above (those serve the nav tiles and per-member chart
+     colors) so recoloring one system never silently breaks the other again. */
+  --income: #d9e6c3; /* pastel sage-green — "Ingresos" card */
+  --outflow: #f0d0c6; /* pastel coral — "Gastos"/"Egresos" card */
+  --insight: #d3e6ec; /* pastel sky blue — notification/insight card */
 }
 
 /* @layer base coloca este reset por debajo de @layer utilities (declarado por
@@ -60,9 +70,22 @@
   display: inline-block;
   animation: type-char .16s ease-out;
 }
+/* Blinking text-cursor bar trailing the hero title while it types — a crisp on/off blink (not a
+   smooth fade) to read as a real cursor. */
+@keyframes cursor-blink {
+  0%, 45% { opacity: 1; }
+  50%, 95% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cursor-blink { animation: none; }
+}
 .field {
   width: 100%;
-  border: 1px solid rgba(58, 52, 52, 0.35);
+  border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
   border-radius: 999px;
   background: white;
   padding: .75rem .9rem;
@@ -79,16 +102,19 @@
 }
 .section-header { background: color-mix(in srgb, var(--section-bg) 90%, transparent); }
 .section-orange { --section-bg: var(--canvas); }
-.section-pink { --section-bg: var(--pink); }
+/* Pink and Lilac get their own light washes instead of the raw --pink/--lilac tokens: those are
+   now saturated accent colors (a badge, a chart dot) — fine in small doses, too intense to read
+   as a full-page background for as long as someone's looking at a list of movements or Balance. */
+.section-pink { --section-bg: #fbe4ec; }
 .section-blue { --section-bg: var(--blue); }
 .section-savings { --section-bg: var(--savings); }
 .section-lime { --section-bg: var(--lime); }
-.section-lilac { --section-bg: var(--lilac); }
+.section-lilac { --section-bg: #f6e2dc; }
 .section-yellow { --section-bg: var(--highlight); }
 
 /* Compatibilidad visual para los flujos existentes. */
 .bg-\[\#f6f4ec\] { background-color: var(--canvas) !important; }
-.bg-\[\#f6f4ec\]\/90 { background-color: rgb(255 150 85 / .9) !important; }
+.bg-\[\#f6f4ec\]\/90 { background-color: color-mix(in srgb, var(--canvas) 90%, transparent) !important; }
 .bg-\[\#19342f\], .bg-\[\#26725c\] { background-color: var(--ink) !important; }
 .bg-\[\#dceee6\] { background-color: var(--lime) !important; }
 .bg-\[\#eef2ef\] { background-color: var(--lilac) !important; }
@@ -96,12 +122,12 @@
 .bg-\[\#f7ddd4\], .bg-\[\#f5b8a5\] { background-color: var(--pink) !important; }
 .text-\[\#19342f\], .text-\[\#26725c\] { color: var(--ink) !important; }
 .text-\[\#60736e\], .text-\[\#6c7f7a\], .text-\[\#9aaaa5\] { color: var(--muted) !important; }
-.border-\[\#cad7d2\] { border-color: rgb(58 52 52 / .35) !important; }
+.border-\[\#cad7d2\] { border-color: color-mix(in srgb, var(--ink) 35%, transparent) !important; }
 .hover\:bg-\[\#1e5d4b\]:hover { background-color: var(--highlight) !important; color: var(--ink) !important; }
 
 @media (prefers-reduced-motion: no-preference) {
   .card, button, a { transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease, color .2s ease; }
-  .card:hover { box-shadow: 9px 9px 0 rgba(58, 52, 52, 0.16); }
+  .card:hover { box-shadow: 9px 9px 0 color-mix(in srgb, var(--ink) 16%, transparent); }
 }
 
 /* Botones: amarillo y carbón en reposo; colores invertidos al interactuar. */
@@ -129,7 +155,7 @@ main a[data-button-theme="inverse"] {
     border-color: var(--ink) !important;
     background-color: var(--ink) !important;
     color: var(--highlight) !important;
-    box-shadow: 4px 4px 0 rgb(58 52 52 / .18);
+    box-shadow: 4px 4px 0 color-mix(in srgb, var(--ink) 18%, transparent);
     transform: translateY(-2px);
   }
 

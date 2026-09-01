@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
@@ -8,6 +9,11 @@ import { FadeIn, FloatBlob } from "@/components/ui/motion";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
 import { TermsAcceptForm } from "@/components/onboarding/terms-accept-form";
 import { acceptTerms, createHousehold, joinHousehold } from "./actions";
+
+export const metadata: Metadata = {
+  title: "Primeros pasos",
+  robots: { index: false, follow: false },
+};
 
 export default async function Onboarding({
   searchParams,

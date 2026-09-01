@@ -10,7 +10,7 @@ function ConfirmButton({ label, disabled }: { label: string; disabled: boolean }
     <button
       type="submit"
       disabled={disabled || pending}
-      className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#c23b3b] bg-[#c23b3b] px-6 py-3.5 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#a52f2f] disabled:pointer-events-none disabled:opacity-50"
+      className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-(--danger) bg-(--danger) px-6 py-3.5 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-(--ink) disabled:pointer-events-none disabled:opacity-50"
     >
       {pending && <Loader2 size={17} className="animate-spin" />}
       {pending ? "Procesando…" : label}

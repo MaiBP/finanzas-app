@@ -1,10 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { signup } from "../actions";
 import { AuthCard } from "@/components/auth/auth-card";
 import { Banner } from "@/components/ui/banner";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { PasswordInput } from "@/components/auth/password-input";
+
+export const metadata: Metadata = {
+  title: "Crear cuenta",
+  description: "Crea tu hogar en Miti-Miti y empieza a registrar gastos e ingresos en pareja en minutos.",
+  alternates: { canonical: "/registro" },
+};
 
 export default async function SignupPage({
   searchParams,

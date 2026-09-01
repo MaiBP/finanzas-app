@@ -7,6 +7,7 @@ import { getCurrentHousehold } from "@/lib/household";
 import { transactionSchema } from "@/lib/validations/transaction";
 import { encryptField } from "@/lib/security/field-encryption";
 import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
+import { friendlyRpcError } from "@/lib/trial/errors";
 
 export type ActionState = { error?: string; success?: string };
 type FinanceMode = "shared" | "personal";
@@ -42,7 +43,7 @@ async function createTransactionForMode(formData: FormData, mode: FinanceMode): 
     p_scope: parsed.data.scope, p_privacy: parsed.data.privacy, p_transaction_date: parsed.data.transactionDate,
     p_paid_by: user.id, p_source: "web",
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyRpcError(error.message) };
 
   revalidatePath("/app"); revalidatePath("/app/movimientos"); revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
   redirect(mode === "shared" ? "/app?created=1" : "/app/personal?created=1");
@@ -69,6 +70,6 @@ export async function softDeleteTransaction(formData: FormData) {
     redirect(`${returnTo}?error=${encodeURIComponent("Este movimiento sostiene el saldo de la cuenta y no se puede eliminar.")}`);
   }
   const { error } = await supabase.rpc("soft_delete_financial_transaction", { p_transaction_id: id });
-  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(friendlyRpcError(error.message))}`);
   revalidatePath("/app"); revalidatePath("/app/movimientos"); revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
 }

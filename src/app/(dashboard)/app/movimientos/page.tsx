@@ -319,7 +319,7 @@ export default async function TransactionsPage({
                 {row.type === "expense" ? "−" : "+"}{formatMoney(row.amount_cents, currency)}
               </b>
               {row.created_by === user.id && row.categories?.name !== SYNTHETIC_BALANCE_CATEGORY ? (
-                <div className="col-start-2 flex justify-end xl:col-auto">
+                <div className="col-start-2 flex justify-end gap-1 xl:col-auto">
                   <Link href={`/app/movimientos/${row.id}/editar`} aria-label={`Editar ${row.description}`} className="rounded-lg p-2">
                     <Pencil size={17} />
                   </Link>
@@ -338,7 +338,7 @@ export default async function TransactionsPage({
           />
         )}
         {total > 0 && (
-          <nav aria-label="Paginación de movimientos" className="flex flex-wrap items-center justify-between gap-3 border-t border-black/10 bg-white px-4 py-4 sm:px-6">
+          <nav aria-label="Paginación de movimientos" className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-black/10 bg-white px-4 py-5 sm:mt-0 sm:px-6 sm:py-4">
             <p className="text-sm font-bold text-(--muted)">
               {offset + 1}–{Math.min(offset + rows.length, total)} de {total}
             </p>

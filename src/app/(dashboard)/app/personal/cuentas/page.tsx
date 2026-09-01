@@ -81,7 +81,7 @@ export default async function PersonalAccountsPage() {
             <p className="w-fit bg-(--highlight) px-1 text-xs font-black uppercase tracking-wide">
               Saldo personal total
             </p>
-            <p className={`mt-3 text-5xl font-black ${totalBalance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}>
+            <p className={`mt-3 text-5xl font-black ${totalBalance < 0 ? "text-(--danger)" : "text-(--success)"}`}>
               {totalBalance > 0 ? "+" : ""}
               {formatMoney(totalBalance, baseCurrency)}
             </p>
@@ -139,7 +139,7 @@ export default async function PersonalAccountsPage() {
                         </span>
                       )}
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-(--lilac) px-2.5 py-1 text-xs font-bold">
+                        <span className="rounded-full bg-(--pink) px-2.5 py-1 text-xs font-bold">
                           {ACCOUNT_TYPE_LABELS[account.type] ?? "Personal"}
                         </span>
                         {account.currency !== baseCurrency && (
@@ -149,7 +149,7 @@ export default async function PersonalAccountsPage() {
                       </div>
                     </div>
                     <h3 className="mt-5 text-lg font-black">{account.name}</h3>
-                    <p className={`mt-1 text-4xl font-black ${balance < 0 ? "text-[#b34f36]" : "text-(--success)"}`}>
+                    <p className={`mt-1 text-4xl font-black ${balance < 0 ? "text-(--danger)" : "text-(--success)"}`}>
                       {balance > 0 ? "+" : ""}
                       {formatMoney(balance, account.currency)}
                     </p>

@@ -38,6 +38,7 @@ const baseData = {
   type: "expense" as const, amount_cents: 8400, currency: "EUR" as const, description: "Mercadona",
   category: "Supermercado", scope: "shared" as const, privacy: "visible" as const, transaction_date: "2026-08-02",
   paid_by: "user-1", account_name: null, split_type: "equal" as const, wants_new_account: false,
+  scope_explicit: true,
 };
 
 describe("executeTelegramAction with an itemized create_transaction", () => {

@@ -1,565 +1,480 @@
 "use client";
 
+import { useState, type CSSProperties } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
   Check,
   Facebook,
-  HeartHandshake,
+  Home,
   Instagram,
+  Lock,
+  MessageCircle,
+  PiggyBank,
   ShieldCheck,
+  Sparkles,
+  Users2,
 } from "lucide-react";
 import { LinkButton } from "@/components/ui/button";
 import { landingFaq } from "@/content/landing-faq";
-import { ScrollBackground } from "@/components/landing/scroll-background";
-import { landingBody, landingDisplay } from "@/components/landing/fonts";
+import { landingBody, landingDisplay, landingSubhead } from "@/components/landing/fonts";
+import { HeroScrubVideo } from "@/components/landing/hero-scrub-video";
+import { HeroTitle } from "@/components/landing/hero-title";
+import { FloatingTransactions } from "@/components/landing/floating-transactions";
+import { NotificationCard } from "@/components/landing/notification-card";
 
-const displayFont = "font-(family-name:--font-landing-display)";
+const subheadFont = "font-(family-name:--font-landing-subhead)";
+
+// Follows DESIGN.md's "Busy Bee Honey" brief: flat full-bleed color sections (no shadows, no
+// elevation), pill-only shape language (tags/badges/buttons all 500-1000px radius, cards square).
+// The hero (HeroTitle's typewriter, FloatingTransactions, the scrub video) and NotificationCard
+// are deliberately left untouched: both were tuned extensively in earlier passes and "don't
+// modify the notification style" is a standing instruction. --highlight (Honeycomb Gold) still
+// drives the shared Button's "primary" variant, so no changes were needed there either.
+const theme = {
+  "--ink": "#3b2722", // Dark Cocoa
+  "--paper": "#f2ebd0", // Cream Parchment
+  "--highlight": "#ffca50", // Honeycomb Gold
+  "--muted": "#3b272799", // Dark Cocoa, translucent
+} as CSSProperties;
+
+const COCOA = "#3b2722";
+const CREAM = "#f2ebd0";
+const GOLD = "#ffca50";
+const GOLD_WASH = "#ffe9b3"; // diluted gold — wash-card surface on Cream sections
+const BARN_RED = "#a0342a";
+const BLUE = "#6aacc2"; // Cornflower — icon medallions
+const PINK = "#ff96be"; // accent detail only (tags, Piggy name), never a full-bleed section canvas
+
+const pricingBenefits = [
+  "Sin tarjeta para empezar",
+  "Acceso completo, sin funciones recortadas",
+  "Hasta 2 personas por hogar",
+  "Cancelás cuando quieras, sin permanencia",
+] as const;
 
 const steps = [
-  {
-    number: "01",
-    image: "/phone-chat.png",
-    tone: "bg-(--blue)",
-    title: "Le hablas a Finzy",
-    description: "Por Telegram, como en cualquier chat: “42 € en el súper” o le mandas la foto del ticket.",
-  },
-  {
-    number: "02",
-    image: "/ai-star.png",
-    tone: "bg-(--lilac)",
-    title: "La IA lo entiende y lo guarda",
-    description: "Detecta el importe, la categoría y si es un gasto compartido o personal. Sin formularios.",
-  },
-  {
-    number: "03",
-    image: "/couple-highfive.png",
-    tone: "bg-(--lime)",
-    title: "Lo ven juntos, al instante",
-    description: "El resumen del hogar se actualiza solo. Cualquiera de los dos puede preguntarle a Finzy.",
-  },
+  { icon: MessageCircle, title: "Le hablas a Piggy", description: "Por Telegram, como en cualquier chat: “42 € en el súper” o le mandas la foto del ticket." },
+  { icon: Sparkles, title: "La IA lo entiende y lo guarda", description: "Detecta el importe, la categoría y si es un gasto compartido o personal. Sin formularios." },
+  { icon: Users2, title: "Lo ven juntos, al instante", description: "El resumen del hogar se actualiza solo. Cualquiera de los dos puede preguntarle a Piggy." },
 ] as const;
 
 const features = [
-  {
-    image: "/phone-chat.png",
-    tone: "bg-(--blue)",
-    title: "Registro por Telegram",
-    description: "Registra gastos e ingresos hablando con Finzy, incluso mandando fotos de tickets o extractos.",
-  },
-  {
-    image: "/finzy-mascot.png",
-    tone: "bg-(--lilac)",
-    title: "Finzy, tu asistente con IA",
-    description: "Pregúntale cuánto gastaron juntos este mes, o cuánto gastó cada uno por separado.",
-  },
-  {
-    image: "/heart-hands.png",
-    tone: "bg-(--lime)",
-    title: "Gastos compartidos y personales",
-    description: "Cada movimiento decide si es del hogar o solo tuyo. Tu espacio privado sigue siendo privado.",
-  },
-  {
-    image: "/financial-report.png",
-    tone: "bg-(--pink)",
-    title: "Balance sin cálculos",
-    description: "Mira de un vistazo quién puso qué este mes, sin abrir una sola hoja de cálculo.",
-  },
+  { icon: MessageCircle, title: "Registro por Telegram", description: "Registra gastos e ingresos hablando con Piggy, incluso mandando fotos de tickets o extractos." },
+  { icon: Sparkles, title: "Piggy, tu asistente con IA", description: "Pregúntale cuánto gastaron juntos este mes, o cuánto gastó cada uno por separado." },
+  { icon: Users2, title: "Gastos compartidos y personales", description: "Cada movimiento decide si es del hogar o solo tuyo. Tu espacio privado sigue siendo privado." },
+  { icon: ShieldCheck, title: "Balance sin cálculos", description: "Mira de un vistazo quién puso qué este mes, sin abrir una sola hoja de cálculo." },
 ] as const;
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
-} as const;
+const exchanges = [
+  { q: "¿Cuánto gastamos este mes?", a: "Llevan 1.240 € de gasto, 180 € menos que el mes pasado." },
+  { q: "¿En qué gastamos más?", a: "El mayor gasto fue Supermercado, con 320 € este mes." },
+  { q: "¿Cuánto ahorramos respecto al mes pasado?", a: "Ahorraron 95 € más que el mes anterior." },
+] as const;
 
-// Named variants (not literal { opacity, y } objects) so a nested motion component — like
-// Highlight's sweep below — can inherit this same hidden/show state from its nearest ancestor
-// instead of tracking scroll visibility a second time on its own.
-const revealVariants = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
+const todaysMovements = [
+  { name: "Alquiler", category: "Hogar" as const, amount: "−650 €" },
+  { name: "Café con amigos", category: "Personal" as const, amount: "−4,50 €" },
+  { name: "Supermercado", category: "Hogar" as const, amount: "−58 €" },
+];
+
 const fadeInView = {
-  variants: revealVariants,
-  initial: "hidden",
-  whileInView: "show",
+  initial: { opacity: 0, y: 24 },
+  whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: "-60px" },
 } as const;
 
-const TYPE_MS = 110;
-const DELETE_MS = 55;
-const HOLD_MS = 3200;
-const RESTART_MS = 650;
-
-// Types `${prefix}${highlight}` letter by letter (each new letter fades/slides in via the
-// .type-char CSS animation for a smoother feel than an instant pop). Only once typing finishes
-// does `highlight` paint yellow — a distinct step after the phrase is fully written, not
-// progressively as those letters appear — then holds, then erases everything and retypes on a
-// loop, so it replays every so often instead of only once per page load.
-function TypewriterText({ prefix, highlight, startDelay = 0 }: { prefix: string; highlight: string; startDelay?: number }) {
-  const full = prefix + highlight;
-  const [count, setCount] = useState(0);
-  const [highlighted, setHighlighted] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-
-    function typeStep(i: number) {
-      if (cancelled) return;
-      setCount(i);
-      if (i < full.length) {
-        timer = setTimeout(() => typeStep(i + 1), TYPE_MS);
-      } else {
-        setHighlighted(true);
-        timer = setTimeout(() => {
-          setHighlighted(false);
-          deleteStep(full.length);
-        }, HOLD_MS);
-      }
-    }
-    function deleteStep(i: number) {
-      if (cancelled) return;
-      setCount(i);
-      timer = setTimeout(
-        () => (i > 0 ? deleteStep(i - 1) : typeStep(0)),
-        i > 0 ? DELETE_MS : RESTART_MS,
-      );
-    }
-
-    timer = setTimeout(() => typeStep(0), startDelay);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [full, startDelay]);
-
-  // Grouped by word (not by character): each character is still its own animated inline-block
-  // for the fade-in, but every animated char of a word lives inside one `whitespace-nowrap`
-  // wrapper. Animated inline-blocks are atomic boxes with a break opportunity at their edges,
-  // so without this grouping the browser was free to wrap the line between any two letters —
-  // splitting "enviar" into "envia"/"r" mid-word once each letter got its own box.
-  function wordsOf(segment: string, segmentStart: number) {
-    let offset = segmentStart;
-    return segment.split(/(\s+)/).map((token) => {
-      const start = offset;
-      offset += token.length;
-      return { token, start, isSpace: /^\s+$/.test(token) };
-    });
-  }
-
-  function renderWords(words: { token: string; start: number; isSpace: boolean }[]) {
-    return words.map(({ token, start, isSpace }, wordIndex) => {
-      const shown = token.slice(0, Math.max(0, Math.min(count - start, token.length)));
-      if (!shown) return null;
-      if (isSpace) return <span key={wordIndex}>{shown}</span>;
-      return (
-        <span key={wordIndex} className="whitespace-nowrap">
-          {[...shown].map((char, charIndex) => (
-            <span key={charIndex} className="type-char">
-              {char}
-            </span>
-          ))}
-        </span>
-      );
-    });
-  }
-
-  // Prefix and highlight always render as two separate block-level lines — never sharing a
-  // line with each other or wrapping into one another — so the phrase always occupies the same
-  // fixed two lines of height. Each line keeps a permanently reserved (but invisible until its
-  // turn) cursor-sized element, so "mensaje"'s line is blank-but-present from the very start
-  // instead of appearing (and pushing the content below) only once typing reaches it.
-  const typingPrefix = count <= prefix.length;
-  const cursorClass = (active: boolean) =>
-    `ml-0.5 inline-block h-[0.85em] w-0.75 translate-y-0.5 bg-(--ink) ${active ? "animate-pulse" : "invisible"}`;
-
+// "Circular Badge" role, borrowed for step/feature icon tiles — a Cornflower Blue medallion by
+// default since honey has no dedicated icon-tile color of its own.
+function CircleBadge({ children, tone = BLUE, on = COCOA }: { children: React.ReactNode; tone?: string; on?: string }) {
   return (
-    <span>
-      <span className="block">
-        {renderWords(wordsOf(prefix, 0))}
-        <span aria-hidden className={cursorClass(typingPrefix)} />
-      </span>
-      <span className="relative block w-fit px-1">
-        <span
-          aria-hidden
-          className={`absolute inset-y-0 left-0 -z-10 bg-(--highlight) transition-[width] duration-1000 ease-in-out ${highlighted ? "w-full" : "w-0"}`}
-        />
-        {renderWords(wordsOf(highlight, prefix.length))}
-        <span aria-hidden className={cursorClass(!typingPrefix)} />
-      </span>
-    </span>
-  );
-}
-
-// Same highlighter-sweep language as the hero's typewriter reveal, but triggered by scroll
-// visibility instead of a typing state machine — for the static emphasized words further down
-// the page. Deliberately has no initial/whileInView/viewport of its own: it inherits the
-// hidden/show state from the nearest ancestor motion component (each section's fadeInView
-// wrapper) via matching variant names. Tracking its own viewport visibility used to work
-// inconsistently on mobile — a heading that wraps onto more lines on a narrow screen can put the
-// highlighted word low enough in the block that it's already "in view" the instant its own
-// IntersectionObserver attaches, so it never plays a visible sweep; inheriting from the section's
-// own reveal (anchored to the section's top edge, not wherever the word lands) fixes that.
-function Highlight({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <span className={`relative inline-block px-1 ${className}`}>
-      <motion.span
-        aria-hidden
-        className="absolute inset-0 -z-10 origin-left bg-(--highlight)"
-        variants={{ hidden: { scaleX: 0 }, show: { scaleX: 1 } }}
-        transition={{ duration: 0.8, ease: "easeInOut" }}
-      />
+    <span className="grid size-14 shrink-0 place-items-center rounded-full" style={{ background: tone, color: on }}>
       {children}
     </span>
   );
 }
 
+// Pill-shaped tag (500px radius, per DESIGN.md's "tags" token) rather than bare uppercase text —
+// "pills are the only shape language" the brief calls for.
+function Eyebrow({ children, tone }: { children: React.ReactNode; tone: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.14em] uppercase" style={{ borderColor: tone, color: tone }}>
+      {children}
+    </span>
+  );
+}
+
+// "Piggy" (the assistant, personified as the piggy bank) with its icon — used wherever the name
+// stands alone as a label rather than inside a flowing sentence.
+function PiggyName({ tone }: { tone: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5" style={{ color: tone }}>
+      <PiggyBank size={16} /> Piggy
+    </span>
+  );
+}
+
 export function LandingPage() {
+  // Two-stage hero reveal: (1) the title types out, (2) once done, the floating "movimientos"
+  // and the claim/secondary line/CTAs all reveal together.
+  const [titleDone, setTitleDone] = useState(false);
+
   return (
     <main
-      className={`relative overflow-hidden text-(--ink) font-(family-name:--font-landing-body) ${landingBody.variable} ${landingDisplay.variable}`}
+      style={{ ...theme, background: COCOA }}
+      className={`text-(--ink) ${landingBody.variable} ${landingDisplay.variable} ${landingSubhead.variable} font-(family-name:--font-landing-body)`}
     >
-      <ScrollBackground />
+      <div className="relative z-10">
+        <nav className="absolute inset-x-0 top-0 z-20 flex items-center px-5 py-6 sm:px-10">
+          <Link href="/" className="flex items-center">
+            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={44} height={44} className="size-10 object-contain" />
+          </Link>
+        </nav>
 
-      <nav className="relative z-10 mx-auto flex max-w-6xl items-center justify-between border-b border-(--ink)/40 px-5 py-6 uppercase">
-        <Link href="/" className="flex items-center">
-          <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={56} height={56} className="size-14 object-contain" />
-        </Link>
-        <LinkButton href="/login" variant="outline" size="sm">
-          Entrar
-        </LinkButton>
-      </nav>
-
-      <section className="relative z-1 mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:grid-cols-2 md:py-24">
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={{ show: { transition: { staggerChildren: 0.08 } } }}
-        >
-          <motion.p
-            variants={fadeUp}
-            className="mb-5 inline-flex items-center gap-2 rounded-full bg-(--ink) px-4 py-2 text-sm font-bold uppercase text-white"
+        {/* HERO — Piggy is the protagonist: the center column stays empty so the character
+            can breathe, title lives on the left, secondary line + CTAs are fixed on the right
+            (neither tracks the cursor), and a rotating pool of decorative "movimientos" floats in
+            safe slots around Piggy. The video itself — file, crop, mouse-scrub mechanics — is
+            unchanged; only the overlay layout around it changed. A single flat (non-gradient)
+            scrim keeps text legible without competing with the character. */}
+        <section className="relative flex h-dvh min-h-160 w-full items-center justify-center overflow-hidden" style={{ background: COCOA }}>
+          <HeroScrubVideo
+            src="/Piggy_bank_head_animation_1.mp4"
+            className="absolute inset-0 h-full w-full"
+            objectPositionClassName="object-[center_25%] md:object-[70%_center]"
           >
-            <HeartHandshake size={16} /> Finanzas en pareja, sin complicaciones
-          </motion.p>
-          <motion.h1 variants={fadeUp} className={`max-w-xl text-4xl font-extrabold md:text-6xl ${displayFont}`}>
-            <span className="bg-(--highlight) px-1">Finanzas</span> en pareja, tan <span className="bg-(--highlight) px-1">fácil</span> como
-            <TypewriterText prefix="enviar un " highlight="mensaje" startDelay={650} />
-          </motion.h1>
-          <motion.p variants={fadeUp} className="mt-6 max-w-lg text-lg leading-8">
-            Registra gastos e ingresos hablando con Finzy y entiende fácilmente en qué gastan,
-            cuánto ahorran y cómo evoluciona su economía. Todo desde un chat de Telegram, sin hojas de cálculo.
-          </motion.p>
-          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap gap-3">
-            <LinkButton href="/registro" variant="primary">
+            <div className="pointer-events-none absolute inset-0" style={{ background: COCOA, opacity: 0.32 }} />
+
+            <FloatingTransactions start={titleDone} />
+
+            {/* pointer-events-none here: these columns are full-height flex items so their
+                (invisible, backgroundless) boxes would otherwise sit above and swallow clicks on
+                the floating badges behind them. Only the actual interactive content (the CTA
+                buttons below) opts back into pointer-events-auto. */}
+            {/* xl: (1280px), not lg: (1024px) — the 3-column row layout needs more width than the
+                lg tier has to spare for the title to stay on 4 lines without crowding Piggy, so
+                the stacked layout (which already has plenty of room) covers the 1024–1279px gap
+                too. */}
+            <div className="pointer-events-none relative z-10 flex h-full w-full flex-col xl:flex-row">
+              {/* LEFT — animated title, typewriter entrance with a trailing blink cursor. */}
+              <div className="flex flex-none flex-col justify-center px-5 pt-18 sm:px-10 xl:max-w-140 xl:flex-1 xl:pt-0">
+                <HeroTitle color={CREAM} onComplete={() => setTitleDone(true)} />
+              </div>
+
+              {/* CENTER — intentionally empty: reserves clean space for Piggy/the video. */}
+              <div className="h-[18vh] xl:h-auto xl:flex-1" aria-hidden="true" />
+
+              {/* RIGHT — claim, secondary line, and CTAs grouped together (fixed in place, never
+                  tracks the cursor), all revealed together as soon as the title is done. */}
+              <div className="flex flex-none flex-col items-start gap-4 px-5 pb-10 sm:px-10 xl:max-w-120 xl:flex-1 xl:justify-center xl:pb-0">
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={titleDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+                  transition={{ duration: 0.5 }}
+                  className="pointer-events-auto flex flex-col items-start gap-3"
+                >
+                  <p className="text-xs font-semibold tracking-widest whitespace-nowrap uppercase sm:text-sm" style={{ color: GOLD }}>
+                    Finanzas en pareja, sin complicaciones
+                  </p>
+                  <p className="text-lg whitespace-nowrap sm:text-2xl" style={{ color: `${CREAM}cc` }}>
+                    Le hablás a Piggy y él ordena todo.
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-3 sm:flex-nowrap">
+                    <LinkButton href="/registro" variant="primary" className="shrink-0 uppercase tracking-[0.02em]">
+                      Crear tu hogar <ArrowRight size={18} />
+                    </LinkButton>
+                    <LinkButton href="/login" variant="outline" className="shrink-0 border-(--paper) text-(--paper) uppercase tracking-[0.02em] hover:text-(--highlight)">
+                      Ya tengo cuenta
+                    </LinkButton>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </HeroScrubVideo>
+        </section>
+
+        {/* STATEMENT — Cream stage, left-aligned inside a centered column: full-bleed color, no
+            gutter on the section itself, DESIGN.md-scale headline (heading-lg/65px role, tightened
+            tracking). */}
+        <section className="px-5 py-10 sm:px-10 md:py-16" style={{ background: CREAM }}>
+          <motion.div className="mx-auto max-w-5xl" {...fadeInView} transition={{ duration: 0.5 }}>
+            <Eyebrow tone={BARN_RED}>Por qué Miti-Miti</Eyebrow>
+            <h2 className={`mt-3 max-w-3xl text-4xl leading-[1.0] tracking-[-0.02em] sm:text-6xl md:text-7xl ${subheadFont}`} style={{ color: COCOA }}>
+              Una forma más fácil de gestionar las finanzas en pareja
+            </h2>
+            <p className="mt-6 max-w-2xl text-lg" style={{ color: `${COCOA}cc` }}>
+              Son dos personas con ingresos, gastos y costumbres distintas: una cuenta en común, gastos personales aparte, y alguien que paga el súper mientras el otro paga el alquiler. Miti-Miti lo ordena todo, sin que ninguno de los dos tenga que llevar las cuentas solo.
+            </p>
+          </motion.div>
+        </section>
+
+        {/* STEPS — Dark Cocoa stage, left-aligned eyebrow/heading, 3-column list. */}
+        <section className="px-5 py-10 sm:px-10 md:py-16" style={{ background: COCOA }}>
+          <div className="mx-auto max-w-5xl">
+            <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
+              <Eyebrow tone={PINK}>Registra hablando</Eyebrow>
+              <h2 className={`mt-3 text-4xl leading-[1.0] tracking-[-0.02em] sm:text-6xl md:text-7xl ${subheadFont}`} style={{ color: CREAM }}>
+                De un mensaje a un resumen claro
+              </h2>
+            </motion.div>
+            <div className="mt-10 grid gap-8 sm:grid-cols-3 sm:gap-6">
+              {steps.map((step) => (
+                <motion.div key={step.title} {...fadeInView} transition={{ duration: 0.45 }}>
+                  <CircleBadge tone={PINK}><step.icon size={24} /></CircleBadge>
+                  <h3 className={`mt-5 text-xl ${subheadFont}`} style={{ color: GOLD }}>{step.title}</h3>
+                  <p className="mt-2" style={{ color: `${CREAM}cc` }}>{step.description}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* PERSONAL / SHARED — text left, illustration card right, filled with the diluted-gold
+            wash to read as the hero of the section. Cards are square (0px radius, per DESIGN.md);
+            NotificationCard itself is left exactly as tuned before. */}
+        <section className="px-5 py-10 sm:px-10 md:py-16" style={{ background: CREAM }}>
+          <div className="mx-auto grid max-w-5xl items-center gap-8 sm:grid-cols-2">
+            <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
+              <Eyebrow tone={BARN_RED}>Compartido y personal</Eyebrow>
+              <h2 className={`mt-3 text-4xl leading-[1.0] tracking-[-0.02em] sm:text-5xl md:text-6xl ${subheadFont}`} style={{ color: COCOA }}>
+                Lo tuyo. Lo suyo. Lo de los dos.
+              </h2>
+              <div className="mt-6 space-y-4">
+                <div className="flex items-start gap-3">
+                  <CircleBadge tone={COCOA} on={GOLD}><Home size={20} /></CircleBadge>
+                  <div>
+                    <h3 className={`text-lg ${subheadFont}`} style={{ color: COCOA }}>Hogar</h3>
+                    <p style={{ color: `${COCOA}cc` }}>Alquiler, súper, servicios: todo lo que pagan entre los dos.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CircleBadge tone={COCOA} on={GOLD}><Lock size={20} /></CircleBadge>
+                  <div>
+                    <h3 className={`text-lg ${subheadFont}`} style={{ color: COCOA }}>Solo tuyo</h3>
+                    <p style={{ color: `${COCOA}cc` }}>Tus gastos privados, visibles únicamente para ti.</p>
+                  </div>
+                </div>
+              </div>
+              <div
+                className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-semibold tracking-[0.08em] uppercase"
+                style={{ background: COCOA, color: CREAM }}
+              >
+                <ShieldCheck size={16} /> Privacidad por movimiento, siempre
+              </div>
+            </motion.div>
+
+            <motion.div
+              className="p-5 sm:p-6"
+              style={{ background: GOLD_WASH }}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.45, delay: 0.1 }}
+            >
+              <p className="text-xs font-semibold tracking-[0.14em] uppercase" style={{ color: BARN_RED }}>Movimientos de hoy</p>
+              <div className="mt-4 space-y-3">
+                {todaysMovements.map((row) => (
+                  <NotificationCard
+                    key={row.name}
+                    icon={row.category === "Hogar" ? Home : Lock}
+                    iconBg={row.category === "Hogar" ? COCOA : BLUE}
+                    iconFg={row.category === "Hogar" ? GOLD : COCOA}
+                    heading={row.category}
+                    detail={`${row.name} · ${row.amount}`}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* PIGGY AI — Dark Cocoa stage; the new pink is an accent detail here (tag + Piggy name),
+            not the section canvas. */}
+        <section className="px-5 py-10 sm:px-10 md:py-16" style={{ background: COCOA }}>
+          <div className="mx-auto max-w-4xl">
+            <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
+              <Eyebrow tone={PINK}>Pregunta cuando quieras</Eyebrow>
+              <h2 className={`mt-3 text-4xl leading-[1.0] tracking-[-0.02em] sm:text-6xl md:text-7xl ${subheadFont}`} style={{ color: CREAM }}>
+                Pregúntale a Piggy sobre tu dinero
+              </h2>
+              <p className="mt-4 max-w-2xl text-lg" style={{ color: `${CREAM}cc` }}>
+                Nada de exportar planillas: pregunta en lenguaje natural y recibe la respuesta al instante.
+              </p>
+            </motion.div>
+            <motion.div
+              className="mt-8 divide-y"
+              style={{ borderColor: `${CREAM}33` }}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+            >
+              {exchanges.map((exchange) => (
+                <div key={exchange.q} className="py-5" style={{ borderColor: `${CREAM}33` }}>
+                  <p className={`text-xl ${subheadFont}`} style={{ color: CREAM }}>{exchange.q}</p>
+                  <p className="mt-1 flex flex-wrap items-center gap-1" style={{ color: `${CREAM}cc` }}>
+                    <PiggyName tone={PINK} /> · {exchange.a}
+                  </p>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* FEATURES — Honeycomb Gold stage (one of DESIGN.md's three sanctioned full-bleed
+            canvases, previously unused as a section background here) instead of Cream, so it no
+            longer sits back-to-back with Pricing's Cream. A single 4-up grid (echoing STEPS'
+            icon+title+description pattern) replaces the old text-list-plus-duplicate-icon-grid,
+            which repeated the same four items twice in one section. */}
+        <section className="px-5 py-10 sm:px-10 md:py-16" style={{ background: GOLD }}>
+          <div className="mx-auto max-w-5xl">
+            <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
+              <Eyebrow tone={COCOA}>Todo lo que necesitan</Eyebrow>
+              <h2 className={`mt-3 text-4xl leading-[1.0] tracking-[-0.02em] sm:text-5xl md:text-6xl ${subheadFont}`} style={{ color: COCOA }}>
+                Todo para organizar su dinero
+              </h2>
+            </motion.div>
+            <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+              {features.map((feature) => (
+                <motion.div key={feature.title} {...fadeInView} transition={{ duration: 0.45 }}>
+                  <CircleBadge tone={COCOA} on={GOLD}><feature.icon size={20} /></CircleBadge>
+                  <h3 className={`mt-5 text-lg ${subheadFont}`} style={{ color: COCOA }}>{feature.title}</h3>
+                  <p className="mt-2" style={{ color: `${COCOA}cc` }}>{feature.description}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* PRICING — Cream stage, same two-column pattern (and Barn Red tag / Gold Wash card
+            pairing) as PERSONAL/SHARED and FEATURES: a benefits checklist left, the price card
+            right. */}
+        <section className="px-5 py-10 sm:px-10 md:py-16" style={{ background: CREAM }}>
+          <div className="mx-auto grid max-w-5xl items-center gap-8 sm:grid-cols-2">
+            <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
+              <Eyebrow tone={BARN_RED}>Prueba gratis, sin trucos</Eyebrow>
+              <h2 className={`mt-3 text-4xl leading-[1.0] tracking-[-0.02em] sm:text-5xl md:text-6xl ${subheadFont}`} style={{ color: COCOA }}>
+                Probá Miti-Miti 30 días con todas las funciones
+              </h2>
+              <p className="mt-4 max-w-md text-lg" style={{ color: `${COCOA}cc` }}>
+                La prueba arranca cuando empezás a usar la app: registrá tu primer movimiento y ya corren tus 30 días.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {pricingBenefits.map((benefit) => (
+                  <li key={benefit} className="flex items-center gap-3">
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full" style={{ background: COCOA, color: GOLD }}>
+                      <Check size={14} />
+                    </span>
+                    <span style={{ color: `${COCOA}cc` }}>{benefit}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+
+            <motion.div
+              className="p-6 sm:p-8"
+              style={{ background: GOLD_WASH }}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.45, delay: 0.1 }}
+            >
+              <p className="text-xs font-semibold tracking-[0.14em] uppercase" style={{ color: BARN_RED }}>Un solo plan</p>
+              <p className={`mt-3 text-6xl ${subheadFont}`} style={{ color: COCOA }}>
+                4,99 € <span className="text-lg font-normal" style={{ color: `${COCOA}99` }}>/ mes</span>
+              </p>
+              <p className="mt-2 text-sm" style={{ color: `${COCOA}99` }}>Recién después de tus 30 días gratis.</p>
+              <div className="mt-6 h-px" style={{ background: `${COCOA}22` }} />
+              <p className="mt-6 text-sm" style={{ color: `${COCOA}cc` }}>
+                Hasta 2 personas por hogar · cancelás cuando quieras, sin permanencia.
+              </p>
+              <LinkButton href="/registro" variant="primary" className="mt-6 w-full justify-center uppercase tracking-[0.02em]">
+                Crear tu hogar <ArrowRight size={18} />
+              </LinkButton>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* FAQ — Dark Cocoa stage. */}
+        <section className="px-5 py-10 sm:px-10 md:py-16" style={{ background: COCOA }}>
+          <div className="mx-auto max-w-3xl">
+            <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
+              <Eyebrow tone={GOLD}>Preguntas frecuentes</Eyebrow>
+              <h2 className={`mt-3 text-4xl leading-[1.0] tracking-[-0.02em] sm:text-6xl md:text-7xl ${subheadFont}`} style={{ color: CREAM }}>
+                Dudas comunes sobre finanzas en pareja
+              </h2>
+            </motion.div>
+            <motion.div
+              className="mt-8 divide-y"
+              style={{ borderColor: `${CREAM}33` }}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+            >
+              {landingFaq.map((item) => (
+                <details key={item.question} className="group py-5" style={{ borderColor: `${CREAM}33` }}>
+                  <summary className="cursor-pointer list-none font-semibold marker:content-none" style={{ color: CREAM }}>
+                    <span className="flex items-center justify-between gap-3">
+                      {item.question}
+                      <span className="shrink-0 group-open:rotate-45" style={{ color: GOLD }}>+</span>
+                    </span>
+                  </summary>
+                  <p className="mt-2" style={{ color: `${CREAM}b3` }}>{item.answer}</p>
+                </details>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* FINAL CTA — Cream stage, left-aligned (centering stays reserved for the hero). */}
+        <section className="px-5 py-10 sm:px-10 md:py-16" style={{ background: CREAM }}>
+          <motion.div
+            className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-8 sm:flex-row sm:items-center"
+            {...fadeInView}
+            transition={{ duration: 0.5 }}
+          >
+            <div>
+              <h2 className={`text-4xl leading-[1.0] tracking-[-0.02em] sm:text-6xl md:text-7xl ${subheadFont}`} style={{ color: COCOA }}>
+                ¿Organizamos las cuentas de una vez?
+              </h2>
+              <p className="mt-4 max-w-md text-lg" style={{ color: `${COCOA}cc` }}>
+                Crear el hogar toma menos de un minuto. Después, todo pasa por el chat.
+              </p>
+            </div>
+            <LinkButton href="/registro" variant="primary" className="shrink-0 uppercase tracking-[0.02em]">
               Crear tu hogar <ArrowRight size={18} />
             </LinkButton>
-            <LinkButton href="/login" variant="inverse">
-              Ya tengo cuenta
-            </LinkButton>
           </motion.div>
-          <motion.div variants={fadeUp} className="mt-10 flex flex-wrap gap-5 text-sm font-semibold">
-            <span className="flex items-center gap-2">
-              <Check size={18} /> Gastos personales y compartidos
-            </span>
-            <span className="flex items-center gap-2">
-              <ShieldCheck size={18} /> Privacidad por movimiento
-            </span>
-          </motion.div>
-        </motion.div>
+        </section>
 
-        <motion.div
-          className="relative mx-auto w-full max-w-2xl md:scale-125"
-          initial={{ opacity: 0, y: 24, rotate: 0 }}
-          animate={{ opacity: 1, y: 0, rotate: 2 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-        >
-          <motion.div
-            animate={{ y: [0, -16, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Image
-              src="/finance-summary-card.png"
-              alt="Resumen de agosto en casa: 1.284,30 € disponibles este mes, gráfico de gastos y el último movimiento, «42 € en supermercado», guardado como gasto compartido"
-              width={1536}
-              height={1024}
-              className="h-auto w-full"
-              priority
-            />
-          </motion.div>
-        </motion.div>
-      </section>
-
-      <section className="relative z-1 border-t border-(--ink)/15 bg-(--ink) px-5 py-16 text-(--highlight) md:py-20">
-        <motion.div className="mx-auto max-w-4xl text-center" {...fadeInView} transition={{ duration: 0.5 }}>
-          <motion.div
-            className="inline-block"
-            animate={{ y: [0, -12, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Image
-              src="/hand-shake.png"
-              alt=""
-              width={280}
-              height={187}
-              className="pointer-events-none h-auto w-24 sm:w-32 md:w-40"
-            />
-          </motion.div>
-          <h2 className={`mt-4 text-2xl font-extrabold tracking-tight text-white md:whitespace-nowrap md:text-3xl ${displayFont}`}>
-            Una forma <Highlight className="text-(--ink)">más fácil de gestionar</Highlight> las finanzas en pareja
-          </h2>
-          <p className="mx-auto mt-4 max-w-3xl text-(--highlight)/85">
-            Son dos personas con ingresos, gastos y costumbres distintas: una cuenta en común, gastos personales
-            aparte, y alguien que paga el súper mientras el otro paga el alquiler. Anotar todo a mano en una hoja de
-            cálculo es tedioso, y es fácil perder de vista en qué se fue el dinero del mes.
-          </p>
-          <p className="mx-auto mt-4 max-w-2xl font-bold text-(--highlight)">
-            Miti-Miti lo ordena todo, sin que ninguno de los dos tenga que llevar las cuentas solo.
-          </p>
-        </motion.div>
-      </section>
-
-      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
-        <div className="mx-auto max-w-6xl">
-          <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
-            <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
-              Registra hablando
-            </p>
-            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              De un mensaje a un <Highlight>resumen claro</Highlight>
-            </h2>
-          </motion.div>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            {steps.map((step, index) => (
-              <motion.div
-                key={step.number}
-                className="relative"
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-60px" }}
-                transition={{ duration: 0.45, delay: index * 0.1 }}
-              >
-                <Image
-                  src={step.image}
-                  alt=""
-                  width={112}
-                  height={112}
-                  className="absolute -top-7 -left-6 z-10 size-24 rotate-[-8deg] object-contain drop-shadow-[4px_4px_0_rgba(58,52,52,0.18)]"
-                />
-                <article className="card">
-                  <div className={`flex justify-end rounded-t-lg p-6 ${step.tone}`}>
-                    <span className="text-5xl font-black text-(--ink)/20">{step.number}</span>
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-black">{step.title}</h3>
-                    <p className="mt-2 text-sm text-(--ink)/75">{step.description}</p>
-                  </div>
-                </article>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
-        <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-2 md:items-center">
-          <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
-            <p className="w-fit rounded-full bg-(--paper) px-4 py-1.5 text-sm font-bold uppercase">
-              Compartido y personal
-            </p>
-            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Lo tuyo. Lo suyo. Lo de <Highlight>los dos</Highlight>.
-            </h2>
-            <p className="mt-4 max-w-lg text-(--ink)/75">
-              Cada movimiento decide si es personal o compartido: los gastos propios quedan aparte, sin mezclarse con
-              los del hogar, y ambas personas ven el resumen conjunto cuando lo necesitan.
-            </p>
-          </motion.div>
-          <motion.div
-            className="grid gap-4 sm:grid-cols-2"
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            <div className="relative rounded-lg border-2 border-(--ink) bg-(--lime) p-5 shadow-[6px_6px_0_0_var(--ink)]">
-              <Image
-                src="/home.png"
-                alt=""
-                width={100}
-                height={100}
-                className="absolute -top-6 -right-5 z-10 size-20 rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)]"
-              />
-              <p className="w-fit bg-(--highlight) px-1 text-xs font-black uppercase">Espacio compartido</p>
-              <p className="mt-3 text-2xl font-black">Hogar</p>
-              <p className="mt-1 max-w-[85%] text-sm text-(--ink)/75">Alquiler, súper, servicios: todo lo que pagan entre los dos.</p>
+        {/* FOOTER — Dark Cocoa stage, mirrors the nav's tone per DESIGN.md. Both social-icon
+            tiles stay Honeycomb Gold. */}
+        <footer className="px-5 py-8 sm:px-10 sm:py-10" style={{ background: COCOA, color: CREAM }}>
+          <div className="mx-auto flex max-w-6xl flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={36} height={36} className="size-9 object-contain" />
+              <p className="text-sm" style={{ color: `${CREAM}b3` }}>Finanzas en pareja, sin complicaciones.</p>
             </div>
-            <div className="relative rounded-lg border-2 border-(--ink) bg-(--blue) p-5 shadow-[6px_6px_0_0_var(--ink)]">
-              <Image
-                src="/private.png"
-                alt=""
-                width={100}
-                height={100}
-                className="absolute -top-6 -right-5 z-10 size-20 rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)]"
-              />
-              <p className="w-fit bg-(--highlight) px-1 text-xs font-black uppercase">Espacio personal</p>
-              <p className="mt-3 text-2xl font-black">Solo tuyo</p>
-              <p className="mt-1 max-w-[85%] text-sm text-(--ink)/75">Tus gastos privados, visibles únicamente para ti.</p>
+            <div className="flex flex-wrap items-center gap-5 text-sm font-medium">
+              <Link href="/login" className="hover:opacity-70">Entrar</Link>
+              <Link href="/registro" className="hover:opacity-70">Crear hogar</Link>
+              <Link href="/terminos" className="hover:opacity-70">Términos y privacidad</Link>
+              <Link href="/contacto" className="hover:opacity-70">Contacto</Link>
             </div>
-          </motion.div>
-        </div>
-      </section>
-
-      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
-        <div className="mx-auto max-w-6xl">
-          <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
-            <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
-              Pregunta cuando quieras
-            </p>
-            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Pregúntale a <Highlight>Finzy</Highlight> sobre tu dinero
-            </h2>
-            <p className="mt-4 max-w-lg text-(--ink)/75">
-              Nada de exportar planillas: pregunta en lenguaje natural y recibe la respuesta al instante.
-            </p>
-          </motion.div>
-          <motion.div
-            className="mx-auto mt-10 max-w-sm"
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            <Image
-              src="/chat-mockup.png"
-              alt="Conversación con Finzy: «¿Cuánto gastamos este mes?», «¿En qué gastamos más?», «¿Cuánto ahorramos respecto al mes pasado?», con respuestas al instante"
-              width={1024}
-              height={1536}
-              className="h-auto w-full"
-            />
-          </motion.div>
-        </div>
-      </section>
-
-      <section className="relative z-1 border-t border-(--ink)/15 bg-(--paper) px-5 py-16 md:py-20">
-        <div className="mx-auto max-w-6xl">
-          <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
-            <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
-              Todo lo que necesitan
-            </p>
-            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Todo lo que necesitan para <Highlight>organizar</Highlight> su dinero
-            </h2>
-          </motion.div>
-          <div className="mt-10 grid gap-5 sm:grid-cols-2">
-            {features.map((feature, index) => (
-              <motion.article
-                key={feature.title}
-                className={`relative rounded-lg border-2 border-(--ink) p-6 shadow-[6px_6px_0_0_var(--ink)] ${feature.tone}`}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-60px" }}
-                transition={{ duration: 0.45, delay: index * 0.08 }}
-              >
-                <Image
-                  src={feature.image}
-                  alt=""
-                  width={100}
-                  height={100}
-                  className="absolute -top-6 -right-5 z-10 size-20 rotate-6 object-contain drop-shadow-[3px_3px_0_rgba(58,52,52,0.18)]"
-                />
-                <h3 className="max-w-[70%] text-lg font-black">{feature.title}</h3>
-                <p className="mt-1 max-w-[88%] text-sm text-(--ink)/75">{feature.description}</p>
-              </motion.article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
-        <div className="mx-auto max-w-3xl">
-          <motion.div {...fadeInView} transition={{ duration: 0.5 }}>
-            <p className="w-fit rounded-full bg-(--highlight) px-4 py-1.5 text-sm font-bold uppercase">
-              Preguntas frecuentes
-            </p>
-            <h2 className={`mt-4 text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>
-              Dudas comunes sobre finanzas en pareja
-            </h2>
-          </motion.div>
-          <motion.div
-            className="mt-10 divide-y divide-(--ink)/10 rounded-sm border border-(--ink)/20 bg-white"
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            {landingFaq.map((item) => (
-              <details key={item.question} className="group p-5">
-                <summary className="cursor-pointer list-none font-bold marker:content-none">
-                  <span className="flex items-center justify-between gap-3">
-                    {item.question}
-                    <span className="shrink-0 text-(--ink)/50 group-open:rotate-45">+</span>
-                  </span>
-                </summary>
-                <p className="mt-2 text-sm text-(--ink)/75">{item.answer}</p>
-              </details>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      <section className="relative z-1 border-t border-(--ink)/15 px-5 py-16 md:py-20">
-        <motion.div
-          className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6 text-center"
-          {...fadeInView}
-          transition={{ duration: 0.5 }}
-        >
-          <motion.div
-            animate={{ y: [0, -14, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Image
-              src="/finzy-mascot-thinking.png"
-              alt=""
-              width={320}
-              height={263}
-              className="pointer-events-none w-28 rotate-6 sm:w-36 md:w-44"
-            />
-          </motion.div>
-          <h2 className={`text-4xl font-extrabold tracking-tight md:text-5xl ${displayFont}`}>¿Organizamos las cuentas de una vez?</h2>
-          <p className="max-w-lg text-(--ink)/75">
-            Crear el hogar toma menos de un minuto. Después, todo pasa por el chat.
-          </p>
-          <LinkButton href="/registro" variant="primary">
-            Crear tu hogar <ArrowRight size={18} />
-          </LinkButton>
-        </motion.div>
-      </section>
-
-      <footer className="relative z-1 border-t border-(--ink)/15 px-5 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm font-semibold uppercase sm:flex-row">
-          <div className="flex items-center">
-            <Image src="/logo-mitimiti.png" alt="Miti-Miti" width={44} height={44} className="size-11 object-contain" />
-          </div>
-          <p className="text-(--ink)/70">Finanzas en pareja, sin complicaciones.</p>
-          <div className="flex items-center gap-5">
-            <Link href="/login" className="hover:underline">
-              Entrar
-            </Link>
-            <Link href="/registro" className="hover:underline">
-              Crear hogar
-            </Link>
-            <span className="flex items-center gap-3 border-l border-(--ink)/20 pl-5 normal-case">
-              <span className="flex items-center gap-2 text-(--ink)/50" title="Muy pronto en redes sociales">
-                <Instagram size={18} />
-                <Facebook size={18} />
+            <div className="flex items-center gap-3 sm:justify-end" title="Muy pronto en redes sociales">
+              <span className="grid size-10 place-items-center rounded-full" style={{ background: GOLD, color: COCOA }}>
+                <Instagram size={17} />
               </span>
-              <span className="text-[11px] font-bold normal-case text-(--ink)/50">Muy pronto en redes</span>
-            </span>
+              <span className="grid size-10 place-items-center rounded-full" style={{ background: GOLD, color: COCOA }}>
+                <Facebook size={17} />
+              </span>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </main>
   );
 }

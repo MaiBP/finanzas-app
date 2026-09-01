@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Check, Send } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
@@ -6,6 +7,11 @@ import { FadeIn, FloatBlob } from "@/components/ui/motion";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
 import { TelegramDownloadLink } from "@/components/onboarding/telegram-download-link";
 import { continueFromTelegram, generateAndShowCode } from "./actions";
+
+export const metadata: Metadata = {
+  title: "Vincula tu Telegram",
+  robots: { index: false, follow: false },
+};
 
 export default async function OnboardingTelegramPage() {
   const { supabase, user, household } = await getCurrentHousehold();
@@ -39,7 +45,7 @@ export default async function OnboardingTelegramPage() {
           </span>
           <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">Vinculemos tu Telegram</h1>
           <p className="mx-auto mt-3 max-w-md text-(--ink)/75">
-            Así vas a poder registrar y consultar tus finanzas escribiéndole a Finzy en cualquier momento.
+            Así vas a poder registrar y consultar tus finanzas escribiéndole a Piggy en cualquier momento.
           </p>
         </FadeIn>
 
@@ -78,7 +84,7 @@ export default async function OnboardingTelegramPage() {
             </div>
           ) : (
             <form action={generateAndShowCode}>
-              <p className="text-sm text-(--ink)/75">Generá un código para vincular tu cuenta con Finzy.</p>
+              <p className="text-sm text-(--ink)/75">Generá un código para vincular tu cuenta con Piggy.</p>
               <Button type="submit" className="mt-5 w-full">Generar código</Button>
               <button type="submit" formAction={continueFromTelegram} className="mt-3 text-sm font-bold text-(--ink)/70 underline">
                 Hacerlo más tarde

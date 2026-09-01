@@ -1,6 +1,7 @@
 import type { FinancialAction } from "./schema";
 
 const explicitPersonalIntent = /(?:\bpersonal\b|\bprivad[oa]\b|solo para m[ií]|solo m[ií]o|solo m[ií]a|para m[ií]|no (?:es |sea )?compartid[oa]\b)/i;
+const explicitSharedIntent = /(?:\bcompartid[oa]\b|en conjunto|cuenta conjunta|de la casa|del hogar|en pareja|entre los dos)/i;
 const explicitHistoricalAccountsIntent = /(?:hist[oó]ric[oa]|cuentas?\s+(?:borrad[oa]s?|eliminad[oa]s?)|cuentas?\s+que\s+(?:borr[eé]|elimin[eé]))/i;
 
 function normalize(value: string) {
@@ -21,7 +22,7 @@ function isKnownCategory(categories: { name: string }[], term: string) {
   });
 }
 
-export function applyFinancialDefaults(action: FinancialAction, originalText: string, categories: { name: string }[] = []): FinancialAction {
+export function applyFinancialDefaults(action: FinancialAction, originalText: string, categories: { name: string }[] = [], accounts: { name: string; is_shared?: boolean }[] = []): FinancialAction {
   if (action.action === "query_finances") {
     let next = action;
     const { filters } = next.data;
@@ -36,10 +37,23 @@ export function applyFinancialDefaults(action: FinancialAction, originalText: st
 
   if (action.action !== "create_transaction") return action;
 
+  const scopeExplicit = explicitPersonalIntent.test(originalText) || explicitSharedIntent.test(originalText);
+
+  // When the space wasn't stated, the model still tends to fill account_name with whatever looks
+  // like the single "obvious" account for its own guessed scope (e.g. the household's only shared
+  // account) — even though accountsForAction/assignOnlyAccount rely on account_name being empty to
+  // ask which account to use. A guess like that is only trustworthy if the account's own name
+  // actually appears in what the user typed; otherwise it must be cleared so the app's own
+  // scope-ambiguity check (not the model's) decides whether to ask.
+  const hasBothScopes = accounts.some(acc => acc.is_shared) && accounts.some(acc => !acc.is_shared);
+  const accountNameIsGuessed = !scopeExplicit && hasBothScopes && !!action.data.account_name
+    && !normalize(originalText).includes(normalize(action.data.account_name));
+  const account_name = accountNameIsGuessed ? null : action.data.account_name;
+
   if (explicitPersonalIntent.test(originalText)) {
     return {
       ...action,
-      data: { ...action.data, scope: "personal", privacy: "private", split_type: "single" },
+      data: { ...action.data, scope: "personal", privacy: "private", split_type: "single", scope_explicit: scopeExplicit, account_name },
     };
   }
 
@@ -50,6 +64,8 @@ export function applyFinancialDefaults(action: FinancialAction, originalText: st
       scope: "shared",
       privacy: "visible",
       split_type: "equal",
+      scope_explicit: scopeExplicit,
+      account_name,
     },
   };
 }

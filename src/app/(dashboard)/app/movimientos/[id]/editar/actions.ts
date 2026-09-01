@@ -5,6 +5,7 @@ import { eurosToCents } from "@/lib/finance/money";
 import { encryptField } from "@/lib/security/field-encryption";
 import { normalizeItemSubcategory } from "@/lib/finance/item-subcategories";
 import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
+import { friendlyRpcError } from "@/lib/trial/errors";
 
 type SubmittedItem = { description: string; amount: string; subcategory: string };
 
@@ -22,7 +23,7 @@ export async function editTransaction(formData:FormData){
   if(!account||!category||category.kind!==transaction.type)throw new Error("Cuenta o categoría no válida");
   const privacy=transaction.scope==="shared"?"visible":"private";
   const {error}=await supabase.rpc("update_financial_transaction",{p_transaction_id:id,p_account_id:accountId,p_amount_cents:amountCents,p_description:encryptField(description),p_category_id:categoryId,p_scope:transaction.scope,p_privacy:privacy,p_transaction_date:transactionDate});
-  if(error)throw new Error(error.message);
+  if(error)throw new Error(friendlyRpcError(error.message));
 
   // Simplest correct approach for a repeatable sub-list: replace the whole set rather than diff
   // it, same as update_financial_transaction already does for transaction_splits.

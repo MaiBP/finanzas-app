@@ -11,6 +11,7 @@ const action: CreateTransactionAction = {
     type: "expense", amount_cents: 2500, currency: "EUR", description: "Compra semanal",
     category: "Supermercado", scope: "shared", privacy: "visible", transaction_date: "2026-08-04",
     paid_by: "current_user", account_name: null, split_type: "equal", wants_new_account: false,
+    scope_explicit: true,
   },
 };
 
@@ -71,6 +72,22 @@ describe("account selection", () => {
     expect(description).toContain("Identifiqué un gasto");
     const question = accountSelectionQuestion(wantsNewAccount);
     expect(question).toContain("¿Deseas registrarlo de todos modos en una cuenta existente?");
+  });
+
+  it("asks instead of guessing when the message didn't name a space and both scopes have accounts", () => {
+    const implicit = { ...action, data: { ...action.data, scope_explicit: false } };
+    const eligible = accountsForAction(implicit, [accounts[0], accounts[2]]);
+    expect(eligible.map(a => a.name)).toEqual(["Efectivo de casa", "Mi efectivo"]);
+    expect(assignOnlyAccount(implicit, eligible).data.account_name).toBeNull();
+  });
+
+  it("still auto-assigns an implicit-scope movement when only one account exists overall, and corrects scope to match it", () => {
+    const implicit = { ...action, data: { ...action.data, scope_explicit: false } };
+    const eligible = accountsForAction(implicit, [accounts[2]]);
+    const assigned = assignOnlyAccount(implicit, eligible);
+    expect(assigned.data.account_name).toBe("Mi efectivo");
+    expect(assigned.data.scope).toBe("personal");
+    expect(assigned.data.privacy).toBe("private");
   });
 });
 

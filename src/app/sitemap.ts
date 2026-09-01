@@ -4,7 +4,7 @@ const siteUrl = (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")) || "https:
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
-  const routes = ["", "/login", "/registro", "/recuperar"];
+  const routes = ["", "/login", "/registro", "/recuperar", "/contacto", "/terminos"];
   return routes.map((route) => ({
     url: `${siteUrl}${route}`,
     lastModified,

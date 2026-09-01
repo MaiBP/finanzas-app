@@ -1,8 +1,10 @@
 import Image from "next/image";
-import { AlertTriangle, Check, Copy } from "lucide-react";
+import { AlertTriangle, Check, Copy, CreditCard, Lock, PiggyBank } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
-import { deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, unlinkTelegram, updateHouseholdBaseCurrency, updateHouseholdName, updatePersonalBaseCurrency, updatePersonalSpaceName } from "./actions";
+import { getHouseholdTrialStatus } from "@/lib/trial/status";
+import { createCheckoutSession, deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, openBillingPortal, unlinkTelegram, updateHouseholdBaseCurrency, updateHouseholdName, updatePersonalBaseCurrency, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { getHouseholdRoster } from "@/services/household-roster";
 import { TypeToConfirm } from "@/components/settings/type-to-confirm";
 import { SUPPORTED_CURRENCIES } from "@/lib/finance/currencies";
@@ -40,6 +42,9 @@ export default async function SettingsPage() {
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "Finzy_AssistantBot";
   const partner = roster.find((member) => member.userId !== user.id);
   const partnerName = partner?.displayName ?? "tu pareja";
+  const trialStatus = getHouseholdTrialStatus(household);
+  const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+  const canManageBilling = trialStatus.subscriptionStatus === "active" || trialStatus.subscriptionStatus === "past_due";
 
   return (
     <>
@@ -53,7 +58,7 @@ export default async function SettingsPage() {
       <div className="mt-7 grid gap-5 lg:grid-cols-2">
         <section className="card p-6">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-(--lilac)">
+            <span className="grid size-11 place-items-center rounded-xl">
               <Image src="/home.png" alt="" width={32} height={32} className="size-7 object-contain" />
             </span>
             <div>
@@ -121,9 +126,9 @@ export default async function SettingsPage() {
                     <div className="mt-4">
                       <p className="text-sm text-(--muted)">Todavía no tienes un código activo.</p>
                       <form action={generateHouseholdInvite}>
-                        <Button type="submit" size="sm" className="mt-3">
+                        <SubmitButton size="sm" fullWidth={false} className="mt-3" pendingText="Generando…">
                           Generar código de invitación
-                        </Button>
+                        </SubmitButton>
                       </form>
                     </div>
                   )
@@ -137,7 +142,7 @@ export default async function SettingsPage() {
 
         <section className="card p-6">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-(--lime)">
+            <span className="grid size-11 place-items-center rounded-xl">
               <Image src="/private.png" alt="" width={32} height={32} className="size-7 object-contain" />
             </span>
             <div>
@@ -182,38 +187,41 @@ export default async function SettingsPage() {
           </form>
         </section>
 
-        <section className="card p-6 lg:col-span-2">
+        <section className="card bg-(--blue)/15 p-6 lg:col-span-2">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-(--blue)">
-              <span className="grid size-8 place-items-center rounded-full bg-white">
-                <Image src="/finzy-mascot.png" alt="Finzy" width={32} height={32} className="size-6 object-contain" />
-              </span>
+            <span className="grid size-11 place-items-center rounded-xl bg-white">
+              <PiggyBank size={22} className="text-(--blue)" />
             </span>
             <div>
               <p className="text-xs font-bold uppercase text-(--muted)">Herramienta general</p>
-              <h2 className="font-black">Telegram · Finzy</h2>
-              <p className="text-sm text-(--muted)">{link ? "Vinculado" : "No vinculado"}</p>
+              <h2 className="font-black">Telegram · Piggy</h2>
             </div>
           </div>
           {link ? (
             <>
-              <div className="mt-5 space-y-3 rounded-xl bg-(--blue)/25 p-4 text-sm">
-                <p>
-                  Finzy puede consultar tus espacios, registrar movimientos por texto o nota de voz, y leer extractos
-                  PDF o imágenes de hasta 12 MB. Los adjuntos y notas de voz no se guardan en Miti-Miti,
-                  solo se procesan.
-                </p>
+              <div className="mt-5 flex items-center gap-3 rounded-xl bg-white p-4">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-(--lime)">
+                  <Check size={18} />
+                </span>
+                <div>
+                  <p className="font-bold">Vinculado</p>
+                  <p className="text-xs text-(--muted)">
+                    Piggy puede consultar tus espacios, registrar movimientos por texto o nota de voz, y leer
+                    extractos PDF o imágenes de hasta 12 MB. Los adjuntos y notas de voz no se guardan en Miti-Miti,
+                    solo se procesan.
+                  </p>
+                </div>
               </div>
               <form action={unlinkTelegram} className="mt-4">
-                <Button type="submit" size="sm" variant="outline">
+                <Button type="submit" size="sm" variant="primary">
                   Desvincular Telegram
                 </Button>
               </form>
             </>
           ) : (
             <>
-              <div className="mt-5 rounded-xl bg-(--blue)/25 p-4 text-sm">
-                <p className="font-bold">Vincula con el Finzy correcto:</p>
+              <div className="mt-5 rounded-xl bg-white p-4 text-sm">
+                <p className="font-bold">Vincula con el Piggy correcto:</p>
                 <ol className="mt-2 list-decimal space-y-1 pl-5">
                   <li>
                     Abre{" "}
@@ -241,13 +249,49 @@ export default async function SettingsPage() {
           )}
         </section>
 
-        <section className="card border-[#c23b3b]/40 p-6 lg:col-span-2">
+        <section className="card bg-(--highlight)/15 p-6 lg:col-span-2">
           <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-[#f7d9d9]">
-              <AlertTriangle size={20} className="text-[#c23b3b]" />
+            <span className="grid size-11 place-items-center rounded-xl bg-(--highlight)">
+              {trialStatus.isWritable ? <CreditCard size={20} /> : <Lock size={20} />}
             </span>
             <div>
-              <p className="text-xs font-bold uppercase text-[#c23b3b]">Zona de peligro</p>
+              <p className="text-xs font-bold uppercase text-(--muted)">Plan</p>
+              <h2 className="font-black">Suscripción</h2>
+            </div>
+          </div>
+          <div className="mt-5 text-sm text-(--muted)">
+            {trialStatus.subscriptionStatus === "none" && <p>Tu prueba gratuita de 30 días arranca en cuanto registres tu primer movimiento.</p>}
+            {trialStatus.subscriptionStatus === "trialing" && (
+              <p>
+                Te quedan <b className="text-(--ink)">{trialStatus.daysRemaining} días</b> de prueba gratuita. Después, seguí por 4,99 €/mes, sin permanencia.
+              </p>
+            )}
+            {trialStatus.subscriptionStatus === "active" && <p>Suscripción activa · 4,99 €/mes por hogar.</p>}
+            {trialStatus.subscriptionStatus === "past_due" && <p>Hubo un problema con tu último pago. Tu hogar está en modo solo lectura hasta que lo resuelvas.</p>}
+            {trialStatus.subscriptionStatus === "canceled" && <p>Tu suscripción está cancelada. Tu hogar está en modo solo lectura.</p>}
+          </div>
+          <div className="mt-4">
+            {!stripeConfigured ? (
+              <p className="text-sm text-(--muted)">Próximamente.</p>
+            ) : canManageBilling ? (
+              <form action={openBillingPortal}>
+                <Button type="submit" size="sm">Gestionar suscripción</Button>
+              </form>
+            ) : (
+              <form action={createCheckoutSession}>
+                <Button type="submit" size="sm">Activar suscripción · 4,99 €/mes</Button>
+              </form>
+            )}
+          </div>
+        </section>
+
+        <section className="card border-(--danger)/40 p-6 lg:col-span-2">
+          <div className="flex items-center gap-3">
+            <span className="grid size-11 place-items-center rounded-xl bg-(--danger)/15">
+              <AlertTriangle size={20} className="text-(--danger)" />
+            </span>
+            <div>
+              <p className="text-xs font-bold uppercase text-(--danger)">Zona de peligro</p>
               <h2 className="font-black">Salir del hogar o borrar tu cuenta</h2>
             </div>
           </div>

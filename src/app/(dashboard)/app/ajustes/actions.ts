@@ -6,6 +6,7 @@ import { getCurrentHousehold } from "@/lib/household";
 import { normalizeSpaceName } from "@/lib/settings/space-names";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCurrency } from "@/lib/finance/currencies";
+import { getStripeClient } from "@/lib/stripe/client";
 
 export async function generateTelegramCode(){
   const {supabase,user}=await getCurrentHousehold(); const code=randomBytes(4).toString("hex").toUpperCase();
@@ -23,6 +24,8 @@ export async function unlinkTelegram(){
 export async function generateHouseholdInvite(){
   const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("No tienes un hogar activo.");
   if(household.role!=="owner")throw new Error("Solo la persona propietaria puede generar la invitación.");
+  const {count}=await supabase.from("household_members").select("*",{count:"exact",head:true}).eq("household_id",household.id);
+  if((count??0)>=2)throw new Error("Tu hogar ya tiene el máximo de 2 personas.");
   const code=randomBytes(4).toString("hex").toUpperCase();
   await supabase.from("household_invites").delete().eq("household_id",household.id).is("used_at",null);
   const {error}=await supabase.from("household_invites").insert({household_id:household.id,code,created_by:user.id,expires_at:new Date(Date.now()+7*24*60*60*1000).toISOString()});
@@ -62,6 +65,41 @@ export async function leaveHousehold(){
   const {supabase}=await getCurrentHousehold();
   const {error}=await supabase.rpc("leave_household"); if(error)throw new Error(error.message);
   redirect("/onboarding");
+}
+
+export async function createCheckoutSession(){
+  const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("No tienes un hogar activo.");
+  const stripe=getStripeClient(); const priceId=process.env.STRIPE_PRICE_ID;
+  if(!stripe||!priceId)throw new Error("La suscripción todavía no está disponible.");
+  const {data:row}=await supabase.from("households").select("stripe_customer_id").eq("id",household.id).maybeSingle();
+  let customerId=row?.stripe_customer_id??null;
+  if(!customerId){
+    const customer=await stripe.customers.create({email:user.email,metadata:{household_id:household.id}});
+    customerId=customer.id;
+    await supabase.from("households").update({stripe_customer_id:customerId}).eq("id",household.id);
+  }
+  const appUrl=process.env.NEXT_PUBLIC_APP_URL??"http://localhost:3000";
+  const session=await stripe.checkout.sessions.create({
+    mode:"subscription",
+    customer:customerId,
+    client_reference_id:household.id,
+    line_items:[{price:priceId,quantity:1}],
+    success_url:`${appUrl}/app/ajustes?subscription=activated`,
+    cancel_url:`${appUrl}/app/ajustes`,
+  });
+  if(!session.url)throw new Error("No se pudo iniciar el pago.");
+  redirect(session.url);
+}
+
+export async function openBillingPortal(){
+  const {supabase,household}=await getCurrentHousehold(); if(!household)throw new Error("No tienes un hogar activo.");
+  const stripe=getStripeClient();
+  if(!stripe)throw new Error("La suscripción todavía no está disponible.");
+  const {data:row}=await supabase.from("households").select("stripe_customer_id").eq("id",household.id).maybeSingle();
+  if(!row?.stripe_customer_id)throw new Error("Todavía no tienes una suscripción activa.");
+  const appUrl=process.env.NEXT_PUBLIC_APP_URL??"http://localhost:3000";
+  const session=await stripe.billingPortal.sessions.create({customer:row.stripe_customer_id,return_url:`${appUrl}/app/ajustes`});
+  redirect(session.url);
 }
 
 export async function deleteAccount(){

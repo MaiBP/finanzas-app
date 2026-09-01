@@ -19,16 +19,18 @@ const baseAction: FinancialAction = {
     account_name: null,
     split_type: "single",
     wants_new_account: false,
+    scope_explicit: false,
   },
 };
 
 describe("financial conversational defaults", () => {
-  it("makes an unspecified expense shared, visible and equally split", () => {
+  it("makes an unspecified expense shared, visible and equally split, and flags the scope as a guess", () => {
     const result = applyFinancialDefaults(baseAction, "Gasté 42 euros en Mercadona");
     expect(result.action === "create_transaction" && result.data).toMatchObject({
       scope: "shared",
       privacy: "visible",
       split_type: "equal",
+      scope_explicit: false,
     });
   });
 
@@ -39,8 +41,46 @@ describe("financial conversational defaults", () => {
       expect(result.action === "create_transaction" && result.data.scope).toBe("personal");
       expect(result.action === "create_transaction" && result.data.privacy).toBe("private");
       expect(result.action === "create_transaction" && result.data.split_type).toBe("single");
+      expect(result.action === "create_transaction" && result.data.scope_explicit).toBe(true);
     },
   );
+
+  it.each(["Es un gasto compartido", "Pagamos en conjunto", "Fue con la cuenta conjunta", "Es de la casa"])(
+    "flags the scope as explicit when the user names the shared space too: %s",
+    (text) => {
+      const result = applyFinancialDefaults(baseAction, text);
+      expect(result.action === "create_transaction" && result.data.scope).toBe("shared");
+      expect(result.action === "create_transaction" && result.data.scope_explicit).toBe(true);
+    },
+  );
+
+  it("clears a guessed account_name when the space wasn't stated and the household has both a shared and a personal account", () => {
+    const guessed = { ...baseAction, data: { ...baseAction.data, account_name: "Banco común" } };
+    const accounts = [{ name: "Banco común", is_shared: true }, { name: "Mi efectivo", is_shared: false }];
+    const result = applyFinancialDefaults(guessed, "Gasté 42 euros en Mercadona", [], accounts);
+    expect(result.action === "create_transaction" && result.data.account_name).toBeNull();
+  });
+
+  it("keeps account_name when the space wasn't stated but the account itself was named in the message", () => {
+    const guessed = { ...baseAction, data: { ...baseAction.data, account_name: "Banco común" } };
+    const accounts = [{ name: "Banco común", is_shared: true }, { name: "Mi efectivo", is_shared: false }];
+    const result = applyFinancialDefaults(guessed, "Gasté 42 euros en Mercadona con el Banco común", [], accounts);
+    expect(result.action === "create_transaction" && result.data.account_name).toBe("Banco común");
+  });
+
+  it("keeps a guessed account_name when the household only has accounts in one scope", () => {
+    const guessed = { ...baseAction, data: { ...baseAction.data, account_name: "Banco común" } };
+    const accounts = [{ name: "Banco común", is_shared: true }, { name: "Efectivo de casa", is_shared: true }];
+    const result = applyFinancialDefaults(guessed, "Gasté 42 euros en Mercadona", [], accounts);
+    expect(result.action === "create_transaction" && result.data.account_name).toBe("Banco común");
+  });
+
+  it("keeps account_name untouched when the scope was stated explicitly", () => {
+    const guessed = { ...baseAction, data: { ...baseAction.data, account_name: "Mi efectivo", scope: "personal" as const } };
+    const accounts = [{ name: "Banco común", is_shared: true }, { name: "Mi efectivo", is_shared: false }];
+    const result = applyFinancialDefaults(guessed, "Es un gasto personal", [], accounts);
+    expect(result.action === "create_transaction" && result.data.account_name).toBe("Mi efectivo");
+  });
 
   it("does not alter non-create actions", () => {
     const query: FinancialAction = {

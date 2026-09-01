@@ -8,7 +8,9 @@ import { formatMoney } from "@/lib/finance/money";
 import { StatTile } from "@/components/ui/stat-tile";
 import { getHouseholdRoster } from "@/services/household-roster";
 
-const memberTones = ["bg-(--lilac)", "bg-(--blue)", "bg-(--lime)", "bg-(--expense)", "bg-(--savings)"];
+// --lilac deliberately excluded here: it's the same Barn Red as --danger, and "Gastos" below is
+// rendered in --danger — on a --lilac row that text would be invisible (same color on itself).
+const memberTones = ["bg-(--pink)", "bg-(--blue)", "bg-(--lime)", "bg-(--expense)", "bg-(--savings)"];
 
 export default async function BalancePage() {
   const { supabase, household } = await getCurrentHousehold();
@@ -89,7 +91,7 @@ export default async function BalancePage() {
                         Ingresos <b className="text-(--ink)">{formatMoney(values.income)}</b>
                       </span>
                       <span>
-                        Gastos <b className="text-[#b34f36]">{formatMoney(values.expenses)}</b>
+                        Gastos <b className="text-(--danger)">{formatMoney(values.expenses)}</b>
                       </span>
                     </div>
                   </div>

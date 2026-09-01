@@ -18,6 +18,11 @@ const transactionData = z.object({
   // can't create accounts, so the app explains that and offers an existing one instead. A
   // .default() also satisfies strict mode (has a defaultValue) without needing .nullable().
   wants_new_account: z.boolean().default(false),
+  // True only when the message itself named a space ("personal"/"compartido") — applyFinancialDefaults
+  // sets this deterministically from the original text, the same way it overwrites scope/privacy/
+  // split_type, so accountsForAction knows whether `scope` reflects the user's actual intent or is
+  // just the "shared" fallback default and should be treated as a guess worth double-checking.
+  scope_explicit: z.boolean().default(false),
 });
 
 export const financialActionSchema = z.discriminatedUnion("action", [

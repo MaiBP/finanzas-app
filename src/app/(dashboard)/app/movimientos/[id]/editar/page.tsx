@@ -69,7 +69,7 @@ export default async function EditPage({ params }: { params: Promise<{ id: strin
             <span className="label">Productos</span>
             <ItemListEditor initialItems={items} />
           </div>
-          <p className="rounded-sm bg-[#ffff50] p-3 text-sm">El ámbito {row.scope === "personal" ? "personal y privado" : "conjunto y visible"} se conserva al editar.</p>
+          <p className="rounded-sm bg-(--highlight) p-3 text-sm">El ámbito {row.scope === "personal" ? "personal y privado" : "conjunto y visible"} se conserva al editar.</p>
           <SubmitButton>Guardar cambios</SubmitButton>
         </form>
       </section>

@@ -25,10 +25,15 @@ const normalize = (value: string) => value
 
 // Determines whether the parser's chosen scope leaves more than one candidate account — if so, the
 // app must ask instead of guessing (see accountOptionsForSelection below for what's actually shown).
-// Deliberately narrow (never mixes in the other scope's accounts) so a household with exactly one
-// shared account still auto-assigns it instead of asking a question just because the user also
-// happens to have a personal account.
+// Only narrows to the single matching scope when the user actually named it (scope_explicit) — a
+// household with exactly one shared account then still auto-assigns it instead of asking just
+// because the user also happens to have a personal account. When scope wasn't named, `scope` is
+// just applyFinancialDefaults' "shared" fallback guess, not a real signal, so every account across
+// both scopes is eligible: this is what makes a household with both a shared AND a personal account
+// get asked instead of silently landing in the shared one (see assignOnlyAccount below for how the
+// eventual pick corrects `scope` back to match whichever account was actually chosen).
 export function accountsForAction(action: CreateTransactionAction, accounts: AccountOption[]) {
+  if (!action.data.scope_explicit) return accounts;
   return accounts.filter(account => account.is_shared === (action.data.scope === "shared"));
 }
 
@@ -48,9 +53,24 @@ export function accountButtonLabel(account: AccountOption, isSelected: boolean) 
   return `${account.is_shared ? "" : "🔒"}${accountEmoji(account.type)} ${account.name}`;
 }
 
+// Mirrors the scope/privacy correction the webhook already applies whenever a human explicitly
+// picks an account (button tap, typed name): needed here too now that accountsForAction can widen
+// across scopes, since the sole eligible account picked automatically might not be the scope
+// applyFinancialDefaults guessed (e.g. the household's only account is personal but the message
+// didn't say so, so scope defaulted to "shared") — leaving scope mismatched would make
+// executeTelegramAction look for an account in the wrong scope and fail to find the one just assigned.
 export function assignOnlyAccount(action: CreateTransactionAction, accounts: AccountOption[]) {
   if (action.data.account_name || accounts.length !== 1) return action;
-  return { ...action, data: { ...action.data, account_name: accounts[0].name } };
+  const [account] = accounts;
+  return {
+    ...action,
+    data: {
+      ...action.data,
+      account_name: account.name,
+      scope: (account.is_shared ? "shared" : "personal") as "shared" | "personal",
+      privacy: (account.is_shared ? "visible" : "private") as "visible" | "private",
+    },
+  };
 }
 
 export function matchAccountSelection(text: string, accounts: AccountOption[]) {

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import { Archivo, Oswald } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
-const interfaceFont = Archivo({ subsets: ["latin"], variable: "--font-interface" });
-const displayFont = Oswald({ subsets: ["latin"], variable: "--font-display" });
+// Same fonts as the landing page (see src/components/landing/fonts.ts): Playfair Display Black
+// for headings, Inter for interface/body text.
+const interfaceFont = Inter({ subsets: ["latin"], variable: "--font-interface" });
+const displayFont = Playfair_Display({ subsets: ["latin"], weight: ["700", "800", "900"], variable: "--font-display" });
 
 const siteUrl = (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")) || "https://finanzas-app-six-kappa.vercel.app";
 

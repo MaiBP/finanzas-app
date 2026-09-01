@@ -7,6 +7,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LogOut, Menu, X } from "lucide-react";
 import { NavLink } from "@/components/layout/nav-link";
+import { UserBadge } from "@/components/layout/user-badge";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
 
@@ -16,6 +17,8 @@ export function MobileNavDrawer({
   generalNav,
   householdName,
   personalSpaceName,
+  userName,
+  userAvatarUrl,
   logout,
 }: {
   householdNav: NavItem[];
@@ -23,6 +26,8 @@ export function MobileNavDrawer({
   generalNav: NavItem[];
   householdName: string;
   personalSpaceName: string;
+  userName: string;
+  userAvatarUrl: string | null;
   logout: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
@@ -86,7 +91,7 @@ export function MobileNavDrawer({
 
                   <div className="mt-6 rounded-2xl border border-(--ink)/15 p-3">
                     <div className="flex items-center gap-3 px-2 pb-2">
-                      <span className="grid size-9 place-items-center rounded-full bg-(--lilac)">
+                      <span className="grid size-9 place-items-center rounded-full">
                         <Image src="/home.png" alt="" width={28} height={28} className="size-6 object-contain" />
                       </span>
                       <div className="min-w-0">
@@ -103,7 +108,7 @@ export function MobileNavDrawer({
 
                   <div className="mt-4 rounded-2xl border border-(--ink)/15 p-3">
                     <div className="flex items-center gap-3 px-2 pb-2">
-                      <span className="grid size-9 place-items-center rounded-full bg-(--lime)">
+                      <span className="grid size-9 place-items-center rounded-full">
                         <Image src="/private.png" alt="" width={28} height={28} className="size-6 object-contain" />
                       </span>
                       <div className="min-w-0">
@@ -127,12 +132,15 @@ export function MobileNavDrawer({
                     </nav>
                   </div>
 
-                  <form action={logout} className="mt-6">
-                    <button className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-sm text-(--muted) hover:bg-(--highlight) hover:text-(--ink)">
-                      <LogOut size={18} />
-                      Cerrar sesión
-                    </button>
-                  </form>
+                  <div className="mt-6 border-t border-(--ink)/15 pt-3">
+                    <UserBadge name={userName} avatarUrl={userAvatarUrl} />
+                    <form action={logout} className="mt-1">
+                      <button className="flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-sm text-(--muted) hover:bg-(--highlight) hover:text-(--ink)">
+                        <LogOut size={18} />
+                        Cerrar sesión
+                      </button>
+                    </form>
+                  </div>
                 </motion.div>
               </motion.div>
             )}
