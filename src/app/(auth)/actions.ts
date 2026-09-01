@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ensureDisplayNameEncrypted } from "@/lib/security/field-encryption";
+import { getAppUrl } from "@/lib/env";
 
 // A bare string here is always a message we authored ourselves (safe to show verbatim); only an
 // Error falls back through its own .message, since that's the one case the caller didn't write the
@@ -34,7 +35,7 @@ export async function signup(formData: FormData) {
 
 export async function requestPasswordReset(formData: FormData) {
   const supabase = await createClient();
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const origin = getAppUrl();
   const { error } = await supabase.auth.resetPasswordForEmail(String(formData.get("email")), { redirectTo: `${origin}/auth/callback?next=/app/ajustes` });
   if (error) redirect(`/recuperar?error=${safeMessage(error)}`);
   redirect("/login?message=Te hemos enviado un enlace de recuperación");

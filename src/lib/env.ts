@@ -16,3 +16,9 @@ export function getPublicEnv() {
   }
   return result.data;
 }
+
+// Strips a trailing slash so callers can safely append their own leading-slash path (an env value
+// like "https://app.com/" would otherwise produce a double slash in redirect/callback URLs).
+export function getAppUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "http://localhost:3000";
+}

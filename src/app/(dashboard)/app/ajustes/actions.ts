@@ -7,6 +7,7 @@ import { normalizeSpaceName } from "@/lib/settings/space-names";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCurrency } from "@/lib/finance/currencies";
 import { getStripeClient } from "@/lib/stripe/client";
+import { getAppUrl } from "@/lib/env";
 
 export async function generateTelegramCode(){
   const {supabase,user}=await getCurrentHousehold(); const code=randomBytes(4).toString("hex").toUpperCase();
@@ -61,8 +62,25 @@ export async function updateHouseholdBaseCurrency(formData:FormData){
   revalidatePath("/app","layout"); revalidatePath("/app/movimientos"); revalidatePath("/app/cuentas"); revalidatePath("/app/ajustes");
 }
 
+// leave_household()'s SQL cascade-deletes the household row once the last member departs, taking
+// stripe_subscription_id down with it — this is the last point where the app still knows which
+// subscription that was, so it's the last chance to actually cancel it in Stripe. Without this, a
+// paying household's last member leaving (or deleting their account) would keep getting billed
+// forever with no household left in the app to ever cancel it from again.
+async function cancelSubscriptionBeforeLastMemberLeaves(supabase:Awaited<ReturnType<typeof getCurrentHousehold>>["supabase"],householdId:string|null){
+  if(!householdId)return;
+  const [{count},{data:row}]=await Promise.all([
+    supabase.from("household_members").select("*",{count:"exact",head:true}).eq("household_id",householdId),
+    supabase.from("households").select("stripe_subscription_id").eq("id",householdId).maybeSingle(),
+  ]);
+  if((count??0)>1||!row?.stripe_subscription_id)return;
+  const stripe=getStripeClient(); if(!stripe)return;
+  await stripe.subscriptions.cancel(row.stripe_subscription_id).catch(error=>console.error("No se pudo cancelar la suscripción de Stripe al salir del hogar",error));
+}
+
 export async function leaveHousehold(){
-  const {supabase}=await getCurrentHousehold();
+  const {supabase,household}=await getCurrentHousehold();
+  await cancelSubscriptionBeforeLastMemberLeaves(supabase,household?.id??null);
   const {error}=await supabase.rpc("leave_household"); if(error)throw new Error(error.message);
   redirect("/onboarding");
 }
@@ -73,12 +91,19 @@ export async function createCheckoutSession(){
   if(!stripe||!priceId)throw new Error("La suscripción todavía no está disponible.");
   const {data:row}=await supabase.from("households").select("stripe_customer_id").eq("id",household.id).maybeSingle();
   let customerId=row?.stripe_customer_id??null;
+  // A stored customer_id can outlive the Stripe account/mode it was created under (e.g. after
+  // rotating from a test key to a live one) — Stripe then rejects it with "No such customer" at
+  // checkout time instead of at save time, so it must be re-validated here, not just trusted.
+  if(customerId){
+    const stillExists=await stripe.customers.retrieve(customerId).then(customer=>!customer.deleted).catch(()=>false);
+    if(!stillExists)customerId=null;
+  }
   if(!customerId){
     const customer=await stripe.customers.create({email:user.email,metadata:{household_id:household.id}});
     customerId=customer.id;
     await supabase.from("households").update({stripe_customer_id:customerId}).eq("id",household.id);
   }
-  const appUrl=process.env.NEXT_PUBLIC_APP_URL??"http://localhost:3000";
+  const appUrl=getAppUrl();
   const session=await stripe.checkout.sessions.create({
     mode:"subscription",
     customer:customerId,
@@ -97,13 +122,15 @@ export async function openBillingPortal(){
   if(!stripe)throw new Error("La suscripción todavía no está disponible.");
   const {data:row}=await supabase.from("households").select("stripe_customer_id").eq("id",household.id).maybeSingle();
   if(!row?.stripe_customer_id)throw new Error("Todavía no tienes una suscripción activa.");
-  const appUrl=process.env.NEXT_PUBLIC_APP_URL??"http://localhost:3000";
-  const session=await stripe.billingPortal.sessions.create({customer:row.stripe_customer_id,return_url:`${appUrl}/app/ajustes`});
+  const appUrl=getAppUrl();
+  const session=await stripe.billingPortal.sessions.create({customer:row.stripe_customer_id,return_url:`${appUrl}/app/ajustes`})
+    .catch(()=>{throw new Error("No encontramos tu suscripción en Stripe. Escribinos desde Contacto para resolverlo.");});
   redirect(session.url);
 }
 
 export async function deleteAccount(){
-  const {supabase,user}=await getCurrentHousehold();
+  const {supabase,user,household}=await getCurrentHousehold();
+  await cancelSubscriptionBeforeLastMemberLeaves(supabase,household?.id??null);
   const {error:leaveError}=await supabase.rpc("leave_household"); if(leaveError)throw new Error(leaveError.message);
   await supabase.auth.signOut();
   const {error}=await createAdminClient().auth.admin.deleteUser(user.id); if(error)throw new Error(error.message);

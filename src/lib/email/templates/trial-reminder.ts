@@ -1,4 +1,5 @@
 import { buildDay20Message, buildDay27Message, buildTrialEndedMessage } from "@/services/trial-reminders";
+import { getAppUrl } from "@/lib/env";
 
 const COCOA = "#3b2722";
 const GOLD = "#ffca50";
@@ -28,7 +29,7 @@ function wrapEmailHtml(bodyText: string, ctaLabel: string, ctaUrl: string): stri
 }
 
 function appUrl(path: string): string {
-  return `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}${path}`;
+  return `${getAppUrl()}${path}`;
 }
 
 export function day20EmailHtml(transactionCount: number): string {
