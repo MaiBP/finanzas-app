@@ -61,8 +61,25 @@ export async function updateHouseholdBaseCurrency(formData:FormData){
   revalidatePath("/app","layout"); revalidatePath("/app/movimientos"); revalidatePath("/app/cuentas"); revalidatePath("/app/ajustes");
 }
 
+// leave_household()'s SQL cascade-deletes the household row once the last member departs, taking
+// stripe_subscription_id down with it — this is the last point where the app still knows which
+// subscription that was, so it's the last chance to actually cancel it in Stripe. Without this, a
+// paying household's last member leaving (or deleting their account) would keep getting billed
+// forever with no household left in the app to ever cancel it from again.
+async function cancelSubscriptionBeforeLastMemberLeaves(supabase:Awaited<ReturnType<typeof getCurrentHousehold>>["supabase"],householdId:string|null){
+  if(!householdId)return;
+  const [{count},{data:row}]=await Promise.all([
+    supabase.from("household_members").select("*",{count:"exact",head:true}).eq("household_id",householdId),
+    supabase.from("households").select("stripe_subscription_id").eq("id",householdId).maybeSingle(),
+  ]);
+  if((count??0)>1||!row?.stripe_subscription_id)return;
+  const stripe=getStripeClient(); if(!stripe)return;
+  await stripe.subscriptions.cancel(row.stripe_subscription_id).catch(error=>console.error("No se pudo cancelar la suscripción de Stripe al salir del hogar",error));
+}
+
 export async function leaveHousehold(){
-  const {supabase}=await getCurrentHousehold();
+  const {supabase,household}=await getCurrentHousehold();
+  await cancelSubscriptionBeforeLastMemberLeaves(supabase,household?.id??null);
   const {error}=await supabase.rpc("leave_household"); if(error)throw new Error(error.message);
   redirect("/onboarding");
 }
@@ -103,7 +120,8 @@ export async function openBillingPortal(){
 }
 
 export async function deleteAccount(){
-  const {supabase,user}=await getCurrentHousehold();
+  const {supabase,user,household}=await getCurrentHousehold();
+  await cancelSubscriptionBeforeLastMemberLeaves(supabase,household?.id??null);
   const {error:leaveError}=await supabase.rpc("leave_household"); if(leaveError)throw new Error(leaveError.message);
   await supabase.auth.signOut();
   const {error}=await createAdminClient().auth.admin.deleteUser(user.id); if(error)throw new Error(error.message);
