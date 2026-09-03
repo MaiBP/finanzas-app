@@ -1,10 +1,11 @@
 import Image from "next/image";
-import { AlertTriangle, Check, Copy, CreditCard, Lock, PiggyBank } from "lucide-react";
+import { AlertTriangle, Check, CreditCard, Lock, PiggyBank } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { getHouseholdTrialStatus } from "@/lib/trial/status";
 import { createCheckoutSession, deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, openBillingPortal, unlinkTelegram, updateHouseholdBaseCurrency, updateHouseholdName, updatePersonalBaseCurrency, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { CopyCodeButton } from "@/components/onboarding/copy-code-button";
 import { getHouseholdRoster } from "@/services/household-roster";
 import { TypeToConfirm } from "@/components/settings/type-to-confirm";
 import { SUPPORTED_CURRENCIES } from "@/lib/finance/currencies";
@@ -120,7 +121,7 @@ export default async function SettingsPage() {
                   invite ? (
                     <div className="mt-4 flex items-center justify-between rounded-xl bg-(--canvas) p-4">
                       <code className="text-xl font-black tracking-[.2em]">{invite.code}</code>
-                      <Copy size={18} />
+                      <CopyCodeButton value={invite.code} />
                     </div>
                   ) : (
                     <div className="mt-4">
