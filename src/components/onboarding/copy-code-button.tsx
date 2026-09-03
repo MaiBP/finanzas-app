@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
-export function CopyCodeButton({ value }: { value: string }) {
+export function CopyCodeButton({ value, label = "Copiar invitación" }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
 
   return (
     <button
       type="button"
-      aria-label="Copiar código"
+      aria-label={label}
       onClick={() => {
         navigator.clipboard.writeText(value).then(() => {
           setCopied(true);

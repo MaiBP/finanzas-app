@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Heart } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
+import { getAppUrl } from "@/lib/env";
 import { Button } from "@/components/ui/button";
 import { FadeIn, FloatBlob } from "@/components/ui/motion";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
@@ -49,7 +50,9 @@ export default async function OnboardingInvitePage() {
           {invite ? (
             <div className="flex items-center justify-between rounded-xl bg-(--canvas) p-4">
               <code className="text-xl font-black tracking-[.2em]">{invite.code}</code>
-              <CopyCodeButton value={invite.code} />
+              <CopyCodeButton
+                value={`¡Te invito a nuestro hogar en Miti-Miti! 🏠\n1. Entrá a ${getAppUrl()}/onboarding?code=${invite.code}\n2. Iniciá sesión o registrate\n3. El código ya debería estar cargado — si no, es: ${invite.code}`}
+              />
             </div>
           ) : (
             <p className="text-sm text-(--ink)/75">Todavía no tenés un código activo.</p>

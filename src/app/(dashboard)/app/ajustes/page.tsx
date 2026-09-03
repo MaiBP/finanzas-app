@@ -2,6 +2,7 @@ import Image from "next/image";
 import { AlertTriangle, Check, CreditCard, Lock, PiggyBank } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { getHouseholdTrialStatus } from "@/lib/trial/status";
+import { getAppUrl } from "@/lib/env";
 import { createCheckoutSession, deleteAccount, generateHouseholdInvite, generateTelegramCode, leaveHousehold, openBillingPortal, unlinkTelegram, updateHouseholdBaseCurrency, updateHouseholdName, updatePersonalBaseCurrency, updatePersonalSpaceName } from "./actions";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -121,7 +122,9 @@ export default async function SettingsPage() {
                   invite ? (
                     <div className="mt-4 flex items-center justify-between rounded-xl bg-(--canvas) p-4">
                       <code className="text-xl font-black tracking-[.2em]">{invite.code}</code>
-                      <CopyCodeButton value={invite.code} />
+                      <CopyCodeButton
+                        value={`¡Te invito a nuestro hogar en Miti-Miti! 🏠\n1. Entrá a ${getAppUrl()}/onboarding?code=${invite.code}\n2. Iniciá sesión o registrate\n3. El código ya debería estar cargado — si no, es: ${invite.code}`}
+                      />
                     </div>
                   ) : (
                     <div className="mt-4">
