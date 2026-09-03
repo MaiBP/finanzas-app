@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; message?: string }>;
+  searchParams: Promise<{ error?: string; message?: string; code?: string }>;
 }) {
   const params = await searchParams;
   return (
@@ -27,7 +27,7 @@ export default async function LoginPage({
       footer={
         <>
           ¿Primera vez?{" "}
-          <Link className="font-bold text-(--ink)" href="/registro">
+          <Link className="font-bold text-(--ink)" href={params.code ? `/registro?code=${encodeURIComponent(params.code)}` : "/registro"}>
             Crea una cuenta
           </Link>
         </>
@@ -35,6 +35,9 @@ export default async function LoginPage({
     >
       <Banner kind="error">{params.error}</Banner>
       <Banner kind="success">{params.message}</Banner>
+      {params.code && (
+        <Banner kind="success">Te invitaron a un hogar. Iniciá sesión para unirte con el código {params.code}.</Banner>
+      )}
       <GoogleSignInButton />
       <div className="my-5 flex items-center gap-3 text-xs font-bold uppercase text-(--muted)">
         <span className="h-px flex-1 bg-(--ink)/20" />
@@ -42,6 +45,7 @@ export default async function LoginPage({
         <span className="h-px flex-1 bg-(--ink)/20" />
       </div>
       <form action={login} className="space-y-5">
+        {params.code && <input type="hidden" name="code" value={params.code} />}
         <label>
           <span className="label">Email</span>
           <input className="field" required type="email" name="email" autoComplete="email" />

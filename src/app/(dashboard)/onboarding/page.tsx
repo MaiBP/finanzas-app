@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
+import { createClient } from "@/lib/supabase/server";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Banner } from "@/components/ui/banner";
 import { FadeIn, FloatBlob } from "@/components/ui/motion";
@@ -20,9 +21,18 @@ export default async function Onboarding({
 }: {
   searchParams: Promise<{ error?: string; code?: string }>;
 }) {
+  const { error, code } = await searchParams;
+  // A household invite link ("/onboarding?code=...") is usually opened by someone who doesn't have
+  // an account yet — getCurrentHousehold's default bounce to /login would put them on a sign-in
+  // form when what they actually need is to register. Only reroute when a code is present so a
+  // plain, code-less visit to /onboarding (an existing user resuming onboarding) keeps landing on
+  // /login as before.
+  if (code) {
+    const { data: { user: existingUser } } = await (await createClient()).auth.getUser();
+    if (!existingUser) redirect(`/registro?code=${encodeURIComponent(code)}`);
+  }
   const { supabase, user, household } = await getCurrentHousehold();
   if (household) redirect("/app");
-  const { error, code } = await searchParams;
   const { data: profile } = await supabase.from("profiles").select("terms_accepted_at").eq("id", user.id).maybeSingle();
 
   if (!profile?.terms_accepted_at) {
