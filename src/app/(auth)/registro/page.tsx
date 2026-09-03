@@ -16,9 +16,9 @@ export const metadata: Metadata = {
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; code?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, code } = await searchParams;
   return (
     <AuthCard
       tone="lime"
@@ -27,13 +27,18 @@ export default async function SignupPage({
       footer={
         <>
           ¿Ya tienes cuenta?{" "}
-          <Link className="font-bold text-(--ink)" href="/login">
+          <Link className="font-bold text-(--ink)" href={code ? `/login?code=${encodeURIComponent(code)}` : "/login"}>
             Entra aquí
           </Link>
         </>
       }
     >
       <Banner kind="error">{error}</Banner>
+      {code && (
+        <Banner kind="success">
+          Te invitaron a un hogar. Después de confirmar tu cuenta, iniciá sesión y pegá este código: {code}
+        </Banner>
+      )}
       <GoogleSignInButton />
       <div className="my-5 flex items-center gap-3 text-xs font-bold uppercase text-(--muted)">
         <span className="h-px flex-1 bg-(--ink)/20" />

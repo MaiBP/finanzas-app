@@ -12,9 +12,11 @@ function safeMessage(value: unknown) { return encodeURIComponent(value instanceo
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
+  const code = formData.get("code");
+  const codeParam = typeof code === "string" && code ? `&code=${encodeURIComponent(code)}` : "";
   const { error } = await supabase.auth.signInWithPassword({ email: String(formData.get("email")), password: String(formData.get("password")) });
-  if (error) redirect(`/login?error=${safeMessage("Email o contraseña incorrectos")}`);
-  redirect("/app");
+  if (error) redirect(`/login?error=${safeMessage("Email o contraseña incorrectos")}${codeParam}`);
+  redirect(typeof code === "string" && code ? `/onboarding?code=${encodeURIComponent(code)}` : "/app");
 }
 
 export async function signup(formData: FormData) {
