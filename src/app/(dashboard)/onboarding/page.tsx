@@ -18,11 +18,11 @@ export const metadata: Metadata = {
 export default async function Onboarding({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; code?: string }>;
 }) {
   const { supabase, user, household } = await getCurrentHousehold();
   if (household) redirect("/app");
-  const { error } = await searchParams;
+  const { error, code } = await searchParams;
   const { data: profile } = await supabase.from("profiles").select("terms_accepted_at").eq("id", user.id).maybeSingle();
 
   if (!profile?.terms_accepted_at) {
@@ -104,7 +104,7 @@ export default async function Onboarding({
               <p className="mt-2 min-h-12 text-sm text-(--ink)/75">
                 Serás la persona propietaria y podrás invitar a quien quieras.
               </p>
-              <form action={createHousehold} className="mt-6 space-y-5">
+              <form action={createHousehold} className="mt-6 space-y-7">
                 <label>
                   <span className="label text-(--ink)!">Nombre del hogar</span>
                   <input
@@ -141,7 +141,7 @@ export default async function Onboarding({
               <p className="mt-2 min-h-12 text-sm text-(--ink)/75">
                 Escribe el código de ocho caracteres que te han compartido.
               </p>
-              <form action={joinHousehold} className="mt-6 space-y-5">
+              <form action={joinHousehold} className="mt-6 space-y-7">
                 <label>
                   <span className="label text-(--ink)!">Código de invitación</span>
                   <input
@@ -151,6 +151,7 @@ export default async function Onboarding({
                     minLength={8}
                     maxLength={8}
                     placeholder="ABC12345"
+                    defaultValue={code?.trim().toUpperCase().slice(0, 8) ?? ""}
                   />
                 </label>
                 <SubmitButton>

@@ -6,6 +6,7 @@ import { getCurrentHousehold } from "@/lib/household";
 import { Button } from "@/components/ui/button";
 import { FadeIn, FloatBlob } from "@/components/ui/motion";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
+import { SUPPORTED_CURRENCIES } from "@/lib/finance/currencies";
 import { createFirstAccount } from "./actions";
 
 export const metadata: Metadata = {
@@ -52,6 +53,12 @@ export default async function OnboardingAccountPage() {
               </select>
             </label>
             <label>
+              <span className="label">Moneda</span>
+              <select className="field" name="currency" defaultValue="EUR">
+                {SUPPORTED_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+              </select>
+            </label>
+            <label className="sm:col-span-2">
               <span className="label">Saldo inicial (opcional)</span>
               <input className="field" name="initialBalance" inputMode="decimal" placeholder="0,00" />
             </label>
