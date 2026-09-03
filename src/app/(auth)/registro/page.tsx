@@ -36,7 +36,7 @@ export default async function SignupPage({
       <Banner kind="error">{error}</Banner>
       {code && (
         <Banner kind="success">
-          Te invitaron a un hogar. Después de confirmar tu cuenta, iniciá sesión y pegá este código: {code}
+          Te invitaron a un hogar. Confirmá tu cuenta e iniciá sesión — el código ({code}) ya va a estar cargado.
         </Banner>
       )}
       <GoogleSignInButton />
@@ -46,6 +46,7 @@ export default async function SignupPage({
         <span className="h-px flex-1 bg-(--ink)/20" />
       </div>
       <form action={signup} className="space-y-5">
+        {code && <input type="hidden" name="code" value={code} />}
         <label>
           <span className="label">Cómo te llamas</span>
           <input className="field" required name="displayName" maxLength={60} autoComplete="name" />

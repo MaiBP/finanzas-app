@@ -24,18 +24,22 @@ export async function signup(formData: FormData) {
   const email = String(formData.get("email"));
   const password = String(formData.get("password"));
   const displayName = String(formData.get("displayName"));
-  if (password.length < 8) redirect(`/registro?error=${safeMessage("La contraseña debe tener al menos 8 caracteres")}`);
+  const code = formData.get("code");
+  const codeParam = typeof code === "string" && code ? `&code=${encodeURIComponent(code)}` : "";
+  if (password.length < 8) redirect(`/registro?error=${safeMessage("La contraseña debe tener al menos 8 caracteres")}${codeParam}`);
   // type=signup here is our own marker, read back by /auth/callback to skip creating a session for
   // this one flow — after confirming, the user should log in themselves rather than land already
-  // authenticated just because they clicked a link in their inbox.
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: displayName }, emailRedirectTo: `${getAppUrl()}/auth/callback?type=signup` } });
-  if (error) redirect(`/registro?error=${safeMessage(error)}`);
+  // authenticated just because they clicked a link in their inbox. invite carries a pending
+  // household invite code the same way, all the way through to the /login redirect below, so it
+  // survives the confirm-email round trip instead of getting lost after registro.
+  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: displayName }, emailRedirectTo: `${getAppUrl()}/auth/callback?type=signup${typeof code === "string" && code ? `&invite=${encodeURIComponent(code)}` : ""}` } });
+  if (error) redirect(`/registro?error=${safeMessage(error)}${codeParam}`);
   // Supabase never errors signUp for an email that's already registered (anti-enumeration) — it
   // silently returns the existing user with an empty identities list instead of creating a new one
   // or sending another confirmation email, so that's the one signal available to tell them apart.
-  if (data.user && data.user.identities?.length === 0) redirect(`/registro?error=${safeMessage("Ya existe una cuenta con ese email. Intenta iniciar sesión.")}`);
+  if (data.user && data.user.identities?.length === 0) redirect(`/registro?error=${safeMessage("Ya existe una cuenta con ese email. Intenta iniciar sesión.")}${codeParam}`);
   if (data.user) await ensureDisplayNameEncrypted(data.user.id);
-  redirect(`/login?message=${safeMessage("Revisa tu email para confirmar la cuenta (si no lo ves, revisá también spam o correo no deseado)")}`);
+  redirect(`/login?message=${safeMessage("Revisa tu email para confirmar la cuenta (si no lo ves, revisá también spam o correo no deseado)")}${codeParam}`);
 }
 
 export async function requestPasswordReset(formData: FormData) {
