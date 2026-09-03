@@ -13,7 +13,13 @@ export async function GET(request: Request) {
   // link in their inbox, which is exactly what we don't want for this flow. Skip it and send them
   // to log in on purpose instead.
   if(searchParams.get("type")==="signup"){
-    return NextResponse.redirect(`${origin}/login?message=${encodeURIComponent("¡Cuenta confirmada! Inicia sesión para continuar.")}`);
+    // invite (not "code" — that name's taken by Supabase's own PKCE param above) carries a pending
+    // household invite from signup() through the confirmation email and back to /login, which
+    // already knows what to do with a ?code= of its own: show it, pre-fill it, and send a
+    // successful login straight to /onboarding instead of /app.
+    const invite=searchParams.get("invite");
+    const codeParam=invite?`&code=${encodeURIComponent(invite)}`:"";
+    return NextResponse.redirect(`${origin}/login?message=${encodeURIComponent("¡Cuenta confirmada! Inicia sesión para continuar.")}${codeParam}`);
   }
   if (code) {
     const supabase = await createClient();
