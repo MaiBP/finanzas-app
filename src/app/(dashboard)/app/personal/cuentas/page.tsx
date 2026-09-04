@@ -1,12 +1,13 @@
 import Image from "next/image";
 import { getCurrentHousehold } from "@/lib/household";
+import { getHouseholdTrialStatus } from "@/lib/trial/status";
 import { formatMoney } from "@/lib/finance/money";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
 import { adjustAccountBalance, archiveAccount, createAccount, updateAccount } from "../../cuentas/actions";
 import { StatTile } from "@/components/ui/stat-tile";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Button } from "@/components/ui/button";
 import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
+import { GuardedSubmitButton } from "@/components/trial/guarded-submit-button";
 import { AccountIcon, FLOATING_ACCOUNT_IMAGES } from "@/components/accounts/account-icon";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/finance/account-types";
 import { SUPPORTED_CURRENCIES } from "@/lib/finance/currencies";
@@ -18,6 +19,7 @@ type MonthExpenseRow = { account_id: string; amount_cents: number };
 export default async function PersonalAccountsPage() {
   const { supabase, user, household } = await getCurrentHousehold();
   if (!household) return null;
+  const isWritable = getHouseholdTrialStatus(household).isWritable;
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   const nextMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1)).toISOString().slice(0, 10);
@@ -145,7 +147,7 @@ export default async function PersonalAccountsPage() {
                         {account.currency !== baseCurrency && (
                           <span className="rounded-full bg-(--blue) px-2.5 py-1 text-xs font-bold">{account.currency}</span>
                         )}
-                        <DeleteAccountButton id={account.id} name={account.name} action={archiveAccount} />
+                        <DeleteAccountButton id={account.id} name={account.name} action={archiveAccount} isWritable={isWritable} />
                       </div>
                     </div>
                     <h3 className="mt-5 text-lg font-black">{account.name}</h3>
@@ -197,7 +199,7 @@ export default async function PersonalAccountsPage() {
                           </select>
                         )}
                       </label>
-                      <Button type="submit" size="sm" className="self-end">Guardar cambios</Button>
+                      <GuardedSubmitButton isWritable={isWritable} size="sm" fullWidth={false} className="self-end">Guardar cambios</GuardedSubmitButton>
                       <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez. {hasMovements ? "La moneda quedó bloqueada porque esta cuenta ya tiene movimientos — para cambiarla hay que eliminar la cuenta y crearla de nuevo." : "La moneda no se puede cambiar una vez que la cuenta tenga movimientos."}</p>
                     </form>
                   </details>
@@ -215,7 +217,7 @@ export default async function PersonalAccountsPage() {
                           defaultValue={(balance / 100).toFixed(2).replace(".", ",")}
                         />
                       </label>
-                      <Button type="submit" size="sm">Ajustar saldo</Button>
+                      <GuardedSubmitButton isWritable={isWritable} size="sm" fullWidth={false}>Ajustar saldo</GuardedSubmitButton>
                       <p className="text-xs text-(--muted) sm:col-span-2">
                         Si no coincide con lo calculado, se creará un movimiento de «Ajuste de saldo» por la diferencia.
                       </p>
@@ -267,9 +269,9 @@ export default async function PersonalAccountsPage() {
             <span className="label">Saldo inicial (opcional)</span>
             <input className="field" name="initialBalance" inputMode="decimal" placeholder="0,00" />
           </label>
-          <Button type="submit" className="self-start sm:self-end">
+          <GuardedSubmitButton isWritable={isWritable} fullWidth={false} className="self-start sm:self-end">
             Crear cuenta
-          </Button>
+          </GuardedSubmitButton>
           <p className="text-xs text-(--muted) sm:col-span-2">
             Si la moneda no es {baseCurrency}, esta cuenta quedará aparte de tu resumen personal (se muestra en su propia moneda, sin convertir).
           </p>

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
+import { getHouseholdTrialStatus } from "@/lib/trial/status";
 import { formatMoney } from "@/lib/finance/money";
 import {
   calculateAccountBalance,
@@ -9,9 +10,10 @@ import {
 import { adjustSharedAccountBalance, archiveSharedAccount, createSharedAccount, updateSharedAccount } from "./actions";
 import { StatTile } from "@/components/ui/stat-tile";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Button, LinkButton } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { getHouseholdRoster } from "@/services/household-roster";
 import { DeleteAccountButton } from "@/components/accounts/delete-account-button";
+import { GuardedSubmitButton } from "@/components/trial/guarded-submit-button";
 import { AccountIcon, FLOATING_ACCOUNT_IMAGES } from "@/components/accounts/account-icon";
 import { ACCOUNT_TYPE_LABELS } from "@/lib/finance/account-types";
 import { SUPPORTED_CURRENCIES } from "@/lib/finance/currencies";
@@ -37,6 +39,7 @@ const typeNames = ACCOUNT_TYPE_LABELS;
 export default async function AccountsPage() {
   const { supabase, household } = await getCurrentHousehold();
   if (!household) return null;
+  const isWritable = getHouseholdTrialStatus(household).isWritable;
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const monthStart = `${month}-01`;
@@ -196,7 +199,7 @@ export default async function AccountsPage() {
                         <span className="rounded-full bg-(--blue) px-2.5 py-1 text-xs font-bold">{account.currency}</span>
                       )}
                       {fundingAccounts.length > 1 && (
-                        <DeleteAccountButton id={account.id} name={account.name} action={archiveSharedAccount} />
+                        <DeleteAccountButton id={account.id} name={account.name} action={archiveSharedAccount} isWritable={isWritable} />
                       )}
                     </div>
                   </div>
@@ -267,7 +270,7 @@ export default async function AccountsPage() {
                         </select>
                       )}
                     </label>
-                    <Button type="submit" size="sm" className="self-end">Guardar cambios</Button>
+                    <GuardedSubmitButton isWritable={isWritable} size="sm" fullWidth={false} className="self-end">Guardar cambios</GuardedSubmitButton>
                     <p className="text-xs text-(--muted) sm:col-span-2">El saldo cambia al registrar, editar o eliminar movimientos — usa «Ajustar saldo» aquí abajo si necesitas corregirlo de una vez. {hasMovements ? "La moneda quedó bloqueada porque esta cuenta ya tiene movimientos — para cambiarla hay que eliminar la cuenta y crearla de nuevo." : "La moneda no se puede cambiar una vez que la cuenta tenga movimientos."}</p>
                   </form>
                 </details>
@@ -285,7 +288,7 @@ export default async function AccountsPage() {
                         defaultValue={(balance / 100).toFixed(2).replace(".", ",")}
                       />
                     </label>
-                    <Button type="submit" size="sm">Ajustar saldo</Button>
+                    <GuardedSubmitButton isWritable={isWritable} size="sm" fullWidth={false}>Ajustar saldo</GuardedSubmitButton>
                     <p className="text-xs text-(--muted) sm:col-span-2">
                       Si no coincide con lo calculado, se creará un movimiento de «Ajuste de saldo» por la diferencia.
                     </p>
@@ -346,9 +349,9 @@ export default async function AccountsPage() {
             <span className="label">Saldo inicial (opcional)</span>
             <input className="field" name="initialBalance" inputMode="decimal" placeholder="0,00" />
           </label>
-          <Button type="submit" className="self-start sm:self-end">
+          <GuardedSubmitButton isWritable={isWritable} fullWidth={false} className="self-start sm:self-end">
             Crear cuenta conjunta
-          </Button>
+          </GuardedSubmitButton>
           <p className="text-xs text-(--muted) sm:col-span-2">
             Si la moneda no es {household.baseCurrency}, esta cuenta quedará aparte del resumen general (se muestra en su propia moneda, sin convertir).
           </p>

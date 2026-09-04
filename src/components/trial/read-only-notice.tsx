@@ -1,5 +1,6 @@
 import { Lock } from "lucide-react";
-import { LinkButton } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { createCheckoutSession } from "@/app/(dashboard)/app/ajustes/actions";
 
 /** Shown instead of a form/chat input once a household's trial has ended and it's read-only. */
 export function ReadOnlyNotice({ action }: { action: string }) {
@@ -14,9 +15,11 @@ export function ReadOnlyNotice({ action }: { action: string }) {
           Podés ver todo tu historial, pero para {action} activá tu suscripción por 4,99 €/mes.
         </p>
       </div>
-      <LinkButton href="/app/ajustes" size="sm">
-        Activar suscripción
-      </LinkButton>
+      <form action={createCheckoutSession}>
+        <SubmitButton size="sm" fullWidth={false} pendingText="Redirigiendo…">
+          Activar suscripción
+        </SubmitButton>
+      </form>
     </div>
   );
 }
