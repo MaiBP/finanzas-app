@@ -1,7 +1,9 @@
 "use client";
 
 import { Lock } from "lucide-react";
-import { Button, LinkButton } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { createCheckoutSession } from "@/app/(dashboard)/app/ajustes/actions";
 
 /** Popped by GuardedSubmitButton instead of letting a mutating action through once a household's
  * trial has ended — same message as ReadOnlyNotice, but for actions triggered from a page the
@@ -31,9 +33,9 @@ export function ReadOnlyModal({ open, onClose }: { open: boolean; onClose: () =>
           <Button type="button" variant="outline" size="sm" className="flex-1" onClick={onClose}>
             Cerrar
           </Button>
-          <LinkButton href="/app/ajustes" size="sm" className="flex-1">
-            Activar suscripción
-          </LinkButton>
+          <form action={createCheckoutSession} className="flex-1">
+            <SubmitButton size="sm" pendingText="Redirigiendo…">Activar suscripción</SubmitButton>
+          </form>
         </div>
       </div>
     </div>

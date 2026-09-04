@@ -87,6 +87,10 @@ export async function leaveHousehold(){
 
 export async function createCheckoutSession(){
   const {supabase,user,household}=await getCurrentHousehold(); if(!household)throw new Error("No tienes un hogar activo.");
+  // past_due already has a real Stripe subscription that just needs its payment fixed — sending it
+  // through Checkout again would create a second, duplicate subscription instead of resolving the
+  // existing one. The Billing Portal is where that gets fixed.
+  if(household.subscriptionStatus==="past_due") return openBillingPortal();
   const stripe=getStripeClient(); const priceId=process.env.STRIPE_PRICE_ID;
   if(!stripe||!priceId)throw new Error("La suscripción todavía no está disponible.");
   const {data:row}=await supabase.from("households").select("stripe_customer_id").eq("id",household.id).maybeSingle();
