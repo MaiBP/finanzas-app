@@ -338,7 +338,7 @@ export default async function TransactionsPage({
           />
         )}
         {total > 0 && (
-          <nav aria-label="Paginación de movimientos" className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-black/10 bg-white px-5 py-5 sm:mt-0 sm:px-6 sm:py-4">
+          <nav aria-label="Paginación de movimientos" className="mt-2 flex flex-col items-center gap-3 border-t border-black/10 bg-white px-5 py-5 sm:mt-0 sm:flex-row sm:justify-between sm:px-6 sm:py-4">
             <p className="text-sm font-bold text-(--muted)">
               {offset + 1}–{Math.min(offset + rows.length, total)} de {total}
             </p>

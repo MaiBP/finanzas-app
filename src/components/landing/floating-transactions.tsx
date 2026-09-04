@@ -30,9 +30,10 @@ const POOL: PoolItem[] = [
 // 1440×900 so it clears both regardless of exact video content.
 const DESKTOP_POSITION: CSSProperties = { left: "36%", top: "62%" };
 // Below lg the card (much bigger than the old pill badges) doesn't fit in the narrow gap between
-// the title and the claim, so it sits below the CTA row instead — just above where Piggy's phone
-// sits in the now-frozen ~3s pose (see hero-scrub-video.tsx), not below/overlapping it.
-const MOBILE_POSITION: CSSProperties = { left: "6%", top: "68%" };
+// the title and the claim, so it sits near the foot of the hero instead, clear of both CTA
+// buttons — closer to where Piggy's phone sits in the now-frozen ~3s pose (see
+// hero-scrub-video.tsx) than to the button stack above it.
+const MOBILE_POSITION: CSSProperties = { left: "6%", top: "85%" };
 
 // ~8s between one notification and the next (visible time + the blur transition gap).
 const VISIBLE_MS = 7000;
