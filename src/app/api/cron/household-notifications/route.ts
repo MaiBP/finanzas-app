@@ -4,16 +4,11 @@ import { sendTelegramMessage, escapeTelegramHtml } from "@/lib/telegram/api";
 import { buildDailySummaryMessage, isReminderDay, WEEKLY_REMINDER_MESSAGE, type DailyMovementRow } from "@/services/household-notifications";
 import { isTimingSafeEqual } from "@/lib/security/timing-safe";
 import { getHouseholdRoster } from "@/services/household-roster";
+import { madridDateISO } from "@/lib/date/madrid-date";
 
 export const dynamic = "force-dynamic";
 
 type TelegramLink = { user_id: string; telegram_chat_id: number };
-
-function madridDate() {
-  const parts = new Intl.DateTimeFormat("en", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${value.year}-${value.month}-${value.day}`;
-}
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -27,7 +22,7 @@ export async function GET(request: Request) {
   if (linksError) throw linksError;
   const links = (linksData ?? []) as TelegramLink[];
 
-  const today = madridDate();
+  const today = madridDateISO();
   let sent = 0;
   let skipped = 0;
   let failed = 0;

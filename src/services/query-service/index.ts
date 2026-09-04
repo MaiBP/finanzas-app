@@ -43,6 +43,14 @@ export type FinanceQueryFacts =
   // Reads the live accounts table (excludes archived_at), unlike account_summary below which
   // infers "accounts" from transaction activity in a period — different question, different source.
   | { kind: "account_list"; scope: FinanceScope; accounts: { name: string; type: string; shared: boolean }[] }
+  // Reads the stored month_closing_snapshots row directly (a cron-generated historical note, not
+  // recomputed from transactions here) — "found: false" when that month hasn't closed yet (still
+  // in progress, or before the feature existed).
+  | { kind: "month_closing_balance"; month: string; found: false }
+  | {
+      kind: "month_closing_balance"; month: string; found: true; baseCurrency: string; totalBalanceCents: number;
+      breakdown: { name: string; type: string; currency: string; balanceCents: number }[];
+    }
   | { kind: "account_summary"; rangeLabel: string; accounts: { name: string; income: number; expenses: number; result: number }[] }
   | { kind: "largest_transactions"; movementType: "expense" | "income"; rangeLabel: string; empty: true }
   | { kind: "largest_transactions"; movementType: "expense" | "income"; rangeLabel: string; empty?: false; items: { description: string; amount_cents: number; date: string }[] }
@@ -343,6 +351,23 @@ export async function computeFinanceQueryFacts(
     }));
     return { kind: "account_list", scope, accounts };
   }
+  if (data.query_type === "month_closing_balance") {
+    // Defaults to the most recently closed month (the current one never has a snapshot yet) —
+    // matches how compare_months/savings_opportunities default an unspecified month below.
+    const month = filters.month ?? shiftMonth(madridToday(now).slice(0, 7), -1);
+    const { data: snapshot, error } = await db
+      .from("month_closing_snapshots")
+      .select("base_currency,total_balance_cents,account_breakdown")
+      .eq("household_id", householdId)
+      .eq("closing_date", monthEnd(month))
+      .maybeSingle();
+    if (error) throw error;
+    if (!snapshot) return { kind: "month_closing_balance", month, found: false };
+    const breakdown = (snapshot.account_breakdown as { name: string; type: string; currency: string; balance_cents: number }[]).map((account) => ({
+      name: account.name, type: account.type, currency: account.currency, balanceCents: account.balance_cents,
+    }));
+    return { kind: "month_closing_balance", month, found: true, baseCurrency: snapshot.base_currency, totalBalanceCents: snapshot.total_balance_cents, breakdown };
+  }
   const today = madridToday(now);
   let range = resolveFinancePeriod(filters, now);
   if (data.query_type === "household_balance" || data.query_type === "recent_transactions") {
@@ -546,6 +571,9 @@ export function formatFinanceReply(facts: FinanceQueryFacts): string {
         return `🏠 El saldo actual del hogar es ${formatMoney(facts.shared.result)} y el de tu espacio personal es ${formatMoney(facts.personal.result)}. 📊 El saldo combinado es ${formatMoney(facts.totals.result)}. Todo está calculado con movimientos confirmados.`;
       }
       return `💰 El saldo actual de ${scopeLabel(facts.scope)} es ${formatMoney(facts.totals.result)}: ${formatMoney(facts.totals.income)} de ingresos menos ${formatMoney(facts.totals.expenses)} de gastos registrados.`;
+    case "month_closing_balance":
+      if (!facts.found) return `🤷 Todavía no tengo un cierre guardado para ${facts.month} — se genera automáticamente el último día de cada mes.`;
+      return `📅 El hogar cerró ${facts.month} con ${formatMoney(facts.totalBalanceCents, facts.baseCurrency)}. Detalle por cuenta: ${facts.breakdown.map((a) => `${a.name}: ${formatMoney(a.balanceCents, a.currency)}`).join("; ")}.`;
     case "recent_transactions":
       return facts.items.map((item) =>
         `${item.type === "expense" ? "🔴" : "🟢"} ${item.scope === "shared" ? "Conjunto" : "Personal"} · ${item.account} · ${item.type === "expense" ? "−" : "+"}${formatMoney(item.amount_cents)} · ${item.description} (${item.date})`,
