@@ -16,6 +16,8 @@ import { fetchRecentMessages, recordMessage } from "@/services/conversation-hist
 import { redactHouseholdNames, redactRecentMessages, HOUSEHOLD_NAME_PRIVACY_NOTE, type HouseholdMember } from "@/services/privacy/redact-household-names";
 import { decryptField } from "@/lib/security/field-encryption";
 import { isReadOnlyTrialError, friendlyRpcError } from "@/lib/trial/errors";
+import { getHouseholdTrialStatus } from "@/lib/trial/status";
+import { createReminder, deleteReminderRecord, describeReminderList, describeReminderPreview, findReminderByReference, updateReminder } from "@/services/reminders";
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLocaleLowerCase("es").trim();
@@ -39,6 +41,25 @@ const ONBOARDING_MESSAGES=[
   "🧾 ¿Tenés un ticket o extracto? Mandame la foto o el PDF y te muestro una vista previa antes de guardar nada — hasta puedo detectar los productos de un ticket de supermercado uno por uno.",
   "Cuando quieras repasar esto de nuevo, escribí /ayuda. 🙌 ¿Querés probar ahora? Contame un gasto real de hoy.",
 ];
+
+// Reminders don't go through a gated RPC like transactions do, so this is the one manual check
+// standing in for household_is_writable() — reuses the exact READ_ONLY_TRIAL: prefix the webhook's
+// own catch block already knows how to turn into a friendly 🔒 reply.
+async function assertHouseholdWritable(db:ReturnType<typeof createAdminClient>,householdId:string){
+  const {data}=await db.from("households").select("subscription_status,trial_started_at").eq("id",householdId).maybeSingle();
+  if(!data)return;
+  const status=getHouseholdTrialStatus({subscriptionStatus:data.subscription_status,trialStartedAt:data.trial_started_at});
+  if(!status.isWritable)throw new Error("READ_ONLY_TRIAL: Tu prueba de 30 días terminó. Activa tu suscripción para seguir creando recordatorios.");
+}
+
+// Same visibility rule as the reminders RLS policy: every shared reminder, plus this user's own
+// personal ones — used both to answer "list my reminders" and to resolve which one a reference
+// like "el del alquiler" points to for update/delete.
+async function fetchVisibleReminders(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string){
+  const {data}=await db.from("reminders").select("id,description,scope,is_recurring,day_of_month,reminder_date,remind_days_before,amount_cents").eq("household_id",householdId).eq("active",true).or(`scope.eq.shared,and(scope.eq.personal,created_by.eq.${userId})`);
+  return ((data??[]) as {id:string;description:string;scope:"personal"|"shared";is_recurring:boolean;day_of_month:number|null;reminder_date:string|null;remind_days_before:number;amount_cents:number|null}[])
+    .map(row=>({...row,description:decryptField(row.description)}));
+}
 
 async function queueAction(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,action:FinancialAction){
   await db.from("pending_actions").delete().eq("user_id",userId);
@@ -175,6 +196,25 @@ async function confirmPending(db:ReturnType<typeof createAdminClient>,userId:str
     if(!action.data.account_name&&accounts.length>1)return {text:accountSelectionQuestion(action),confirmed:false};
     reply=await executeTelegramAction(db,userId,householdId,action); confirmed=true;
   }
+  else if(action.action==="create_reminder"){
+    await assertHouseholdWritable(db,householdId);
+    reply=await createReminder(db,userId,householdId,action.data); confirmed=true;
+  }
+  else if(action.action==="update_reminder"){
+    // Deleting stays allowed regardless (removing a stale note shouldn't need a subscription),
+    // but changing one is "using the feature" the same way creating one is.
+    await assertHouseholdWritable(db,householdId);
+    const candidates=await fetchVisibleReminders(db,userId,householdId);
+    const match=findReminderByReference(candidates,action.data.reference);
+    if(!match)throw new Error("No encuentro un recordatorio tuyo que coincida.");
+    reply=await updateReminder(db,match,action.data); confirmed=true;
+  }
+  else if(action.action==="delete_reminder"){
+    const candidates=await fetchVisibleReminders(db,userId,householdId);
+    const match=findReminderByReference(candidates,action.data.reference);
+    if(!match)throw new Error("No encuentro un recordatorio tuyo que coincida.");
+    reply=await deleteReminderRecord(db,match); confirmed=true;
+  }
   else if(action.action==="delete_transaction"){
     // description is encrypted at rest (non-deterministic ciphertext), so "delete by reference"
     // can't ilike-match in SQL anymore: fetch recent candidates, decrypt, match in JS.
@@ -298,6 +338,7 @@ export async function POST(request:Request){
     if(action.action==="request_clarification")reply=action.data.question;
     else if(action.action==="general_question")reply=action.data.answer;
     else if(action.action==="query_finances")reply=await executeFinanceQuery(db,membership.household_id,link.user_id,action.data,new Date(),{question:safeText,recentMessages:safeRecent});
+    else if(action.action==="list_reminders")reply=describeReminderList(await fetchVisibleReminders(db,link.user_id,membership.household_id));
     else if(action.action==="cancel_action")reply="👍 De acuerdo, no hago nada.";
     else if(action.action==="update_transaction"){reply="🔒 Esta edición necesita hacerse desde la web por seguridad.";confirmed=true;}
     else if(action.action==="create_transaction"){
@@ -313,6 +354,13 @@ export async function POST(request:Request){
       }
       else if(!action.requires_confirmation&&action.confidence>=.85){reply=await executeTelegramAction(db,link.user_id,membership.household_id,action);confirmed=true;}
       else {await queueAction(db,link.user_id,membership.household_id,action);reply=`${describeCreateTransaction(action)}\n\n📋 Queda pendiente.`;keyboard=confirmCancelKeyboard("create_transaction");}
+    }
+    else if(action.action==="create_reminder"){
+      if(!action.requires_confirmation&&action.confidence>=.85){
+        await assertHouseholdWritable(db,membership.household_id);
+        reply=await createReminder(db,link.user_id,membership.household_id,action.data);confirmed=true;
+      }
+      else {await queueAction(db,link.user_id,membership.household_id,action);reply=`${describeReminderPreview(action.data)}\n\n📋 Queda pendiente.`;keyboard=confirmCancelKeyboard("create_reminder");}
     }
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"🗑️ He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"📋 Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";keyboard=confirmCancelKeyboard(action.action);}
     if(mentioned)reply=`${reply}\n\n${HOUSEHOLD_NAME_PRIVACY_NOTE}`;

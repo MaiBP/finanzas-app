@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, Plus } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Bell, Plus, X } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
 import { formatMoney } from "@/lib/finance/money";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -10,6 +10,8 @@ import { getHouseholdFinancialInsight } from "@/services/financial-insights";
 import { groupCategoryChartData } from "@/lib/finance/category-chart";
 import { calculateAccountBalance } from "@/lib/finance/account-overview";
 import { decryptField } from "@/lib/security/field-encryption";
+import { nextRecurringOccurrence } from "@/services/reminders";
+import { deleteReminder } from "./actions";
 
 type DashboardRow = {
   id: string;
@@ -34,7 +36,7 @@ export default async function DashboardPage({
   const today = `${currentMonth}-${String(now.getDate()).padStart(2, "0")}`;
   const { supabase, household } = await getCurrentHousehold();
   if (!household) return null;
-  const [{ data }, { data: accountsData }, insight] = await Promise.all([
+  const [{ data }, { data: accountsData }, insight, { data: reminderRows }] = await Promise.all([
     supabase
       .from("transactions")
       .select(
@@ -47,9 +49,21 @@ export default async function DashboardPage({
       .order("created_at", { ascending: false }),
     supabase.from("accounts").select("id,name,type,currency").eq("household_id", household.id).eq("is_shared", true).neq("type", "joint").is("archived_at", null).order("created_at"),
     getHouseholdFinancialInsight(supabase, household.id, currentMonth, household.baseCurrency),
+    // RLS already narrows this to shared reminders plus the current user's own personal ones — no
+    // extra scope filter needed here.
+    supabase.from("reminders").select("id,description,scope,is_recurring,day_of_month,reminder_date,remind_days_before,amount_cents").eq("household_id", household.id).eq("active", true),
   ]);
   const allRows = ((data ?? []) as unknown as DashboardRow[]).map((row) => ({ ...row, description: decryptField(row.description) }));
   const allAccounts = (accountsData ?? []) as DashboardAccount[];
+  type ReminderRow = { id: string; description: string; scope: "personal" | "shared"; is_recurring: boolean; day_of_month: number | null; reminder_date: string | null; remind_days_before: number; amount_cents: number | null };
+  const reminders = ((reminderRows ?? []) as ReminderRow[])
+    .map((reminder) => ({
+      ...reminder,
+      description: decryptField(reminder.description),
+      nextDate: reminder.is_recurring ? nextRecurringOccurrence(reminder.day_of_month!, today) : reminder.reminder_date!,
+    }))
+    .sort((a, b) => a.nextDate.localeCompare(b.nextDate))
+    .slice(0, 5);
   // The general summary only ever mixes accounts in the household's base currency — an account in
   // another currency shows up in its own "Otras cuentas" card instead (see below), never summed
   // into these totals, since nothing here converts between currencies.
@@ -153,6 +167,36 @@ export default async function DashboardPage({
           />
         </div>
       </section>
+      {reminders.length > 0 && (
+        <section className="card mt-6 p-5 md:p-7">
+          <h2 className="text-lg font-black">Recordatorios</h2>
+          <p className="text-sm text-(--muted)">Piggy te avisa por Telegram el día que corresponda.</p>
+          <div className="mt-4 divide-y divide-black/5">
+            {reminders.map((reminder) => (
+              <div key={reminder.id} className="flex items-center gap-3 py-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-(--highlight)">
+                  <Bell size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold">{reminder.description}</p>
+                  <p className="text-xs text-(--muted)">
+                    {reminder.nextDate}
+                    {reminder.amount_cents != null ? ` · ${formatMoney(reminder.amount_cents, household.baseCurrency)}` : ""}
+                    {" · "}
+                    {reminder.scope === "shared" ? "Compartido" : "Personal"}
+                  </p>
+                </div>
+                <form action={deleteReminder}>
+                  <input type="hidden" name="id" value={reminder.id} />
+                  <button type="submit" aria-label={`Eliminar recordatorio ${reminder.description}`} className="rounded-lg p-2 text-(--muted) hover:text-(--ink)">
+                    <X size={16} />
+                  </button>
+                </form>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
       <section className="mt-6 grid gap-6 lg:grid-cols-[1.35fr_.9fr]">
         {/* min-w-0 on both grid items: without it, a wide child (the chart's SVG, a long
             description) can force its whole track past the viewport instead of shrinking to it —

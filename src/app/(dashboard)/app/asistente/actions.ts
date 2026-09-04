@@ -7,8 +7,15 @@ import { fetchRecentMessages, recordMessage } from "@/services/conversation-hist
 import { redactHouseholdNames, redactRecentMessages, HOUSEHOLD_NAME_PRIVACY_NOTE, type HouseholdMember } from "@/services/privacy/redact-household-names";
 import { decryptField } from "@/lib/security/field-encryption";
 import { getHouseholdTrialStatus } from "@/lib/trial/status";
+import { createReminder, deleteReminderRecord, describeReminderList, findReminderByReference, updateReminder, type ReminderRecord } from "@/services/reminders";
 
 export type AssistantState = { reply?: string; error?: string };
+
+// RLS already narrows this to shared reminders plus the current user's own personal ones.
+async function fetchVisibleReminders(supabase: Awaited<ReturnType<typeof getCurrentHousehold>>["supabase"], householdId: string): Promise<ReminderRecord[]> {
+  const { data } = await supabase.from("reminders").select("id,description,scope,is_recurring,day_of_month,reminder_date,remind_days_before,amount_cents").eq("household_id", householdId).eq("active", true);
+  return ((data ?? []) as ReminderRecord[]).map((row) => ({ ...row, description: decryptField(row.description) }));
+}
 
 export async function askAssistant(_state: AssistantState, formData: FormData): Promise<AssistantState> {
   const text = String(formData.get("message") ?? "").trim();
@@ -48,6 +55,21 @@ export async function askAssistant(_state: AssistantState, formData: FormData): 
     let reply: string;
     if (action.action === "query_finances") {
       reply = await executeFinanceQuery(supabase, household.id, user.id, action.data, new Date(), { question: safeText, recentMessages: safeRecentMessages });
+    } else if (action.action === "create_reminder") {
+      // No pending-confirmation flow exists on the web assistant (unlike Telegram's queue-and-ask-
+      // "sí"), so this always creates it directly — same as query_finances above.
+      reply = await createReminder(supabase, user.id, household.id, action.data);
+    } else if (action.action === "list_reminders") {
+      reply = describeReminderList(await fetchVisibleReminders(supabase, household.id));
+    } else if (action.action === "update_reminder" || action.action === "delete_reminder") {
+      const match = findReminderByReference(await fetchVisibleReminders(supabase, household.id), action.data.reference);
+      if (!match) {
+        reply = "🤷 No encuentro un recordatorio tuyo que coincida con eso.";
+      } else if (action.action === "update_reminder") {
+        reply = await updateReminder(supabase, match, action.data);
+      } else {
+        reply = await deleteReminderRecord(supabase, match);
+      }
     } else if (action.action === "general_question") {
       reply = action.data.answer;
     } else if (action.action === "request_clarification") {

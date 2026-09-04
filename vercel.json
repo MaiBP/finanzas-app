@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/month-closing",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/reminder-notifications",
+      "schedule": "0 7 * * *"
     }
   ]
 }
