@@ -8,6 +8,8 @@ import { transactionSchema } from "@/lib/validations/transaction";
 import { encryptField } from "@/lib/security/field-encryption";
 import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
 import { friendlyRpcError } from "@/lib/trial/errors";
+import { decryptField } from "@/lib/security/field-encryption";
+import { updateReminder, type ReminderPatch, type ReminderRecord } from "@/services/reminders";
 
 export type ActionState = { error?: string; success?: string };
 type FinanceMode = "shared" | "personal";
@@ -72,4 +74,40 @@ export async function softDeleteTransaction(formData: FormData) {
   const { error } = await supabase.rpc("soft_delete_financial_transaction", { p_transaction_id: id });
   if (error) redirect(`${returnTo}?error=${encodeURIComponent(friendlyRpcError(error.message))}`);
   revalidatePath("/app"); revalidatePath("/app/movimientos"); revalidatePath("/app/personal"); revalidatePath("/app/personal/movimientos"); revalidatePath("/app/personal/cuentas");
+}
+
+// A reminder is just a note, never a real transaction — RLS already restricts this to whoever
+// created it (even a shared reminder can't be deleted by the other partner), so no extra checks
+// needed here.
+export async function deleteReminder(formData: FormData) {
+  const { supabase } = await getCurrentHousehold();
+  const id = String(formData.get("id"));
+  const { error } = await supabase.from("reminders").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/app"); revalidatePath("/app/recordatorios");
+}
+
+// scope and is_recurring are deliberately not editable here — changing what a reminder fundamentally
+// is (shared vs personal, monthly vs one-off) is a delete-and-recreate, not an edit.
+export async function updateReminderAction(formData: FormData) {
+  const { supabase } = await getCurrentHousehold();
+  const id = String(formData.get("id"));
+  const { data: existing } = await supabase.from("reminders").select("id,description,scope,is_recurring,day_of_month,reminder_date,remind_days_before,amount_cents").eq("id", id).maybeSingle();
+  if (!existing) throw new Error("No encuentro ese recordatorio.");
+  const reminder: ReminderRecord = { ...existing, description: decryptField(existing.description) };
+
+  const description = String(formData.get("description") ?? "").trim();
+  const dayOfMonth = String(formData.get("day_of_month") ?? "").trim();
+  const reminderDate = String(formData.get("reminder_date") ?? "").trim();
+  const remindDaysBefore = String(formData.get("remind_days_before") ?? "").trim();
+  const amount = String(formData.get("amount") ?? "").trim();
+  const patch: ReminderPatch = {
+    description: description || null,
+    day_of_month: dayOfMonth ? Number(dayOfMonth) : null,
+    reminder_date: reminderDate || null,
+    remind_days_before: remindDaysBefore ? Number(remindDaysBefore) : null,
+    amount_cents: amount ? eurosToCents(amount) : null,
+  };
+  await updateReminder(supabase, reminder, patch);
+  revalidatePath("/app"); revalidatePath("/app/recordatorios");
 }

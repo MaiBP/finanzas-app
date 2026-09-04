@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { BarChart3, Bot, CircleDollarSign, CreditCard, Home, LogOut, Mail, Settings, UserRound } from "lucide-react";
+import { BarChart3, Bell, Bot, CircleDollarSign, CreditCard, Home, LogOut, Mail, Settings, UserRound } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { AppContextLabel } from "@/components/layout/app-context-label";
 import { SectionSurface } from "@/components/layout/section-surface";
@@ -32,6 +32,7 @@ const personalMobileNav = [
 ] as const;
 const generalNav = [
   { href: "/app/asistente", label: "Asistente", icon: Bot },
+  { href: "/app/recordatorios", label: "Recordatorios", icon: Bell },
   { href: "/app/ajustes", label: "Ajustes", icon: Settings },
   { href: "/app/contacto", label: "Contacto", icon: Mail },
 ] as const;

@@ -35,6 +35,13 @@ export function applyFinancialDefaults(action: FinancialAction, originalText: st
     return next;
   }
 
+  // Same shared-by-default rule as create_transaction below, so "recordame pagar el alquiler"
+  // (no space named) becomes a shared reminder instead of trusting whatever the model guessed.
+  if (action.action === "create_reminder") {
+    const scope = explicitPersonalIntent.test(originalText) ? "personal" : "shared";
+    return { ...action, data: { ...action.data, scope } };
+  }
+
   if (action.action !== "create_transaction") return action;
 
   const scopeExplicit = explicitPersonalIntent.test(originalText) || explicitSharedIntent.test(originalText);

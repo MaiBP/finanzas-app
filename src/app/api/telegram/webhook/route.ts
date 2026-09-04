@@ -3,7 +3,8 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidWebhookSecret } from "@/lib/telegram/security";
 import { checkTelegramMessageRateLimit, checkTelegramVoiceRateLimit, MAX_VOICE_DURATION_SECONDS } from "@/lib/telegram/rate-limit";
-import { answerCallbackQuery, downloadTelegramFile, editMessageReplyMarkup, editMessageText, escapeTelegramHtml, MAX_TELEGRAM_IMPORT_BYTES, sendTelegramMessage, withTelegramWebSuggestion, type InlineKeyboardMarkup } from "@/lib/telegram/api";
+import { answerCallbackQuery, downloadTelegramFile, editMessageReplyMarkup, editMessageText, escapeTelegramHtml, MAX_TELEGRAM_IMPORT_BYTES, sendTelegramMessage, sendTelegramPhoto, withTelegramWebSuggestion, type InlineKeyboardMarkup } from "@/lib/telegram/api";
+import { getAppUrl } from "@/lib/env";
 import { confirmCancelKeyboard, createTransactionDecisionKeyboard, importDecisionKeyboard, importReviewKeyboard } from "@/lib/telegram/keyboards";
 import { parseFinancialMessage } from "@/services/financial-message-parser";
 import { financialActionSchema, type FinancialAction } from "@/services/financial-message-parser/schema";
@@ -16,6 +17,8 @@ import { fetchRecentMessages, recordMessage } from "@/services/conversation-hist
 import { redactHouseholdNames, redactRecentMessages, HOUSEHOLD_NAME_PRIVACY_NOTE, type HouseholdMember } from "@/services/privacy/redact-household-names";
 import { decryptField } from "@/lib/security/field-encryption";
 import { isReadOnlyTrialError, friendlyRpcError } from "@/lib/trial/errors";
+import { getHouseholdTrialStatus } from "@/lib/trial/status";
+import { createReminder, deleteReminderRecord, describeReminderDeletePreview, describeReminderList, describeReminderPreview, describeReminderUpdatePreview, findReminderByReference, updateReminder } from "@/services/reminders";
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLocaleLowerCase("es").trim();
@@ -33,12 +36,40 @@ const STALE_ACTION_MESSAGE="⏳ Pasó tiempo desde que enviaste ese mensaje. Por
 
 // Sent as a short back-to-back sequence right after a successful /vincular, instead of one big
 // wall of text — repeats on every re-link (e.g. after a phone change), not just the first time.
+// The first one goes out as a photo+caption (see sendOnboardingMessages) so Piggy has a face
+// instead of just a wave emoji; the rest are plain text.
 const ONBOARDING_MESSAGES=[
-  "👋 Soy Piggy, tu asistente financiero. Así de simple es registrar algo:\n💬 Escribime o mandame un audio: “Gasté 20 euros en el súper” o “Ingresé 500 de sueldo”.\nPor defecto lo registro como compartido con tu pareja — agregá la palabra “personal” si es solo tuyo.",
+  "👋 Soy Piggy, tu asistente financiero. Así de simple es registrar algo:\n💬 Escribime o mandame un audio: “Gasté 20 euros en el súper” o “Ingresé 500 de sueldo”.\nPor defecto lo registro como compartido con tu pareja — agregá la palabra “personal” si es solo tuyo. Si tenés cuentas de los dos tipos y no aclarás cuál es, te pregunto antes de guardar nada.",
   "📊 También podés preguntarme por tus finanzas: “¿Cuánto gastamos este mes?”, “¿En qué gasté más?”, “Mostrame los últimos movimientos”. Los números siempre salen de tus datos reales, nunca los invento.",
   "🧾 ¿Tenés un ticket o extracto? Mandame la foto o el PDF y te muestro una vista previa antes de guardar nada — hasta puedo detectar los productos de un ticket de supermercado uno por uno.",
+  "🔔 También puedo acordarme de tus pagos: “recordame pagar el alquiler el día 5 de cada mes” y te aviso acá el día que corresponda. Pedime la lista, o decime qué cambiar o borrar, cuando quieras.",
   "Cuando quieras repasar esto de nuevo, escribí /ayuda. 🙌 ¿Querés probar ahora? Contame un gasto real de hoy.",
 ];
+
+async function sendOnboardingMessages(chatId:number){
+  const [first,...rest]=ONBOARDING_MESSAGES;
+  await sendTelegramPhoto(chatId,`${getAppUrl()}/piggy-bank.png`,first).catch(()=>sendTelegramMessage(chatId,first));
+  for(const message of rest)await sendTelegramMessage(chatId,message);
+}
+
+// Reminders don't go through a gated RPC like transactions do, so this is the one manual check
+// standing in for household_is_writable() — reuses the exact READ_ONLY_TRIAL: prefix the webhook's
+// own catch block already knows how to turn into a friendly 🔒 reply.
+async function assertHouseholdWritable(db:ReturnType<typeof createAdminClient>,householdId:string){
+  const {data}=await db.from("households").select("subscription_status,trial_started_at").eq("id",householdId).maybeSingle();
+  if(!data)return;
+  const status=getHouseholdTrialStatus({subscriptionStatus:data.subscription_status,trialStartedAt:data.trial_started_at});
+  if(!status.isWritable)throw new Error("READ_ONLY_TRIAL: Tu prueba de 30 días terminó. Activa tu suscripción para seguir creando recordatorios.");
+}
+
+// Same visibility rule as the reminders RLS policy: every shared reminder, plus this user's own
+// personal ones — used both to answer "list my reminders" and to resolve which one a reference
+// like "el del alquiler" points to for update/delete.
+async function fetchVisibleReminders(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string){
+  const {data}=await db.from("reminders").select("id,description,scope,is_recurring,day_of_month,reminder_date,remind_days_before,amount_cents").eq("household_id",householdId).eq("active",true).or(`scope.eq.shared,and(scope.eq.personal,created_by.eq.${userId})`);
+  return ((data??[]) as {id:string;description:string;scope:"personal"|"shared";is_recurring:boolean;day_of_month:number|null;reminder_date:string|null;remind_days_before:number;amount_cents:number|null}[])
+    .map(row=>({...row,description:decryptField(row.description)}));
+}
 
 async function queueAction(db:ReturnType<typeof createAdminClient>,userId:string,householdId:string,action:FinancialAction){
   await db.from("pending_actions").delete().eq("user_id",userId);
@@ -175,6 +206,25 @@ async function confirmPending(db:ReturnType<typeof createAdminClient>,userId:str
     if(!action.data.account_name&&accounts.length>1)return {text:accountSelectionQuestion(action),confirmed:false};
     reply=await executeTelegramAction(db,userId,householdId,action); confirmed=true;
   }
+  else if(action.action==="create_reminder"){
+    await assertHouseholdWritable(db,householdId);
+    reply=await createReminder(db,userId,householdId,action.data); confirmed=true;
+  }
+  else if(action.action==="update_reminder"){
+    // Deleting stays allowed regardless (removing a stale note shouldn't need a subscription),
+    // but changing one is "using the feature" the same way creating one is.
+    await assertHouseholdWritable(db,householdId);
+    const candidates=await fetchVisibleReminders(db,userId,householdId);
+    const match=findReminderByReference(candidates,action.data.reference);
+    if(!match)throw new Error("No encuentro un recordatorio tuyo que coincida.");
+    reply=await updateReminder(db,match,action.data); confirmed=true;
+  }
+  else if(action.action==="delete_reminder"){
+    const candidates=await fetchVisibleReminders(db,userId,householdId);
+    const match=findReminderByReference(candidates,action.data.reference);
+    if(!match)throw new Error("No encuentro un recordatorio tuyo que coincida.");
+    reply=await deleteReminderRecord(db,match); confirmed=true;
+  }
   else if(action.action==="delete_transaction"){
     // description is encrypted at rest (non-deterministic ciphertext), so "delete by reference"
     // can't ilike-match in SQL anymore: fetch recent candidates, decrypt, match in JS.
@@ -247,7 +297,7 @@ export async function POST(request:Request){
   const message=parsed.data.message;const {chat,from}=message;let text=(message.text??message.caption??"").trim();const db=createAdminClient();
   try{
     if(!(await checkTelegramMessageRateLimit(db,from.id))){await sendTelegramMessage(chat.id,"⏳ Has enviado demasiados mensajes seguidos. Espera un momento y vuelve a intentarlo.");return NextResponse.json({ok:true});}
-    if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"💡 En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”, por texto o por nota de voz. También puedes adjuntar un PDF o una imagen de un extracto: te mostraré una vista previa antes de registrar nada, y si algo está mal podés contarme qué corregir antes de confirmar. Los archivos y notas de voz se procesan con OpenAI y no se guardan en Miti-Miti. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. También puedes pedirme análisis: “¿cómo viene mi gasto en supermercado?”, “¿dónde puedo ahorrar?”, “desglósame el súper por productos”. Comandos: 📊 /resumen · 🧾 /ultimos · ❌ /cancelar.");return NextResponse.json({ok:true});}
+    if(text.startsWith("/ayuda")){await sendTelegramMessage(chat.id,"💡 En Miti-Miti puedes decirme “Gasté 42 euros en Mercadona” o “Ingresé 500 euros en Banco”, por texto o por nota de voz. También puedes adjuntar un PDF o una imagen de un extracto: te mostraré una vista previa antes de registrar nada, y si algo está mal podés contarme qué corregir antes de confirmar. Los archivos y notas de voz se procesan con OpenAI y no se guardan en Miti-Miti. Los movimientos son compartidos por defecto; añade “personal” si deben ir solo a tu espacio privado. Si tienes varias cuentas te preguntaré cuál usar. También puedes pedirme análisis: “¿cómo viene mi gasto en supermercado?”, “¿dónde puedo ahorrar?”, “desglósame el súper por productos”. 🔔 Y puedo recordarte pagos: “recordame pagar el alquiler el día 5 de cada mes”, “¿qué recordatorios tengo?”, “cambiá el día del alquiler al 10”, “borrá el recordatorio de la luz”. Comandos: 📊 /resumen · 🧾 /ultimos · ❌ /cancelar.");return NextResponse.json({ok:true});}
     if(text.startsWith("/start")||text.startsWith("/vincular")){
       // Telegram's deep link (t.me/<bot>?start=CODE) sends "/start CODE" automatically, so it
       // shares this same linking branch instead of only showing the greeting.
@@ -264,7 +314,7 @@ export async function POST(request:Request){
       const {error}=await db.rpc("link_telegram_account",{p_code:code,p_telegram_user_id:from.id,p_telegram_chat_id:chat.id});
       if(error)throw error;
       await sendTelegramMessage(chat.id,"✅ ¡Listo! Tu Telegram ya está vinculado con Miti-Miti.");
-      for(const message of ONBOARDING_MESSAGES)await sendTelegramMessage(chat.id,message);
+      await sendOnboardingMessages(chat.id);
       return NextResponse.json({ok:true});
     }
     const {data:link}=await db.from("telegram_links").select("user_id").eq("telegram_user_id",from.id).maybeSingle();if(!link){await sendTelegramMessage(chat.id,"🤔 No reconozco esta cuenta. Genera un código en Ajustes y usa <code>/vincular CÓDIGO</code>.");return NextResponse.json({ok:true});}
@@ -298,6 +348,7 @@ export async function POST(request:Request){
     if(action.action==="request_clarification")reply=action.data.question;
     else if(action.action==="general_question")reply=action.data.answer;
     else if(action.action==="query_finances")reply=await executeFinanceQuery(db,membership.household_id,link.user_id,action.data,new Date(),{question:safeText,recentMessages:safeRecent});
+    else if(action.action==="list_reminders")reply=describeReminderList(await fetchVisibleReminders(db,link.user_id,membership.household_id));
     else if(action.action==="cancel_action")reply="👍 De acuerdo, no hago nada.";
     else if(action.action==="update_transaction"){reply="🔒 Esta edición necesita hacerse desde la web por seguridad.";confirmed=true;}
     else if(action.action==="create_transaction"){
@@ -313,6 +364,25 @@ export async function POST(request:Request){
       }
       else if(!action.requires_confirmation&&action.confidence>=.85){reply=await executeTelegramAction(db,link.user_id,membership.household_id,action);confirmed=true;}
       else {await queueAction(db,link.user_id,membership.household_id,action);reply=`${describeCreateTransaction(action)}\n\n📋 Queda pendiente.`;keyboard=confirmCancelKeyboard("create_transaction");}
+    }
+    else if(action.action==="create_reminder"){
+      if(!action.requires_confirmation&&action.confidence>=.85){
+        await assertHouseholdWritable(db,membership.household_id);
+        reply=await createReminder(db,link.user_id,membership.household_id,action.data);confirmed=true;
+      }
+      else {await queueAction(db,link.user_id,membership.household_id,action);reply=`${describeReminderPreview(action.data)}\n\n📋 Queda pendiente.`;keyboard=confirmCancelKeyboard("create_reminder");}
+    }
+    else if(action.action==="update_reminder"||action.action==="delete_reminder"){
+      // Resolved here (not just at confirm time) so the "sí"/"no" prompt itself names which
+      // reminder was matched — confirming blind and finding out afterward would be a much worse
+      // surprise if the reference matched the wrong one.
+      const match=findReminderByReference(await fetchVisibleReminders(db,link.user_id,membership.household_id),action.data.reference);
+      if(!match){reply="🤷 No encuentro un recordatorio tuyo que coincida con eso.";}
+      else {
+        await queueAction(db,link.user_id,membership.household_id,action);
+        reply=action.action==="update_reminder"?describeReminderUpdatePreview(match,action.data):describeReminderDeletePreview(match);
+        keyboard=confirmCancelKeyboard(action.action);
+      }
     }
     else {await queueAction(db,link.user_id,membership.household_id,action);reply=action.action==="delete_transaction"?"🗑️ He encontrado la acción de borrado. Responde “sí” para confirmarla o “no” para cancelar.":"📋 Queda pendiente. Responde “sí” para confirmar o “no” para cancelar.";keyboard=confirmCancelKeyboard(action.action);}
     if(mentioned)reply=`${reply}\n\n${HOUSEHOLD_NAME_PRIVACY_NOTE}`;

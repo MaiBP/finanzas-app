@@ -25,8 +25,30 @@ const transactionData = z.object({
   scope_explicit: z.boolean().default(false),
 });
 
+const reminderData = z.object({
+  description: z.string().min(2).max(160),
+  scope: z.enum(["personal", "shared"]),
+  is_recurring: z.boolean(),
+  // Recurring: day_of_month set, reminder_date null. One-off: reminder_date set, day_of_month
+  // null — enforced again at the DB level (reminders' check constraint), this is just the shape
+  // the model must produce.
+  day_of_month: z.int().min(1).max(31).nullable(),
+  reminder_date: z.iso.date().nullable(),
+  // How many days before the due date to notify — 0 means "the same day". A .default() satisfies
+  // OpenAI structured-output strict mode when the user never mentions advance notice.
+  remind_days_before: z.int().min(0).max(10).default(0),
+  amount_cents: z.int().positive().nullable(),
+});
+
 export const financialActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("create_transaction"), confidence: z.number().min(0).max(1), requires_confirmation: z.boolean(), data: transactionData }),
+  z.object({ action: z.literal("create_reminder"), confidence: z.number().min(0).max(1), requires_confirmation: z.boolean(), data: reminderData }),
+  z.object({ action: z.literal("list_reminders"), confidence: z.number().min(0).max(1), requires_confirmation: z.literal(false), data: z.object({}) }),
+  z.object({ action: z.literal("update_reminder"), confidence: z.number().min(0).max(1), requires_confirmation: z.literal(true), data: z.object({
+    reference: z.string(), description: z.string().nullable(), day_of_month: z.int().min(1).max(31).nullable(),
+    reminder_date: z.iso.date().nullable(), remind_days_before: z.int().min(0).max(10).nullable(), amount_cents: z.int().positive().nullable(),
+  }) }),
+  z.object({ action: z.literal("delete_reminder"), confidence: z.number().min(0).max(1), requires_confirmation: z.literal(true), data: z.object({ reference: z.string() }) }),
   z.object({ action: z.literal("update_transaction"), confidence: z.number().min(0).max(1), requires_confirmation: z.literal(true), data: z.object({ reference:z.string(),amount_cents:z.int().positive().nullable(),description:z.string().nullable(),category:z.string().nullable(),scope:z.enum(["personal","shared"]).nullable(),privacy:z.enum(["visible","private"]).nullable(),transaction_date:z.iso.date().nullable(),account_name:z.string().nullable() }) }),
   z.object({ action: z.literal("delete_transaction"), confidence: z.number().min(0).max(1), requires_confirmation: z.literal(true), data: z.object({ transaction_id: z.uuid().nullable(), reference: z.string() }) }),
   z.object({ action: z.literal("query_finances"), confidence: z.number().min(0).max(1), requires_confirmation: z.literal(false), data: z.object({ query_type: z.enum(["month_summary","period_summary","category_spending","item_spending","user_contributions","household_balance","recent_transactions","compare_months","spending_by_date_range","account_list","account_summary","largest_transactions","monthly_trend","average_daily_spend","spending_ratio","category_trend","savings_opportunities","subcategory_trend","month_closing_balance"]), filters: z.object({category:z.string().nullable(),subcategory:z.string().nullable(),user_name:z.string().nullable(),account_name:z.string().nullable(),search_text:z.string().nullable(),ratio_category_a:z.string().nullable(),ratio_category_b:z.string().nullable(),date_from:z.iso.date().nullable(),date_to:z.iso.date().nullable(),month:z.string().regex(/^\d{4}-\d{2}$/).nullable(),period:z.enum(["current_month","current_year","last_month","last_30_days","all_time","custom"]).nullable(),movement_type:z.enum(["expense","income","both"]).nullable(),limit:z.int().min(1).max(20).nullable(),scope:z.enum(["shared","personal","combined"]).nullable(),
