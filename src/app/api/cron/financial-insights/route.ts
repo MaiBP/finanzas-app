@@ -3,16 +3,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramMessage, escapeTelegramHtml } from "@/lib/telegram/api";
 import { getHouseholdFinancialInsight } from "@/services/financial-insights";
 import { isTimingSafeEqual } from "@/lib/security/timing-safe";
+import { madridDateISO } from "@/lib/date/madrid-date";
 
 export const dynamic = "force-dynamic";
 
 type TelegramLink = { user_id: string; telegram_chat_id: number };
-
-function madridDate() {
-  const parts = new Intl.DateTimeFormat("en", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
-  return `${value.year}-${value.month}-${value.day}`;
-}
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -22,7 +17,7 @@ export async function GET(request: Request) {
   const { data: links, error: linksError } = await db.from("telegram_links").select("user_id,telegram_chat_id");
   if (linksError) throw linksError;
 
-  const today = madridDate();
+  const today = madridDateISO();
   const month = today.slice(0, 7);
   const insights = new Map<string, ReturnType<typeof getHouseholdFinancialInsight>>();
   let sent = 0; let skipped = 0; let failed = 0;

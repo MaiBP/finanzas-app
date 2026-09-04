@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Banner } from "@/components/ui/banner";
 import { DeleteTransactionButton } from "@/components/transactions/delete-transaction-button";
 import { DeletedAccountsPanel } from "@/components/transactions/deleted-accounts-panel";
+import { MonthClosingsPanel } from "@/components/transactions/month-closings-panel";
 import { decryptField } from "@/lib/security/field-encryption";
 import { getHouseholdRoster } from "@/services/household-roster";
 import { SYNTHETIC_BALANCE_CATEGORY } from "@/lib/finance/synthetic-transactions";
@@ -157,6 +158,21 @@ export default async function TransactionsPage({
       name: log.new_values?.name ?? "Cuenta",
       date: log.created_at,
     }));
+  // Purely informational — generated automatically by the month-closing cron, never affects the
+  // balance shown above. Shown here (not just answerable via the bot) so the record is visible to
+  // anyone browsing this page, not only to whoever thinks to ask.
+  const { data: monthClosingRows } = await supabase
+    .from("month_closing_snapshots")
+    .select("id,closing_date,total_balance_cents,base_currency")
+    .eq("household_id", household.id)
+    .order("closing_date", { ascending: false })
+    .limit(6);
+  const monthClosings = ((monthClosingRows ?? []) as { id: string; closing_date: string; total_balance_cents: number; base_currency: string }[]).map((row) => ({
+    id: row.id,
+    closingDate: row.closing_date,
+    totalBalanceCents: row.total_balance_cents,
+    baseCurrency: row.base_currency,
+  }));
   const { data: itemRows } = rows.length
     ? await supabase.from("transaction_items").select("transaction_id,description,amount_cents,subcategory").in("transaction_id", rows.map((row) => row.id))
     : { data: [] as ItemRow[] };
@@ -368,6 +384,7 @@ export default async function TransactionsPage({
           </nav>
         )}
       </section>
+      <MonthClosingsPanel closings={monthClosings} />
       <DeletedAccountsPanel accounts={deletedAccounts} />
     </>
   );
