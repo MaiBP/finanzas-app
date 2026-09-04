@@ -132,10 +132,11 @@ export function describeReminderList(reminders: ReminderRecord[]): string {
   return `🔔 Tus recordatorios activos:\n${lines.join("\n")}`;
 }
 
-export async function updateReminder(db: DbClient, reminder: ReminderRecord, patch: ReminderPatch): Promise<string> {
-  // Only the date field matching this reminder's own fixed type ever applies — an update can never
-  // flip a recurring reminder into a one-off or vice versa (that's a delete + recreate).
-  const merged: ReminderRecord = {
+// Only the date field matching this reminder's own fixed type ever applies — an update can never
+// flip a recurring reminder into a one-off or vice versa (that's a delete + recreate). Shared by
+// the actual update and its pre-confirmation preview, so the two can never disagree.
+function mergeReminderPatch(reminder: ReminderRecord, patch: ReminderPatch): ReminderRecord {
+  return {
     ...reminder,
     description: patch.description ?? reminder.description,
     day_of_month: reminder.is_recurring ? (patch.day_of_month ?? reminder.day_of_month) : reminder.day_of_month,
@@ -143,6 +144,24 @@ export async function updateReminder(db: DbClient, reminder: ReminderRecord, pat
     remind_days_before: patch.remind_days_before ?? reminder.remind_days_before,
     amount_cents: patch.amount_cents ?? reminder.amount_cents,
   };
+}
+
+// Shown before confirming a chat-triggered update/delete, so the user can see exactly which
+// reminder Piggy matched before saying "sí" — matching it wrong and only finding out afterward
+// would be a much worse surprise than asking again.
+export function describeReminderUpdatePreview(reminder: ReminderRecord, patch: ReminderPatch): string {
+  const merged = mergeReminderPatch(reminder, patch);
+  const amountNote = merged.amount_cents != null ? ` (~${formatMoney(merged.amount_cents)})` : "";
+  return `✏️ Encontré "${reminder.description}". Lo voy a actualizar a "${merged.description}"${amountNote}, ${reminderWhenPhrase(merged)}. ¿Confirmás?`;
+}
+
+export function describeReminderDeletePreview(reminder: ReminderRecord): string {
+  const amountNote = reminder.amount_cents != null ? ` (~${formatMoney(reminder.amount_cents)})` : "";
+  return `🗑️ Encontré este recordatorio: "${reminder.description}"${amountNote}, ${reminderWhenPhrase(reminder)}. ¿Confirmás eliminarlo?`;
+}
+
+export async function updateReminder(db: DbClient, reminder: ReminderRecord, patch: ReminderPatch): Promise<string> {
+  const merged = mergeReminderPatch(reminder, patch);
   const unchanged = merged.description === reminder.description && merged.day_of_month === reminder.day_of_month
     && merged.reminder_date === reminder.reminder_date && merged.remind_days_before === reminder.remind_days_before
     && merged.amount_cents === reminder.amount_cents;

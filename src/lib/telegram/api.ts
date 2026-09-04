@@ -25,6 +25,10 @@ export async function sendTelegramMessage(chatId: number, text: string, replyMar
   await callTelegramApi("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", reply_markup: replyMarkup });
 }
 
+export async function sendTelegramPhoto(chatId: number, photoUrl: string, caption?: string) {
+  await callTelegramApi("sendPhoto", { chat_id: chatId, photo: photoUrl, caption, parse_mode: caption ? "HTML" : undefined });
+}
+
 export async function answerCallbackQuery(callbackQueryId: string, text?: string) {
   await callTelegramApi("answerCallbackQuery", { callback_query_id: callbackQueryId, text });
 }

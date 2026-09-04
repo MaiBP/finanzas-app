@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReminderNotificationMessage, describeReminderCreated, describeReminderList, describeReminderPreview, findReminderByReference, isOneTimeReminderDueToday, isRecurringReminderDueToday, nextRecurringOccurrence, type ReminderRecord } from "@/services/reminders";
+import { buildReminderNotificationMessage, describeReminderCreated, describeReminderDeletePreview, describeReminderList, describeReminderPreview, describeReminderUpdatePreview, findReminderByReference, isOneTimeReminderDueToday, isRecurringReminderDueToday, nextRecurringOccurrence, type ReminderRecord } from "@/services/reminders";
 
 const reminders: ReminderRecord[] = [
   { id: "1", description: "Pagar el alquiler", scope: "shared", is_recurring: true, day_of_month: 5, reminder_date: null, remind_days_before: 0, amount_cents: 90000 },
@@ -117,6 +117,24 @@ describe("describeReminderList", () => {
 
   it("says there are none when the list is empty", () => {
     expect(describeReminderList([])).toContain("No tenés recordatorios");
+  });
+});
+
+describe("describeReminderDeletePreview", () => {
+  it("names the reminder that was found, asking for confirmation", () => {
+    const text = describeReminderDeletePreview(reminders[0]);
+    expect(text).toContain("Pagar el alquiler");
+    expect(text).toContain("¿Confirmás eliminarlo?");
+  });
+});
+
+describe("describeReminderUpdatePreview", () => {
+  it("shows the before and after so a wrong match is visible before confirming", () => {
+    const text = describeReminderUpdatePreview(reminders[0], {
+      description: null, day_of_month: 10, reminder_date: null, remind_days_before: null, amount_cents: null,
+    });
+    expect(text).toContain('Encontré "Pagar el alquiler"');
+    expect(text).toContain("día 10");
   });
 });
 
