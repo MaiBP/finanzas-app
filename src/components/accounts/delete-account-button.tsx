@@ -4,17 +4,21 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ReadOnlyModal } from "@/components/trial/read-only-modal";
 
 export function DeleteAccountButton({
   id,
   name,
   action,
+  isWritable = true,
 }: {
   id: string;
   name: string;
   action: (formData: FormData) => void | Promise<void>;
+  isWritable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [readOnlyOpen, setReadOnlyOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
@@ -22,9 +26,15 @@ export function DeleteAccountButton({
       <form ref={formRef} action={action} className="contents">
         <input type="hidden" name="id" value={id} />
       </form>
-      <button type="button" aria-label={`Eliminar ${name}`} className="rounded-lg p-2" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        aria-label={`Eliminar ${name}`}
+        className="rounded-lg p-2"
+        onClick={() => (isWritable ? setOpen(true) : setReadOnlyOpen(true))}
+      >
         <Trash2 size={17} />
       </button>
+      <ReadOnlyModal open={readOnlyOpen} onClose={() => setReadOnlyOpen(false)} />
       {open && (
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-(--ink)/40 p-4"

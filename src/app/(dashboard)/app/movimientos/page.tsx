@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { getCurrentHousehold } from "@/lib/household";
+import { getHouseholdTrialStatus } from "@/lib/trial/status";
 import { formatMoney } from "@/lib/finance/money";
 import { Button, LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -65,6 +66,7 @@ export default async function TransactionsPage({
   const params = await searchParams;
   const { supabase, user, household } = await getCurrentHousehold();
   if (!household) return null;
+  const isWritable = getHouseholdTrialStatus(household).isWritable;
 
   const parsedPage = Number.parseInt(params.page ?? "1", 10);
   const page = Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -323,7 +325,7 @@ export default async function TransactionsPage({
                   <Link href={`/app/movimientos/${row.id}/editar`} aria-label={`Editar ${row.description}`} className="rounded-lg p-2">
                     <Pencil size={17} />
                   </Link>
-                  <DeleteTransactionButton id={row.id} description={row.description} />
+                  <DeleteTransactionButton id={row.id} description={row.description} isWritable={isWritable} />
                 </div>
               ) : <span />}
             </article>

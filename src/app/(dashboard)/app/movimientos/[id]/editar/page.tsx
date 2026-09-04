@@ -2,8 +2,9 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCurrentHousehold } from "@/lib/household";
+import { getHouseholdTrialStatus } from "@/lib/trial/status";
 import { editTransaction } from "./actions";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { GuardedSubmitButton } from "@/components/trial/guarded-submit-button";
 import { ItemListEditor } from "@/components/transactions/item-list-editor";
 import { decryptField } from "@/lib/security/field-encryption";
 
@@ -26,6 +27,7 @@ export default async function EditPage({ params }: { params: Promise<{ id: strin
   ]);
   const items = ((itemRows ?? []) as ItemRow[]).map((item) => ({ ...item, description: decryptField(item.description) }));
   const returnTo = row.scope === "personal" ? "/app/personal/movimientos" : "/app/movimientos";
+  const isWritable = getHouseholdTrialStatus(household).isWritable;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -70,7 +72,7 @@ export default async function EditPage({ params }: { params: Promise<{ id: strin
             <ItemListEditor initialItems={items} />
           </div>
           <p className="rounded-sm bg-(--highlight) p-3 text-sm">El ámbito {row.scope === "personal" ? "personal y privado" : "conjunto y visible"} se conserva al editar.</p>
-          <SubmitButton>Guardar cambios</SubmitButton>
+          <GuardedSubmitButton isWritable={isWritable}>Guardar cambios</GuardedSubmitButton>
         </form>
       </section>
     </div>

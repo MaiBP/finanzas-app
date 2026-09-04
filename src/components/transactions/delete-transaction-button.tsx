@@ -5,9 +5,11 @@ import { useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { softDeleteTransaction } from "@/app/(dashboard)/app/actions";
+import { ReadOnlyModal } from "@/components/trial/read-only-modal";
 
-export function DeleteTransactionButton({ id, description, returnTo }: { id: string; description: string; returnTo?: string }) {
+export function DeleteTransactionButton({ id, description, returnTo, isWritable = true }: { id: string; description: string; returnTo?: string; isWritable?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [readOnlyOpen, setReadOnlyOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
@@ -16,9 +18,15 @@ export function DeleteTransactionButton({ id, description, returnTo }: { id: str
         <input type="hidden" name="id" value={id} />
         {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       </form>
-      <button type="button" aria-label={`Eliminar ${description}`} className="rounded-lg p-2" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        aria-label={`Eliminar ${description}`}
+        className="rounded-lg p-2"
+        onClick={() => (isWritable ? setOpen(true) : setReadOnlyOpen(true))}
+      >
         <Trash2 size={17} />
       </button>
+      <ReadOnlyModal open={readOnlyOpen} onClose={() => setReadOnlyOpen(false)} />
       {open && (
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-(--ink)/40 p-4"
